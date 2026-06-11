@@ -1,13 +1,10 @@
 import { useState } from 'react';
 import { useStore } from '../lib/store.jsx';
 import { GROUP_MATCHES, GROUP_NAMES } from '../data/tournament.js';
-import { groupOrder } from '../lib/scoring.js';
 import { ScoreBox, SectionTitle, Flag } from '../components/ui.jsx';
 import { shortName } from '../data/flags.js';
 import Standings from '../components/Standings.jsx';
 import Bracket from '../components/Bracket.jsx';
-
-const move = (arr, from, to) => { const a = [...arr]; const [x] = a.splice(from, 1); a.splice(to, 0, x); return a; };
 
 const SUB = [
   { id: 'results', label: 'Sonuçlar' },
@@ -102,56 +99,13 @@ function AdminResults({ store }) {
 }
 
 function AdminStandings({ store }) {
-  const { actual, setActualTable, clearActualTable } = store;
-  const [mode, setMode] = useState('auto');
+  const { actual } = store;
   return (
     <div className="space-y-3">
       <p className="text-sm text-ink/60 px-1">
-        Gerçek puan durumu, girdiğin maç skorlarından otomatik oluşur. Resmi sıralama
-        farklıysa elle düzeltebilirsin.
+        Gerçek puan durumu, girdiğin maç skorlarından otomatik oluşur.
       </p>
-      <div className="flex rounded-xl bg-black/5 p-1">
-        {[['auto', 'Otomatik'], ['manual', 'Elle düzelt']].map(([id, label]) => (
-          <button key={id} onClick={() => setMode(id)}
-            className={`flex-1 rounded-lg py-2 text-sm font-semibold transition ${mode === id ? 'bg-white shadow-sm text-ink' : 'text-ink/55'}`}>
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {mode === 'auto' ? (
-        <Standings scores={actual.groupMatches} />
-      ) : (
-        GROUP_NAMES.map((g) => {
-          const overridden = !!(actual.groupTables?.[g] && actual.groupTables[g].length === 4);
-          const order = groupOrder(actual, g);
-          return (
-            <div key={g} className="card overflow-hidden">
-              <div className="px-4 py-2.5 border-b border-black/5 flex items-center justify-between">
-                <span className="font-display text-xl">{g} Grubu</span>
-                {overridden
-                  ? <button className="text-xs font-semibold text-pitch" onClick={() => clearActualTable(g)}>Skorlara göre sıfırla</button>
-                  : <span className="text-[11px] text-ink/40">otomatik</span>}
-              </div>
-              <div className="divide-y divide-black/5">
-                {order.map((team, idx) => (
-                  <div key={team} className={`flex items-center gap-3 px-3 py-2.5 ${idx < 2 ? 'bg-pitch/[0.04]' : ''}`}>
-                    <span className={`w-6 text-center font-display text-lg ${idx < 2 ? 'text-pitch' : 'text-ink/30'}`}>{idx + 1}</span>
-                    <Flag team={team} size={20} />
-                    <span className="flex-1 text-sm font-semibold truncate">{team}</span>
-                    <div className="flex flex-col">
-                      <button className="px-2 text-ink/40 disabled:opacity-20" disabled={idx === 0}
-                        onClick={() => setActualTable(g, move(order, idx, idx - 1))}>▲</button>
-                      <button className="px-2 text-ink/40 disabled:opacity-20" disabled={idx === order.length - 1}
-                        onClick={() => setActualTable(g, move(order, idx, idx + 1))}>▼</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-        })
-      )}
+      <Standings scores={actual.groupMatches} />
     </div>
   );
 }
