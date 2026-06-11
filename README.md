@@ -9,7 +9,7 @@ otomatik hesaplanır ve canlı sıralama tablosunda gösterilir.
 Firestore) üzerinde tutulur ve cihazlar arasında gerçek zamanlı senkronize olur.
 
 Turnuva fikstürü (48 takım, A–L 12 grup, 72 grup maçı) `WORLD CUP 2026.xlsx` dosyandan
-üretildi ve `src/data/tournament.js` içinde durur. Takım adları sayfadaki gibi Türkçe.
+üretildi ve `src/data/tournament.js` içinde durur. Takım adları sayfadaki gibi Türkçe...
 
 ---
 
