@@ -167,7 +167,14 @@ export function StoreProvider({ children }) {
       editPred(listId, (p) => {
         if (!p.ko) p.ko = {};
         if (p.ko[no]?.winner === winner) { const k = { ...p.ko }; delete k[no]; p.ko = k; }
-        else p.ko = { ...p.ko, [no]: { winner } };
+        else p.ko = { ...p.ko, [no]: { ...(p.ko[no] || {}), winner } };
+        return p;
+      }),
+    // Merge any fields (score + winner) for a knockout match.
+    mergeKo: (listId, no, patch) =>
+      editPred(listId, (p) => {
+        if (!p.ko) p.ko = {};
+        p.ko = { ...p.ko, [no]: { ...(p.ko[no] || {}), ...patch } };
         return p;
       }),
     setTopScorer: (listId, value) =>
@@ -184,7 +191,13 @@ export function StoreProvider({ children }) {
       editActual((a) => {
         if (!a.ko) a.ko = {};
         if (a.ko[no]?.winner === winner) { const k = { ...a.ko }; delete k[no]; a.ko = k; }
-        else a.ko = { ...a.ko, [no]: { winner } };
+        else a.ko = { ...a.ko, [no]: { ...(a.ko[no] || {}), winner } };
+        return a;
+      }),
+    mergeActualKo: (no, patch) =>
+      editActual((a) => {
+        if (!a.ko) a.ko = {};
+        a.ko = { ...a.ko, [no]: { ...(a.ko[no] || {}), ...patch } };
         return a;
       }),
     setActualTopScorer: (value) =>

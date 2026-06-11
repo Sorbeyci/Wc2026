@@ -2,7 +2,7 @@ import { useStore } from '../lib/store.jsx';
 import Bracket from '../components/Bracket.jsx';
 
 export default function Knockout({ listId }) {
-  const { getPrediction, setKoWinner, setTopScorer } = useStore();
+  const { getPrediction, mergeKo, setTopScorer } = useStore();
   const pred = getPrediction(listId);
   return (
     <div className="space-y-4">
@@ -10,7 +10,7 @@ export default function Knockout({ listId }) {
         Eşleşmeler grup tahminlerinden otomatik kurulur. Her maçta üste çıkacak takıma dokun;
         kazanan bir sonraki tura otomatik taşınır.
       </p>
-      <Bracket source={pred} ko={pred.ko} onPick={(no, w) => setKoWinner(listId, no, w)} />
+      <Bracket source={pred} ko={pred.ko} onChange={(no, patch) => mergeKo(listId, no, patch)} />
       <div className="card p-3">
         <label className="label">Gol Kralı tahmini</label>
         <input

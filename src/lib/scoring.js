@@ -11,7 +11,10 @@ export const SCORING = {
   match: { exact: 5, result: 3 },
   groupTable: { qualified: 10, position: 5 },
   thirdPlace: { advance: 10 },           // per correct best-third team (8 advance)
-  knockout: { advance: { R32: 20, R16: 20, QF: 40, SF: 60 } }, // per correct winner
+  knockout: {
+    match: { exact: 5, result: 3 },      // predicted knockout scorelines
+    advance: { R32: 20, R16: 20, QF: 40, SF: 60 }, // per correct winner
+  },
   finals: { champion: 80, runnerUp: 50, third: 30, fourth: 20, inThirdPlaceMatch: 20, topScorer: 50 },
 };
 
@@ -132,22 +135,44 @@ export function scoreThirds(predSource, actualSource) {
   return { pts: correct * SCORING.thirdPlace.advance, correct };
 }
 
-// ---- Knockout (bracket winners) ------------------------------------------
+// ---- Knockout (bracket winners + predicted scorelines) -------------------
 const KO_GROUPS = [['R32', 73, 88], ['R16', 89, 96], ['QF', 97, 100], ['SF', 101, 102]];
+const KO_ALL = [[73, 88], [89, 96], [97, 100], [101, 102], [103, 103], [104, 104]];
 
-export function scoreBracketKnockout(P, A) {
-  let pts = 0;
+function scoreKoPair(p, a) {
+  // p/a = { hs, as }
+  const phs = num(p?.hs), pas = num(p?.as), ahs = num(a?.hs), aas = num(a?.as);
+  if (phs == null || pas == null || ahs == null || aas == null) return 0;
+  if (phs === ahs && pas === aas) return SCORING.knockout.match.exact;
+  if (outcome(phs, pas) === outcome(ahs, aas)) return SCORING.knockout.match.result;
+  return 0;
+}
+
+export function scoreBracketKnockout(P, A, predKo = {}, actualKo = {}) {
+  let advancePts = 0, scorePts = 0;
   const counts = { R32: 0, R16: 0, QF: 0, SF: 0 };
-  let scored = 0;
+  let scored = 0, exact = 0, result = 0;
+
+  // correct-winner (advance) points: R32 → SF
   for (const [id, from, to] of KO_GROUPS) {
     for (let no = from; no <= to; no++) {
       const aw = A.matches[no]?.winner;
-      if (!aw) continue;
-      scored++;
-      if (P.matches[no]?.winner === aw) { pts += SCORING.knockout.advance[id]; counts[id]++; }
+      if (aw && P.matches[no]?.winner === aw) { advancePts += SCORING.knockout.advance[id]; counts[id]++; }
     }
   }
-  return { pts, counts, scored };
+  // scoreline points: every knockout match (73–104)
+  for (const [from, to] of KO_ALL) {
+    for (let no = from; no <= to; no++) {
+      const a = actualKo[no];
+      if (num(a?.hs) == null || num(a?.as) == null) continue;
+      scored++;
+      const got = scoreKoPair(predKo[no], a);
+      if (got === SCORING.knockout.match.exact) exact++;
+      else if (got === SCORING.knockout.match.result) result++;
+      scorePts += got;
+    }
+  }
+  return { pts: advancePts + scorePts, advancePts, scorePts, counts, scored, exact, result };
 }
 
 // ---- Finals (champion / podium / top scorer), derived from the bracket ----
@@ -173,7 +198,7 @@ export function scoreUser(prediction, actual) {
   const th = scoreThirds(prediction, actual);
   const P = resolveBracket(prediction, prediction?.ko || {});
   const A = resolveBracket(actual, actual?.ko || {});
-  const ko = scoreBracketKnockout(P, A);
+  const ko = scoreBracketKnockout(P, A, prediction?.ko || {}, actual?.ko || {});
   const fn = scoreBracketFinals(P, A, prediction?.topScorer, actual?.topScorer);
   const total = gm.pts + gt.pts + th.pts + ko.pts + fn.pts;
 
@@ -212,7 +237,8 @@ export function scoreUser(prediction, actual) {
       correctQualified, correctPositions, groupsFinal, groupTablePoints: gt.pts,
       thirdsCorrect: th.correct, thirdsPoints: th.pts,
       koR32: ko.counts.R32, koR16: ko.counts.R16, koQF: ko.counts.QF, koSF: ko.counts.SF,
-      koScored: ko.scored, knockoutPoints: ko.pts,
+      koScored: ko.scored, koExact: ko.exact, koResult: ko.result,
+      koAdvancePoints: ko.advancePts, koScorePoints: ko.scorePts, knockoutPoints: ko.pts,
       finalsHits, finalsPoints: fn.pts, finalsHit: fn.hit,
     },
   };

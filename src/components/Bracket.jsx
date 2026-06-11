@@ -1,8 +1,7 @@
 import { resolveBracket, bestThirds } from '../data/bracket.js';
-import { Flag } from './ui.jsx';
+import { Flag, ScoreBox } from './ui.jsx';
 import { shortName } from '../data/flags.js';
 
-// Display order: group rounds, then Final, then 3rd-place match.
 const ROUNDS = [
   { id: 'R32', labelTr: 'Son 32', from: 73, to: 88 },
   { id: 'R16', labelTr: 'Son 16', from: 89, to: 96 },
@@ -12,45 +11,70 @@ const ROUNDS = [
   { id: 'TP', labelTr: 'Üçüncülük Maçı', from: 103, to: 103 },
 ];
 
-function TeamRow({ team, winner, onPick, readOnly, placeholder }) {
+const num = (v) => (v === '' || v == null || isNaN(v) ? null : Number(v));
+
+// Tappable team label — picks who advances (winner). Highlighted when winning.
+function TeamLabel({ team, winner, onPick, readOnly, align }) {
   if (!team) {
-    return <div className="flex items-center gap-2 px-3 py-2.5 text-sm text-ink/35">{placeholder}</div>;
+    return <span className="flex-1 min-w-0 truncate text-sm text-ink/35">Belirlenecek</span>;
   }
   const isWin = winner && winner === team;
+  const cls = `flex-1 min-w-0 flex items-center gap-1.5 ${align === 'right' ? 'justify-end' : ''}`;
+  const name = (
+    <span className={`truncate text-sm ${isWin ? 'font-bold text-pitch-dark' : 'font-medium'}`}>
+      {shortName(team)}{isWin && ' ✓'}
+    </span>
+  );
+  const flag = <Flag team={team} size={16} className="shrink-0" />;
   return (
-    <button
-      type="button"
-      disabled={readOnly}
-      onClick={() => onPick(team)}
-      className={`w-full flex items-center gap-2 px-3 py-2.5 text-left transition ${
-        isWin ? 'bg-pitch/12 text-pitch-dark' : readOnly ? '' : 'hover:bg-black/[0.04] active:bg-black/[0.07]'
-      }`}
-    >
-      <Flag team={team} size={18} className="shrink-0" />
-      <span className={`flex-1 min-w-0 truncate text-sm ${isWin ? 'font-bold' : 'font-medium'}`}>{shortName(team)}</span>
-      {isWin && <span className="shrink-0 text-pitch font-bold">✓</span>}
+    <button type="button" disabled={readOnly} onClick={() => onPick(team)} className={cls}>
+      {align === 'right' ? <>{name}{flag}</> : <>{flag}{name}</>}
     </button>
   );
 }
 
-function MatchCard({ m, onPick, readOnly }) {
+function MatchCard({ m, cur, onChange, readOnly }) {
+  const decisive = (hs, as) => {
+    hs = num(hs); as = num(as);
+    if (hs == null || as == null || hs === as) return null;
+    return hs > as ? m.home : m.away;
+  };
+  const onScore = (side, value) => {
+    const next = { ...cur, [side]: value };
+    const w = decisive(next.hs, next.as);
+    onChange(m.no, w ? { [side]: value, winner: w } : { [side]: value });
+  };
+  const onPick = (team) => onChange(m.no, { winner: team });
+
+  const hs = num(cur.hs), as = num(cur.as);
+  const isDraw = hs != null && as != null && hs === as;
+  const bothKnown = m.home && m.away;
+
   return (
-    <div className="card overflow-hidden">
-      <div className="px-3 pt-1.5 text-[10px] font-semibold text-ink/40">{m.no}. maç</div>
-      <TeamRow team={m.home} winner={m.winner} onPick={(t) => onPick(m.no, t)} readOnly={readOnly} placeholder="Belirlenecek" />
-      <div className="mx-3 h-px bg-black/5" />
-      <TeamRow team={m.away} winner={m.winner} onPick={(t) => onPick(m.no, t)} readOnly={readOnly} placeholder="Belirlenecek" />
+    <div className="card px-3 py-2.5">
+      <div className="mb-1 text-[10px] font-semibold text-ink/40">{m.no}. maç</div>
+      <div className="flex items-center gap-2">
+        <TeamLabel team={m.home} winner={m.winner} onPick={onPick} readOnly={readOnly} align="right" />
+        <ScoreBox value={cur.hs} onChange={(v) => onScore('hs', v)} disabled={readOnly || !bothKnown} />
+        <span className="shrink-0 font-bold text-ink/30">:</span>
+        <ScoreBox value={cur.as} onChange={(v) => onScore('as', v)} disabled={readOnly || !bothKnown} />
+        <TeamLabel team={m.away} winner={m.winner} onPick={onPick} readOnly={readOnly} align="left" />
+      </div>
+      {bothKnown && isDraw && !m.winner && (
+        <div className="mt-1.5 text-center text-[11px] text-amber-600">
+          Beraberlik — penaltıları kim geçer? İsme dokun.
+        </div>
+      )}
     </div>
   );
 }
 
-export default function Bracket({ source, ko, onPick, readOnly = false }) {
+export default function Bracket({ source, ko, onChange, readOnly = false }) {
   const b = resolveBracket(source, ko || {});
   const thirds = bestThirds(source);
 
   return (
     <div className="space-y-5">
-      {/* Auto-qualified best-8 third-placed teams */}
       <div className="card p-3">
         <div className="mb-2 text-xs font-bold uppercase tracking-wide text-ink/55">Otomatik en iyi 8 üçüncü</div>
         <div className="flex flex-wrap gap-1.5">
@@ -62,6 +86,7 @@ export default function Bracket({ source, ko, onPick, readOnly = false }) {
         </div>
         <p className="mt-2 text-[11px] leading-snug text-ink/45">
           Sıralama tahminlerinden otomatik hesaplanır; eşleşmeler resmi FIFA bracket'ine göre kurulur.
+          Skoru gir; kazanan bir sonraki tura otomatik taşınır.
         </p>
       </div>
 
@@ -86,7 +111,7 @@ export default function Bracket({ source, ko, onPick, readOnly = false }) {
             </div>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {nos.map((no) => (
-                <MatchCard key={no} m={b.matches[no]} onPick={onPick} readOnly={readOnly} />
+                <MatchCard key={no} m={b.matches[no]} cur={ko?.[no] || {}} onChange={onChange} readOnly={readOnly} />
               ))}
             </div>
           </div>
@@ -96,7 +121,6 @@ export default function Bracket({ source, ko, onPick, readOnly = false }) {
   );
 }
 
-// Compact read-only bracket summary for list detail / stats.
 export function BracketSummary({ source, ko }) {
   const b = resolveBracket(source, ko || {});
   const Row = ({ label, team }) => (

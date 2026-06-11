@@ -137,19 +137,25 @@ export function Picks({ pred }) {
           <div key={r.id} className="card overflow-hidden">
             <div className="px-4 py-2 border-b border-black/5 font-display text-lg">{r.labelTr}</div>
             <div className="divide-y divide-black/5">
-              {rows.map((m) => (
-                <div key={m.no} className="flex items-center gap-2 px-4 py-2 text-sm">
-                  <div className="flex-1 min-w-0 flex items-center justify-end gap-1.5">
-                    <span className={`truncate ${m.winner === m.home ? 'font-bold text-pitch-dark' : ''}`}>{shortName(m.home)}</span>
-                    <Flag team={m.home} size={16} className="shrink-0" />
+              {rows.map((m) => {
+                const sc = pred.ko?.[m.no] || {};
+                const hasSc = sc.hs !== '' && sc.hs != null && sc.as !== '' && sc.as != null;
+                return (
+                  <div key={m.no} className="flex items-center gap-2 px-4 py-2 text-sm">
+                    <div className="flex-1 min-w-0 flex items-center justify-end gap-1.5">
+                      <span className={`truncate ${m.winner === m.home ? 'font-bold text-pitch-dark' : ''}`}>{shortName(m.home)}</span>
+                      <Flag team={m.home} size={16} className="shrink-0" />
+                    </div>
+                    <span className="shrink-0 w-12 text-center font-display tabular-nums text-ink/70">
+                      {hasSc ? `${sc.hs}-${sc.as}` : 'vs'}
+                    </span>
+                    <div className="flex-1 min-w-0 flex items-center gap-1.5">
+                      <Flag team={m.away} size={16} className="shrink-0" />
+                      <span className={`truncate ${m.winner === m.away ? 'font-bold text-pitch-dark' : ''}`}>{shortName(m.away)}</span>
+                    </div>
                   </div>
-                  <span className="text-ink/30 text-xs shrink-0 w-6 text-center">vs</span>
-                  <div className="flex-1 min-w-0 flex items-center gap-1.5">
-                    <Flag team={m.away} size={16} className="shrink-0" />
-                    <span className={`truncate ${m.winner === m.away ? 'font-bold text-pitch-dark' : ''}`}>{shortName(m.away)}</span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         );

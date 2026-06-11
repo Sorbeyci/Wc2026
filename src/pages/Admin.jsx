@@ -157,14 +157,14 @@ function AdminStandings({ store }) {
 }
 
 function AdminKnockout({ store }) {
-  const { actual, setActualKoWinner, setActualTopScorer } = store;
+  const { actual, mergeActualKo, setActualTopScorer } = store;
   return (
     <div className="space-y-4">
       <p className="text-sm text-ink/60">
         Eşleşmeler girdiğin gerçek sonuçlardan otomatik kurulur. Gerçek kazanan takıma dokunarak
         turu ilerlet; şampiyon, 3.lük gibi sonuçlar bracket'ten otomatik belirlenir.
       </p>
-      <Bracket source={actual} ko={actual.ko} onPick={(no, w) => setActualKoWinner(no, w)} />
+      <Bracket source={actual} ko={actual.ko} onChange={(no, patch) => mergeActualKo(no, patch)} />
       <div className="card p-3">
         <label className="label">Gol Kralı (gerçek)</label>
         <input
