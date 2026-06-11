@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useStore } from '../lib/store.jsx';
 import ListPicker from '../components/ListPicker.jsx';
-import ThirdsPicker from '../components/ThirdsPicker.jsx';
 import Standings from '../components/Standings.jsx';
 import { SectionTitle } from '../components/ui.jsx';
 import GroupMatches from './GroupMatches.jsx';
@@ -12,12 +11,11 @@ import { Picks } from './ListDetail.jsx';
 const SUB = [
   { id: 'matches', label: 'Maçlar' },
   { id: 'tables', label: 'Gruplar' },
-  { id: 'thirds', label: "3.'ler" },
   { id: 'knockout', label: 'Eleme' },
 ];
 
 export default function Predict({ goLists, initialListId }) {
-  const { lists, isAdmin, user, locked, getPrediction, toggleThird } = useStore();
+  const { lists, isAdmin, user, locked, getPrediction } = useStore();
   const [sub, setSub] = useState('matches');
 
   const editable = lists.filter((l) => l.ownerUid === user?.uid || isAdmin);
@@ -62,13 +60,6 @@ export default function Predict({ goLists, initialListId }) {
 
               {activeId && sub === 'matches' && <GroupMatches listId={activeId} />}
               {activeId && sub === 'tables' && <GroupRankings listId={activeId} />}
-              {activeId && sub === 'thirds' && (
-                <ThirdsPicker
-                  source={getPrediction(activeId)}
-                  selected={getPrediction(activeId).thirds || []}
-                  onToggle={(t) => toggleThird(activeId, t)}
-                />
-              )}
               {activeId && sub === 'knockout' && <Knockout listId={activeId} />}
             </>
           )}

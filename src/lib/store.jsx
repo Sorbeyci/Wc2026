@@ -7,8 +7,8 @@ import { auth, db, googleProvider, isAdminEmail } from './firebase.js';
 
 const StoreCtx = createContext(null);
 
-const EMPTY_PRED = () => ({ groupMatches: {}, groupTables: {}, thirds: [], knockout: {}, finals: {} });
-const EMPTY_ACTUAL = () => ({ groupMatches: {}, groupTables: {}, thirds: [], knockout: {}, finals: {} });
+const EMPTY_PRED = () => ({ groupMatches: {}, groupTables: {}, ko: {}, topScorer: '' });
+const EMPTY_ACTUAL = () => ({ groupMatches: {}, groupTables: {}, ko: {}, topScorer: '' });
 const COLORS = ['#0a8754', '#e9b949', '#d94f3d', '#3d6dd9', '#7a3dd9', '#d93d9b', '#1bbd7a', '#d97f3d'];
 export const MAX_THIRDS = 8;
 
@@ -162,18 +162,16 @@ export function StoreProvider({ children }) {
       editPred(listId, (p) => { p.groupTables[group] = order; return p; }),
     clearGroupTable: (listId, group) =>
       editPred(listId, (p) => { const t = { ...p.groupTables }; delete t[group]; p.groupTables = t; return p; }),
-    toggleThird: (listId, team) =>
-      editPred(listId, (p) => { p.thirds = toggleIn(p.thirds, team, MAX_THIRDS); return p; }),
-    setKnockout: (listId, roundId, index, patch) =>
+    // Bracket: pick who advances from a knockout match (winner propagates).
+    setKoWinner: (listId, no, winner) =>
       editPred(listId, (p) => {
-        const round = [...(p.knockout[roundId] || [])];
-        while (round.length <= index) round.push({});
-        round[index] = { ...round[index], ...patch };
-        p.knockout[roundId] = round;
+        if (!p.ko) p.ko = {};
+        if (p.ko[no]?.winner === winner) { const k = { ...p.ko }; delete k[no]; p.ko = k; }
+        else p.ko = { ...p.ko, [no]: { winner } };
         return p;
       }),
-    setFinals: (listId, patch) =>
-      editPred(listId, (p) => { p.finals = { ...p.finals, ...patch }; return p; }),
+    setTopScorer: (listId, value) =>
+      editPred(listId, (p) => { p.topScorer = value; return p; }),
 
     // ---- admin actual setters ----
     setActualMatch: (no, side, value) =>
@@ -182,18 +180,15 @@ export function StoreProvider({ children }) {
       editActual((a) => { a.groupTables[group] = order; return a; }),
     clearActualTable: (group) =>
       editActual((a) => { const t = { ...a.groupTables }; delete t[group]; a.groupTables = t; return a; }),
-    toggleActualThird: (team) =>
-      editActual((a) => { a.thirds = toggleIn(a.thirds, team, MAX_THIRDS); return a; }),
-    setActualKnockout: (roundId, index, patch) =>
+    setActualKoWinner: (no, winner) =>
       editActual((a) => {
-        const round = [...(a.knockout[roundId] || [])];
-        while (round.length <= index) round.push({});
-        round[index] = { ...round[index], ...patch };
-        a.knockout[roundId] = round;
+        if (!a.ko) a.ko = {};
+        if (a.ko[no]?.winner === winner) { const k = { ...a.ko }; delete k[no]; a.ko = k; }
+        else a.ko = { ...a.ko, [no]: { winner } };
         return a;
       }),
-    setActualFinals: (patch) =>
-      editActual((a) => { a.finals = { ...a.finals, ...patch }; return a; }),
+    setActualTopScorer: (value) =>
+      editActual((a) => { a.topScorer = value; return a; }),
   }), [user, isAdmin, authLoading, lists, actual, settings, locked, lastError, drafts, actualDraft]);
 
   return <StoreCtx.Provider value={api}>{children}</StoreCtx.Provider>;

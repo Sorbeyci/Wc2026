@@ -65,10 +65,10 @@ export default function Home({ setPage }) {
           <Rule t="Sadece doğru sonuç" v={`${SCORING.match.result} puan`} />
           <Rule t="Üst tura çıkan takım (her takım)" v={`${SCORING.groupTable.qualified} puan`} />
           <Rule t="Doğru grup sırası (her takım)" v={`${SCORING.groupTable.position} puan`} />
-          <Rule t="Üst tura çıkan 3. takım (her takım, 8 takım)" v={`${SCORING.thirdPlace.advance} puan`} />
-          <Rule t="Eleme eşleşmesi" v={`${SCORING.knockout.matchup} puan`} />
-          <Rule t="Çeyrek / Yarı finale çıkan" v={`${SCORING.knockout.advance.QF} / ${SCORING.knockout.advance.SF} puan`} />
-          <Rule t="Şampiyon" v={`${SCORING.finals.champion} puan`} />
+          <Rule t="Üst tura çıkan 3. takım (8 takım, otomatik)" v={`${SCORING.thirdPlace.advance} puan`} />
+          <Rule t="Son 32 / Son 16 doğru kazanan" v={`${SCORING.knockout.advance.R32} / ${SCORING.knockout.advance.R16} puan`} />
+          <Rule t="Çeyrek / Yarı final doğru kazanan" v={`${SCORING.knockout.advance.QF} / ${SCORING.knockout.advance.SF} puan`} />
+          <Rule t="Şampiyon / İkinci" v={`${SCORING.finals.champion} / ${SCORING.finals.runnerUp} puan`} />
           <Rule t="Gol kralı" v={`${SCORING.finals.topScorer} puan`} />
         </ul>
       </div>

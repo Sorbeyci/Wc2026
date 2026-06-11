@@ -24,7 +24,6 @@ function Group({ title, points, children }) {
 // Full breakdown of every metric the scoring engine produces.
 export default function FullStats({ result }) {
   const s = result.stats;
-  const koTotal = 16 + 8 + 4 + 2 + 1 + 1;
   return (
     <div className="space-y-3">
       <div className="card p-4 flex items-center justify-between">
@@ -50,11 +49,11 @@ export default function FullStats({ result }) {
       </Group>
 
       <Group title="Eleme turu" points={s.knockoutPoints}>
-        <Row label="Doğru eşleşme" hint="10 puan" value={s.koMatchups} />
-        <Row label="Tur atlayan" value={s.koAdvancers} />
-        <Row label="Tam skor (eleme)" value={s.koExact} />
-        <Row label="Doğru sonuç (eleme)" value={s.koResult} />
-        <Row label="Oynanan eşleşme" hint={`/ ${koTotal}`} value={s.koScored} />
+        <Row label="Son 32 doğru kazanan" hint="20 puan" value={s.koR32} />
+        <Row label="Son 16 doğru kazanan" hint="20 puan" value={s.koR16} />
+        <Row label="Çeyrek final doğru" hint="40 puan" value={s.koQF} />
+        <Row label="Yarı final doğru" hint="60 puan" value={s.koSF} />
+        <Row label="Sonuçlanan maç" value={s.koScored} />
       </Group>
 
       <Group title="Final & podyum" points={s.finalsPoints}>

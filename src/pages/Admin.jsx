@@ -1,21 +1,18 @@
 import { useState } from 'react';
 import { useStore } from '../lib/store.jsx';
-import { GROUP_MATCHES, GROUP_NAMES, KO_ROUNDS } from '../data/tournament.js';
-import { SCORING, groupOrder } from '../lib/scoring.js';
-import { ScoreBox, TeamSelect, SectionTitle, Flag } from '../components/ui.jsx';
+import { GROUP_MATCHES, GROUP_NAMES } from '../data/tournament.js';
+import { groupOrder } from '../lib/scoring.js';
+import { ScoreBox, SectionTitle, Flag } from '../components/ui.jsx';
 import { shortName } from '../data/flags.js';
 import Standings from '../components/Standings.jsx';
-import ThirdsPicker from '../components/ThirdsPicker.jsx';
-import KoMatch from '../components/KoMatch.jsx';
+import Bracket from '../components/Bracket.jsx';
 
 const move = (arr, from, to) => { const a = [...arr]; const [x] = a.splice(from, 1); a.splice(to, 0, x); return a; };
 
 const SUB = [
   { id: 'results', label: 'Sonuçlar' },
   { id: 'standings', label: 'Sıralamalar' },
-  { id: 'thirds', label: "3.'ler" },
   { id: 'knockout', label: 'Eleme' },
-  { id: 'finals', label: 'Final' },
   { id: 'settings', label: 'Ayarlar' },
 ];
 
@@ -55,11 +52,7 @@ export default function Admin() {
 
       {sub === 'results' && <AdminResults store={store} />}
       {sub === 'standings' && <AdminStandings store={store} />}
-      {sub === 'thirds' && (
-        <ThirdsPicker source={store.actual} selected={store.actual.thirds || []} onToggle={store.toggleActualThird} />
-      )}
       {sub === 'knockout' && <AdminKnockout store={store} />}
-      {sub === 'finals' && <AdminFinals store={store} />}
       {sub === 'settings' && <AdminSettings store={store} />}
     </div>
   );
@@ -164,67 +157,23 @@ function AdminStandings({ store }) {
 }
 
 function AdminKnockout({ store }) {
-  const { actual, setActualKnockout } = store;
-  const [openRound, setOpenRound] = useState('R32');
+  const { actual, setActualKoWinner, setActualTopScorer } = store;
   return (
-    <div className="space-y-3">
-      {KO_ROUNDS.map((round) => {
-        const open = openRound === round.id;
-        return (
-          <div key={round.id} className="card overflow-hidden">
-            <button className="w-full flex items-center justify-between px-4 py-3" onClick={() => setOpenRound(open ? null : round.id)}>
-              <span className="font-display text-xl">{round.labelTr}</span>
-              <span className={`transition ${open ? 'rotate-180' : ''}`}>▾</span>
-            </button>
-            {open && (
-              <div className="divide-y divide-black/5 border-t border-black/5">
-                {Array.from({ length: round.matches }).map((_, i) => (
-                  <KoMatch key={i} index={i} roundId={round.id}
-                    data={actual.knockout?.[round.id]?.[i] || {}}
-                    onChange={(patch) => setActualKnockout(round.id, i, patch)} />
-                ))}
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-// NOTE: FinalsField is defined at module scope (not inside AdminFinals) so it
-// keeps a stable component identity across renders — otherwise the text input
-// remounts on every keystroke and the cursor / focus is lost.
-function FinalsField({ label, team, children }) {
-  return (
-    <div>
-      <label className="label mb-1 flex items-center gap-1.5">{team && <Flag team={team} size={16} />}{label}</label>
-      {children}
-    </div>
-  );
-}
-
-function AdminFinals({ store }) {
-  const { actual, setActualFinals } = store;
-  const f = actual.finals || {};
-  return (
-    <div className="card p-4 space-y-3">
-      <FinalsField label={`Şampiyon (+${SCORING.finals.champion})`} team={f.champion}>
-        <TeamSelect value={f.champion} onChange={(v) => setActualFinals({ champion: v })} placeholder="Şampiyon" />
-      </FinalsField>
-      <FinalsField label={`İkinci (+${SCORING.finals.runnerUp})`} team={f.runnerUp}>
-        <TeamSelect value={f.runnerUp} onChange={(v) => setActualFinals({ runnerUp: v })} placeholder="Finalde kaybeden" />
-      </FinalsField>
-      <FinalsField label={`Üçüncü (+${SCORING.finals.third})`} team={f.third}>
-        <TeamSelect value={f.third} onChange={(v) => setActualFinals({ third: v })} placeholder="3.lük" />
-      </FinalsField>
-      <FinalsField label={`Dördüncü (+${SCORING.finals.fourth})`} team={f.fourth}>
-        <TeamSelect value={f.fourth} onChange={(v) => setActualFinals({ fourth: v })} placeholder="4.lük" />
-      </FinalsField>
-      <FinalsField label={`Gol kralı (+${SCORING.finals.topScorer})`}>
-        <input className="field" placeholder="Oyuncu adı" value={f.topScorer || ''}
-          onChange={(e) => setActualFinals({ topScorer: e.target.value })} />
-      </FinalsField>
+    <div className="space-y-4">
+      <p className="text-sm text-ink/60">
+        Eşleşmeler girdiğin gerçek sonuçlardan otomatik kurulur. Gerçek kazanan takıma dokunarak
+        turu ilerlet; şampiyon, 3.lük gibi sonuçlar bracket'ten otomatik belirlenir.
+      </p>
+      <Bracket source={actual} ko={actual.ko} onPick={(no, w) => setActualKoWinner(no, w)} />
+      <div className="card p-3">
+        <label className="label">Gol Kralı (gerçek)</label>
+        <input
+          className="field mt-1"
+          placeholder="Oyuncu adı"
+          value={actual.topScorer || ''}
+          onChange={(e) => setActualTopScorer(e.target.value)}
+        />
+      </div>
     </div>
   );
 }
