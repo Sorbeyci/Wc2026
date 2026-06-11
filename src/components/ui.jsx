@@ -37,7 +37,7 @@ export function ScoreBox({ value, onChange, disabled }) {
       inputMode="numeric"
       min="0"
       max="99"
-      className="score-input"
+      className="score-input shrink-0"
       value={value ?? ''}
       disabled={disabled}
       onChange={(e) => {

@@ -4,6 +4,7 @@ import { scoreUser } from '../lib/scoring.js';
 import { GROUP_MATCHES, GROUP_NAMES, KO_ROUNDS } from '../data/tournament.js';
 import { Flag, Dot } from '../components/ui.jsx';
 import Standings from '../components/Standings.jsx';
+import { shortName } from '../data/flags.js';
 import FullStats from '../components/FullStats.jsx';
 
 const SUB = [
@@ -83,15 +84,17 @@ export function Picks({ pred }) {
                 const s = pred.groupMatches?.[m.no] || {};
                 return (
                   <div key={m.no} className="flex items-center gap-2 px-4 py-2 text-sm">
-                    <span className="flex-1 flex items-center justify-end gap-1.5 text-right">
-                      <span className="truncate">{m.home}</span><Flag team={m.home} size={16} />
-                    </span>
-                    <span className="font-display tabular-nums w-12 text-center">
+                    <div className="flex-1 min-w-0 flex items-center justify-end gap-1.5">
+                      <span className="truncate">{shortName(m.home)}</span>
+                      <Flag team={m.home} size={16} className="shrink-0" />
+                    </div>
+                    <span className="font-display tabular-nums w-12 text-center shrink-0">
                       {hasScore(s) ? `${s.home}-${s.away}` : '–'}
                     </span>
-                    <span className="flex-1 flex items-center gap-1.5">
-                      <Flag team={m.away} size={16} /><span className="truncate">{m.away}</span>
-                    </span>
+                    <div className="flex-1 min-w-0 flex items-center gap-1.5">
+                      <Flag team={m.away} size={16} className="shrink-0" />
+                      <span className="truncate">{shortName(m.away)}</span>
+                    </div>
                   </div>
                 );
               })}
@@ -126,15 +129,15 @@ export function Picks({ pred }) {
                 return (
                   <div key={i} className="px-4 py-2 text-sm">
                     <div className="flex items-center gap-2">
-                      <span className="flex-1 flex items-center justify-end gap-1.5 text-right">
-                        <span className="truncate">{x.home || '—'}</span>{x.home && <Flag team={x.home} size={16} />}
-                      </span>
-                      <span className="font-display tabular-nums w-12 text-center">
+                      <div className="flex-1 min-w-0 flex items-center justify-end gap-1.5">
+                        <span className="truncate">{shortName(x.home) || '—'}</span>{x.home && <Flag team={x.home} size={16} className="shrink-0" />}
+                      </div>
+                      <span className="font-display tabular-nums w-12 text-center shrink-0">
                         {x.hs !== '' && x.hs != null && x.as !== '' && x.as != null ? `${x.hs}-${x.as}` : 'vs'}
                       </span>
-                      <span className="flex-1 flex items-center gap-1.5">
-                        {x.away && <Flag team={x.away} size={16} />}<span className="truncate">{x.away || '—'}</span>
-                      </span>
+                      <div className="flex-1 min-w-0 flex items-center gap-1.5">
+                        {x.away && <Flag team={x.away} size={16} className="shrink-0" />}<span className="truncate">{shortName(x.away) || '—'}</span>
+                      </div>
                     </div>
                     {x.advancer && (
                       <div className="mt-1 text-[11px] text-pitch flex items-center gap-1 justify-center">

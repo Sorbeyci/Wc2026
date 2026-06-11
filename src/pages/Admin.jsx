@@ -3,6 +3,7 @@ import { useStore } from '../lib/store.jsx';
 import { GROUP_MATCHES, GROUP_NAMES, KO_ROUNDS } from '../data/tournament.js';
 import { SCORING, groupOrder } from '../lib/scoring.js';
 import { ScoreBox, TeamSelect, SectionTitle, Flag } from '../components/ui.jsx';
+import { shortName } from '../data/flags.js';
 import Standings from '../components/Standings.jsx';
 import ThirdsPicker from '../components/ThirdsPicker.jsx';
 import KoMatch from '../components/KoMatch.jsx';
@@ -87,15 +88,17 @@ function AdminResults({ store }) {
             <div key={m.no} className="px-4 py-3">
               <div className="text-[11px] text-ink/45 mb-1.5">{m.no}. maç · {m.date}</div>
               <div className="flex items-center gap-2">
-                <span className="flex-1 flex items-center justify-end gap-1.5 text-sm font-semibold text-right">
-                  <span className="truncate">{m.home}</span><Flag team={m.home} size={18} />
-                </span>
+                <div className="flex-1 min-w-0 flex items-center justify-end gap-1.5">
+                  <span className="truncate text-sm font-semibold">{shortName(m.home)}</span>
+                  <Flag team={m.home} size={18} className="shrink-0" />
+                </div>
                 <ScoreBox value={a.home} onChange={(v) => setActualMatch(m.no, 'home', v)} />
-                <span className="text-ink/30 font-bold">:</span>
+                <span className="text-ink/30 font-bold shrink-0">:</span>
                 <ScoreBox value={a.away} onChange={(v) => setActualMatch(m.no, 'away', v)} />
-                <span className="flex-1 flex items-center gap-1.5 text-sm font-semibold">
-                  <Flag team={m.away} size={18} /><span className="truncate">{m.away}</span>
-                </span>
+                <div className="flex-1 min-w-0 flex items-center gap-1.5">
+                  <Flag team={m.away} size={18} className="shrink-0" />
+                  <span className="truncate text-sm font-semibold">{shortName(m.away)}</span>
+                </div>
               </div>
             </div>
           );

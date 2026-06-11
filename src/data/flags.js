@@ -52,6 +52,22 @@ export const FLAG_CODE = {
   'Gana': 'gh',
 };
 
+// Shorter display labels for long names so match rows stay readable and aligned.
+// The underlying team value is unchanged (scoring/flags still use full names).
+export const SHORT_NAME = {
+  'Amerika Birleşik Devletleri': 'ABD',
+  'Kore Cumhuriyeti': 'G. Kore',
+  'Çek Cumhuriyeti': 'Çekya',
+  'Bosna Hersek': 'Bosna',
+  'Suudi Arabistan': 'S. Arabistan',
+  'Yeşil Burun Adaları': 'Yeşil Burun',
+  'Güney Afrika': 'G. Afrika',
+  'Yeni Zelanda': 'Y. Zelanda',
+  'Fildişi Sahili': 'Fildişi',
+};
+
+export const shortName = (name) => SHORT_NAME[name] || name;
+
 export const flagUrl = (name, w = 40) => {
   const code = FLAG_CODE[name];
   return code ? `https://flagcdn.com/w${w}/${code}.png` : null;
