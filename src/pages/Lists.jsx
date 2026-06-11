@@ -1,0 +1,75 @@
+import { useState } from 'react';
+import { useStore } from '../lib/store.jsx';
+import { SectionTitle, Dot, Empty } from '../components/ui.jsx';
+import ListDetail from './ListDetail.jsx';
+
+export default function Lists({ viewListId, setViewListId, onEdit }) {
+  const { lists, myLists, isAdmin, user, canCreateList, createList, deleteList } = useStore();
+  const [name, setName] = useState('');
+
+  if (viewListId) {
+    return <ListDetail listId={viewListId} onBack={() => setViewListId(null)} onEdit={onEdit} />;
+  }
+
+  const submit = async () => {
+    if (!canCreateList) return;
+    await createList(name);
+    setName('');
+  };
+
+  return (
+    <div className="space-y-4">
+      <SectionTitle eyebrow="1. Adım" title="Listeler" />
+
+      <div className="card p-4">
+        <label className="label">Yeni liste oluştur</label>
+        <div className="mt-2 flex gap-2">
+          <input className="field" placeholder={isAdmin ? 'Liste adı (örn. Mahmut)' : 'Listenin adı'}
+            value={name} disabled={!canCreateList}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && submit()} />
+          <button className="btn-primary shrink-0" onClick={submit} disabled={!canCreateList}>Oluştur</button>
+        </div>
+        {isAdmin ? (
+          <p className="mt-2 text-xs text-pitch-dark">Yönetici olarak birden fazla liste oluşturabilirsin.</p>
+        ) : myLists.length >= 1 ? (
+          <p className="mt-2 text-xs text-ink/50">Her oyuncu 1 liste oluşturabilir. Zaten bir listen var.</p>
+        ) : (
+          <p className="mt-2 text-xs text-ink/50">İlk maç başlamadan önce tahminlerini gir.</p>
+        )}
+      </div>
+
+      <p className="text-xs text-ink/45 px-1">Herhangi bir listeye dokunarak tahminlerini ve puan durumunu görebilirsin.</p>
+
+      {lists.length === 0 ? (
+        <Empty title="Henüz liste yok">Başlamak için bir liste oluştur.</Empty>
+      ) : (
+        <div className="card divide-y divide-black/5">
+          {lists.map((l, i) => {
+            const mine = l.ownerUid === user?.uid;
+            const canDelete = mine || isAdmin;
+            return (
+              <div key={l.id} className="flex items-center gap-3 px-4 py-3">
+                <button className="flex items-center gap-3 flex-1 min-w-0 text-left" onClick={() => setViewListId(l.id)}>
+                  <span className="font-display text-lg text-ink/30 w-6">{i + 1}</span>
+                  <Dot color={l.color} />
+                  <span className="flex-1 min-w-0">
+                    <span className="block font-semibold text-ink truncate">{l.name}</span>
+                    <span className="block text-xs text-ink/45 truncate">{l.ownerName}{mine ? ' · sen' : ''}</span>
+                  </span>
+                  <span className="text-ink/25">›</span>
+                </button>
+                {canDelete && (
+                  <button className="text-sm font-semibold text-red-500/80 hover:text-red-600 pl-1"
+                    onClick={() => { if (confirm(`"${l.name}" listesi ve tahminleri silinsin mi?`)) deleteList(l.id); }}>
+                    Sil
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}

@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: light; }
+
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: #eef1f0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@layer components {
+  .card {
+    @apply bg-white rounded-2xl shadow-sm border border-black/5;
+  }
+  .label {
+    @apply text-xs font-semibold uppercase tracking-wider text-ink/50;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 font-semibold transition active:scale-[.98] disabled:opacity-40 disabled:active:scale-100;
+  }
+  .btn-primary { @apply btn bg-pitch text-white hover:bg-pitch-dark; }
+  .btn-ghost   { @apply btn bg-black/5 text-ink hover:bg-black/10; }
+  .btn-gold    { @apply btn bg-gold text-ink hover:bg-gold-dark; }
+  .chip {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold;
+  }
+  .score-input {
+    @apply w-12 h-12 text-center text-xl font-bold rounded-xl border-2 border-black/10 bg-chalk
+           focus:border-pitch focus:outline-none focus:ring-2 focus:ring-pitch/20;
+  }
+  .field {
+    @apply w-full rounded-xl border-2 border-black/10 bg-white px-3 py-2.5 text-ink
+           focus:border-pitch focus:outline-none focus:ring-2 focus:ring-pitch/20;
+  }
+}
+
+/* hide number spinners */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+input[type=number] { -moz-appearance: textfield; }
