@@ -32,7 +32,7 @@ export const TEAM_ALIASES = {
   'İspanya': ['Spain'],
   'Uruguay': ['Uruguay'],
   'Suudi Arabistan': ['Saudi Arabia'],
-  'Yeşil Burun Adaları': ['Cape Verde', 'Cabo Verde'],
+  'Yeşil Burun Adaları': ['Cape Verde', 'Cabo Verde', 'Cape Verde Islands'],
   'Fransa': ['France'],
   'Senegal': ['Senegal'],
   'Norveç': ['Norway'],
