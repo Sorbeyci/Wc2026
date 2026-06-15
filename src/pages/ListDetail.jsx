@@ -25,7 +25,7 @@ const SUB = [
 ];
 
 export default function ListDetail({ listId, onBack, onEdit }) {
-  const { lists, getPrediction, actual, canEditList } = useStore();
+  const { lists, getPrediction, actual, canEditList, isMyList } = useStore();
   const [sub, setSub] = useState('standings');
   const list = lists.find((l) => l.id === listId);
   if (!list) {
@@ -39,6 +39,7 @@ export default function ListDetail({ listId, onBack, onEdit }) {
   const pred = getPrediction(listId);
   const result = scoreUser(pred, actual);
   const mine = canEditList(list);
+  const owned = isMyList(list);
 
   return (
     <div className="space-y-4">
@@ -48,7 +49,7 @@ export default function ListDetail({ listId, onBack, onEdit }) {
         <Dot color={list.color} />
         <div className="flex-1 min-w-0">
           <p className="font-display text-2xl text-ink leading-tight truncate">{list.name}</p>
-          <p className="text-xs text-ink/45 truncate">{list.ownerName}{mine ? ' · senin listen' : ''}</p>
+          <p className="text-xs text-ink/45 truncate">{list.ownerName}{owned ? ' · senin listen' : ''}</p>
         </div>
         <div className="text-right">
           <div className="font-display text-3xl text-pitch leading-none">{result.total}</div>

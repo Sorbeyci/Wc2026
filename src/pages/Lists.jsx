@@ -4,7 +4,7 @@ import { SectionTitle, Dot, Empty } from '../components/ui.jsx';
 import ListDetail from './ListDetail.jsx';
 
 export default function Lists({ viewListId, setViewListId, onEdit }) {
-  const { lists, myLists, isAdmin, user, canCreateList, createList, deleteList, canDeleteList } = useStore();
+  const { lists, myLists, isAdmin, user, canCreateList, createList, deleteList, canDeleteList, isMyList } = useStore();
   const [name, setName] = useState('');
 
   if (viewListId) {
@@ -46,7 +46,7 @@ export default function Lists({ viewListId, setViewListId, onEdit }) {
       ) : (
         <div className="card divide-y divide-black/5">
           {lists.map((l, i) => {
-            const mine = l.ownerUid === user?.uid;
+            const mine = isMyList(l);
             const canDelete = canDeleteList(l);
             return (
               <div key={l.id} className="flex items-center gap-3 px-4 py-3">

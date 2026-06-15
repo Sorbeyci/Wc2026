@@ -34,17 +34,15 @@ export default function Admin() {
         </div>
       )}
 
-      <div className="-mx-4 px-4 overflow-x-auto">
-        <div className="flex gap-2 w-max">
-          {SUB.map((s) => (
-            <button key={s.id} onClick={() => setSub(s.id)}
-              className={`rounded-full px-3.5 py-2 text-sm font-semibold whitespace-nowrap ${
-                sub === s.id ? 'bg-ink text-white' : 'bg-white text-ink border border-black/10'
-              }`}>
-              {s.label}
-            </button>
-          ))}
-        </div>
+      <div className="flex flex-wrap gap-2">
+        {SUB.map((s) => (
+          <button key={s.id} onClick={() => setSub(s.id)}
+            className={`rounded-full px-3.5 py-1.5 text-sm font-semibold whitespace-nowrap ${
+              sub === s.id ? 'bg-ink text-white' : 'bg-white text-ink border border-black/10'
+            }`}>
+            {s.label}
+          </button>
+        ))}
       </div>
 
       {sub !== 'settings' && (
@@ -229,10 +227,11 @@ function ListAdminRow({ l, onSave, onDelete }) {
     <div className="card p-3 space-y-2">
       <div className="flex items-center gap-2">
         <Dot color={l.color} />
-        <span className="text-xs text-ink/45">
+        <span className="text-xs text-ink/45 truncate">
           {l.imported ? 'İçe aktarıldı' : 'Kullanıcı'}{l.ownerName ? ` · ${l.ownerName}` : ''}
         </span>
       </div>
+      {l.ownerEmail && <div className="text-xs font-medium text-pitch-dark break-all">{l.ownerEmail}</div>}
       <div>
         <label className="label">Ad</label>
         <input className="field mt-1" value={name} onChange={(e) => setName(e.target.value)} />

@@ -186,6 +186,14 @@ export function StoreProvider({ children }) {
       return reportSave(deleteDoc(doc(db, 'lists', id)));
     },
     canEditList: (l) => !!l && (l.ownerUid === user?.uid || isAdmin) && (!locked || isAdmin),
+    // Whether a list represents the current user. For imported lists the owner
+    // is whoever the e-mail was assigned to, not the admin who imported it.
+    isMyList: (l) => {
+      if (!l) return false;
+      const em = (user?.email || '').toLowerCase();
+      if (l.imported) return !!(l.ownerEmail && em && l.ownerEmail.toLowerCase() === em);
+      return l.ownerUid === user?.uid;
+    },
     // Who may delete a list: admins, the real owner, or — for imported lists —
     // the person whose e-mail was assigned to it.
     canDeleteList: (l) => {
