@@ -108,12 +108,53 @@ export async function parsePredictionFile(file) {
 
 // excely.com layout: in sheet "2026 World Cup", group rows have
 // [no, day, date, time, homeTeam, homeScore, awayScore, awayTeam, ...].
+// Knockout matches sit on the right: each round shifts +7 columns
+// (R32 col 62, R16 69, QF 76, SF 83, Final/3rd 90). For a match the no is on
+// the first team's row; the opponent is the row right below. Columns: base+1
+// team, base+2 goals, base+3 penalties (only on draws).
+const KO_BASE_COLS = [62, 69, 76, 83, 90];
+const cell = (rows, r, c) => { const row = rows[r]; return row ? (row[c] ?? null) : null; };
+
+function parseExcelyKo(rows, groupPred) {
+  const raw = {};
+  for (const nb of KO_BASE_COLS) {
+    for (let r = 0; r < rows.length; r++) {
+      const v = cell(rows, r, nb);
+      if (Number.isInteger(v) && v >= 73 && v <= 104) {
+        const t1 = cell(rows, r, nb + 1), g1 = cell(rows, r, nb + 2), p1 = cell(rows, r, nb + 3);
+        const t2 = cell(rows, r + 1, nb + 1), g2 = cell(rows, r + 1, nb + 2), p2 = cell(rows, r + 1, nb + 3);
+        if (t1 && t2) raw[v] = { t1, g1, p1, t2, g2, p2 };
+      }
+    }
+  }
+  const pred = { ...groupPred, ko: {} };
+  for (let no = 73; no <= 104; no++) {
+    const r = raw[no];
+    if (!r || r.g1 == null || r.g2 == null || isNaN(r.g1) || isNaN(r.g2)) continue;
+    const t1 = resolveTeam(r.t1) || String(r.t1);
+    const t2 = resolveTeam(r.t2) || String(r.t2);
+    const g1 = Number(r.g1), g2 = Number(r.g2);
+    const p1 = Number(r.p1 || 0), p2 = Number(r.p2 || 0);
+    const winner = g1 > g2 ? t1 : g2 > g1 ? t2 : (p1 >= p2 ? t1 : t2);
+    const b = resolveBracket(pred, pred.ko);
+    const m = b.matches[no];
+    const swap = m && m.home === t2 && m.away === t1;
+    pred.ko[no] = swap
+      ? { hs: String(g2), as: String(g1), winner }
+      : { hs: String(g1), as: String(g2), winner };
+  }
+  return pred.ko;
+}
+
+// excely.com layout: in sheet "2026 World Cup", group rows have
+// [no, day, date, time, homeTeam, homeScore, awayScore, awayTeam, ...].
 function parseExcely(wb) {
   const ws = wb.Sheets['2026 World Cup'];
-  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, blankrows: false });
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, blankrows: true, defval: null });
   const pred = { groupMatches: {}, groupTables: {}, ko: {}, topScorer: '' };
   const byNo = Object.fromEntries(GROUP_MATCHES.map((m) => [m.no, m]));
   for (const r of rows) {
+    if (!r) continue;
     const no = Number(r[0]);
     if (!Number.isInteger(no) || no < 1 || no > 72) continue;
     const home = r[4], hs = r[5], as = r[6], away = r[7];
@@ -127,7 +168,8 @@ function parseExcely(wb) {
       pred.groupMatches[no] = { home: String(Number(hs)), away: String(Number(as)) };
     }
   }
-  return { pred, counts: { groups: Object.keys(pred.groupMatches).length, ko: 0 } };
+  pred.ko = parseExcelyKo(rows, pred);
+  return { pred, counts: { groups: Object.keys(pred.groupMatches).length, ko: Object.keys(pred.ko).length } };
 }
 
 function parseOwnTemplate(wb) {
