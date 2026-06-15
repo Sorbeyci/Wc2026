@@ -96,9 +96,41 @@ export function downloadTemplateXlsx() {
 }
 
 // ---- Import ----------------------------------------------------------------
+// Supports two layouts, auto-detected:
+//   1) This app's own template (sheet "Grup Maclari" / "Eleme" / "Diger").
+//   2) The excely.com World Cup planner (sheet "2026 World Cup").
 export async function parsePredictionFile(file) {
   const buf = await file.arrayBuffer();
   const wb = XLSX.read(buf, { type: 'array' });
+  if (!wb.Sheets[GROUP_SHEET] && wb.Sheets['2026 World Cup']) return parseExcely(wb);
+  return parseOwnTemplate(wb);
+}
+
+// excely.com layout: in sheet "2026 World Cup", group rows have
+// [no, day, date, time, homeTeam, homeScore, awayScore, awayTeam, ...].
+function parseExcely(wb) {
+  const ws = wb.Sheets['2026 World Cup'];
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, blankrows: false });
+  const pred = { groupMatches: {}, groupTables: {}, ko: {}, topScorer: '' };
+  const byNo = Object.fromEntries(GROUP_MATCHES.map((m) => [m.no, m]));
+  for (const r of rows) {
+    const no = Number(r[0]);
+    if (!Number.isInteger(no) || no < 1 || no > 72) continue;
+    const home = r[4], hs = r[5], as = r[6], away = r[7];
+    if (hs === '' || hs == null || as === '' || as == null || isNaN(hs) || isNaN(as)) continue;
+    const m = byNo[no]; if (!m) continue;
+    const rh = resolveTeam(home) || home;
+    const ra = resolveTeam(away) || away;
+    if (m.home === ra && m.away === rh) {
+      pred.groupMatches[no] = { home: String(Number(as)), away: String(Number(hs)) };
+    } else {
+      pred.groupMatches[no] = { home: String(Number(hs)), away: String(Number(as)) };
+    }
+  }
+  return { pred, counts: { groups: Object.keys(pred.groupMatches).length, ko: 0 } };
+}
+
+function parseOwnTemplate(wb) {
   const pred = { groupMatches: {}, groupTables: {}, ko: {}, topScorer: '' };
 
   const groupWs = wb.Sheets[GROUP_SHEET] || wb.Sheets[wb.SheetNames[0]];
