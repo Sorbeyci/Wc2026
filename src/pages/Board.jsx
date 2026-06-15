@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useStore } from '../lib/store.jsx';
-import { scoreUser } from '../lib/scoring.js';
+import { scoreUser, SCORING } from '../lib/scoring.js';
 import { GROUP_MATCHES } from '../data/tournament.js';
 import { shortName } from '../data/flags.js';
 import { SectionTitle, Dot, Empty, Avatar, Flag } from '../components/ui.jsx';
@@ -47,6 +47,22 @@ function groupHits(pred, actual) {
   }
   return hits;
 }
+const koRoundLabel = (no) => (no <= 88 ? 'S32' : no <= 96 ? 'S16' : no <= 100 ? 'ÇF' : no <= 102 ? 'YF' : no === 103 ? '3.' : 'F');
+
+// Knockout matchups where BOTH teams of the pairing were predicted right (10p each).
+function matchupHitsOf(P, A) {
+  const hits = [];
+  for (let no = 73; no <= 104; no++) {
+    const p = P?.matches?.[no], a = A?.matches?.[no];
+    if (!p?.home || !p?.away || !a?.home || !a?.away) continue;
+    const set = new Set([a.home, a.away]);
+    if (p.home !== p.away && set.has(p.home) && set.has(p.away)) {
+      hits.push({ key: 'm' + no, no, home: a.home, away: a.away, pts: SCORING.knockout.matchup });
+    }
+  }
+  return hits;
+}
+
 function koHits(pred, actual, bracketActual) {
   const hits = [];
   for (let no = 73; no <= 104; no++) {
@@ -340,6 +356,24 @@ function LbRow({ r, i, onOpenList, online, actual }) {
   );
 }
 
+function MatchupList({ hits }) {
+  if (!hits || hits.length === 0) return null;
+  return (
+    <div className="mt-2">
+      <div className="text-[11px] font-bold uppercase tracking-wide text-ink/45 mb-1">Doğru eşleşmeler ({hits.length})</div>
+      <div className="max-h-52 overflow-y-auto divide-y divide-black/5 rounded-lg bg-white">
+        {hits.map((h) => (
+          <div key={h.key} className="flex items-center gap-2 px-2 py-1.5 text-xs">
+            <span className="w-8 shrink-0 text-ink/40 font-semibold">{koRoundLabel(h.no)}</span>
+            <span className="flex-1 min-w-0 truncate">{shortName(h.home)} - {shortName(h.away)}</span>
+            <span className="chip bg-pitch/15 text-pitch-dark">+{h.pts}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function HitList({ hits }) {
   if (hits.length === 0) return <p className="mt-2 text-xs text-ink/45">Bu kategoride henüz bilinen maç yok.</p>;
   return (
@@ -372,6 +406,7 @@ function CategoryDetail({ cat, r, actual }) {
   const hits = cat === 'gm' ? groupHits(r.pred, actual)
     : cat === 'ko' ? koHits(r.pred, actual, r.bracket?.actual)
     : null;
+  const mhits = cat === 'ko' ? matchupHitsOf(r.bracket?.pred, r.bracket?.actual) : null;
   return (
     <div className="mt-2 rounded-xl bg-black/[0.02] border border-black/5 p-3">
       <div className="flex justify-between text-xs font-bold uppercase tracking-wide text-ink/50 mb-1">
@@ -385,6 +420,7 @@ function CategoryDetail({ cat, r, actual }) {
           </div>
         ))}
       </div>
+      {mhits && <MatchupList hits={mhits} />}
       {hits && <HitList hits={hits} />}
     </div>
   );
