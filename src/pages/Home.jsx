@@ -82,6 +82,7 @@ export default function Home({ setPage }) {
       <MyScore rows={rows} isMyList={isMyList} setPage={setPage} onCreate={() => setPage('lists')} />
       <DayBrowser lists={lists} getPrediction={getPrediction} actual={actual} />
       <RecentResults actual={actual} />
+      <FunStats lists={lists} getPrediction={getPrediction} actual={actual} />
 
       <div className="card p-4">
         <div className="flex items-center justify-between">
@@ -343,10 +344,71 @@ function DistBars({ m, d }) {
             <div className={`h-full ${r.color}`} style={{ width: `${r.pct}%` }} />
           </div>
           {r.names.length > 0 && (
-            <div className="mt-0.5 text-[11px] text-ink/45 truncate">{r.names.join(', ')}</div>
+            <div className="mt-0.5 text-[11px] text-ink/50 leading-snug break-words">{r.names.join(', ')}</div>
           )}
         </div>
       ))}
+    </div>
+  );
+}
+
+function funStats(lists, getPrediction, actual) {
+  const out = [];
+  const recs = GROUP_MATCHES
+    .filter((m) => hasScore(actual.groupMatches?.[m.no]))
+    .map((m) => {
+      const a = actual.groupMatches[m.no];
+      const ah = +a.home, aa = +a.away;
+      const O = ah > aa ? 'H' : ah < aa ? 'A' : 'D';
+      let H = 0, D = 0, A = 0, exact = 0, tot = 0;
+      for (const l of lists) {
+        const p = getPrediction(l.id).groupMatches?.[m.no];
+        if (!hasScore(p)) continue;
+        const ph = +p.home, pa = +p.away;
+        if (isNaN(ph) || isNaN(pa)) continue;
+        tot++;
+        const o = ph > pa ? 'H' : ph < pa ? 'A' : 'D';
+        if (o === 'H') H++; else if (o === 'A') A++; else D++;
+        if (ph === ah && pa === aa) exact++;
+      }
+      return { m, ah, aa, O, H, D, A, exact, tot, correct: O === 'H' ? H : O === 'A' ? A : D };
+    })
+    .filter((r) => r.tot > 0);
+  if (recs.length === 0) return out;
+
+  const allWrong = recs.filter((r) => r.correct === 0).sort((a, b) => b.tot - a.tot)[0];
+  if (allWrong) out.push({ icon: '😅', text: `${allWrong.tot} kişi ${shortName(allWrong.m.home)}–${shortName(allWrong.m.away)} maçında tahmin yaptı ama hiçbiri sonucu bilemedi (maç ${allWrong.ah}-${allWrong.aa} bitti).` });
+
+  let herd = null;
+  for (const r of recs) {
+    const opts = [['H', r.H, `${shortName(r.m.home)} kazanır`], ['D', r.D, 'beraberlik'], ['A', r.A, `${shortName(r.m.away)} kazanır`]];
+    for (const [o, c, lbl] of opts) if (o !== r.O && c > 0 && (!herd || c > herd.c)) herd = { c, lbl, r };
+  }
+  if (herd && (!allWrong || herd.r.m.no !== allWrong.m.no)) out.push({ icon: '🙈', text: `${herd.c} kişi "${herd.lbl}" dedi ama ${shortName(herd.r.m.home)}–${shortName(herd.r.m.away)} ${herd.r.ah}-${herd.r.aa} bitti.` });
+
+  const bestCorrect = recs.slice().sort((a, b) => b.correct - a.correct)[0];
+  if (bestCorrect && bestCorrect.correct > 0) {
+    const lbl = bestCorrect.O === 'H' ? `${shortName(bestCorrect.m.home)} kazanır` : bestCorrect.O === 'A' ? `${shortName(bestCorrect.m.away)} kazanır` : 'beraberlik';
+    out.push({ icon: '🎯', text: `${bestCorrect.correct} kişi ${shortName(bestCorrect.m.home)}–${shortName(bestCorrect.m.away)} için "${lbl}" dedi ve haklı çıktı.` });
+  }
+
+  const exactRec = recs.filter((r) => r.exact > 0).sort((a, b) => a.exact - b.exact)[0];
+  if (exactRec) out.push({ icon: '🔮', text: `${shortName(exactRec.m.home)}–${shortName(exactRec.m.away)} tam skorunu (${exactRec.ah}-${exactRec.aa}) ${exactRec.exact} kişi bildi.` });
+
+  return out.slice(0, 4);
+}
+
+function FunStats({ lists, getPrediction, actual }) {
+  const facts = useMemo(() => funStats(lists, getPrediction, actual), [lists, actual]);
+  if (facts.length === 0) return null;
+  return (
+    <div className="card p-4">
+      <p className="font-display text-xl">Enteresan istatistikler</p>
+      <ul className="mt-2 space-y-2 text-sm text-ink/75">
+        {facts.map((f, i) => (
+          <li key={i} className="flex gap-2"><span className="shrink-0">{f.icon}</span><span>{f.text}</span></li>
+        ))}
+      </ul>
     </div>
   );
 }
