@@ -107,40 +107,53 @@ function AdminResults({ store }) {
 }
 
 function AdminStandings({ store }) {
-  const { actual, setActualTable, clearActualTable } = store;
+  const { actual, setActualTable, clearActualTable, lists, getPrediction, setGroupTable, clearGroupTable } = store;
+  const [target, setTarget] = useState('actual');
+  const isActual = target === 'actual';
+  const src = isActual ? actual : (getPrediction(target) || { groupMatches: {}, groupTables: {} });
   return (
     <div className="space-y-3">
       <p className="text-sm text-ink/60 px-1">
         Puan durumu skorlardan otomatik oluşur. Eşit puan/averajda üste çıkacak takımı
         belirlemek için sırayı oklarla elle değiştirebilirsin.
       </p>
+      <div className="card p-3">
+        <label className="label">Kimin sıralaması</label>
+        <select className="field mt-1" value={target} onChange={(e) => setTarget(e.target.value)}>
+          <option value="actual">Gerçek sonuç (herkesin tablosu)</option>
+          {lists.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+        </select>
+        {!isActual && <p className="mt-1 text-xs text-ink/45">Bu kişinin tahmin sıralamasını düzenliyorsun — eleme eşleşmeleri ve puanı buna göre güncellenir.</p>}
+      </div>
       {GROUP_NAMES.map((g) => (
-        <GroupOrderEditor key={g} g={g} actual={actual}
-          setActualTable={setActualTable} clearActualTable={clearActualTable} />
+        <GroupOrderEditor key={g + target} g={g}
+          scores={src.groupMatches}
+          override={src.groupTables?.[g]}
+          onSet={(order) => (isActual ? setActualTable(g, order) : setGroupTable(target, g, order))}
+          onClear={() => (isActual ? clearActualTable(g) : clearGroupTable(target, g))} />
       ))}
     </div>
   );
 }
 
-function GroupOrderEditor({ g, actual, setActualTable, clearActualTable }) {
-  const rows = computeStandings(g, actual.groupMatches);
+function GroupOrderEditor({ g, scores, override, onSet, onClear }) {
+  const rows = computeStandings(g, scores);
   const byTeam = Object.fromEntries(rows.map((r) => [r.team, r]));
-  const ov = actual.groupTables?.[g];
-  const manual = !!(ov && ov.length === 4 && ov.every(Boolean));
-  const order = manual ? ov.filter((t) => byTeam[t]) : rows.map((r) => r.team);
+  const manual = !!(override && override.length === 4 && override.every(Boolean));
+  const order = manual ? override.filter((t) => byTeam[t]) : rows.map((r) => r.team);
   const move = (i, dir) => {
     const j = i + dir;
     if (j < 0 || j >= order.length) return;
     const a = [...order];
     [a[i], a[j]] = [a[j], a[i]];
-    setActualTable(g, a);
+    onSet(a);
   };
   return (
     <div className="card p-3">
       <div className="flex items-center justify-between mb-1">
         <span className="font-display text-lg">{g} Grubu</span>
         {manual
-          ? <button className="text-xs font-semibold text-pitch" onClick={() => clearActualTable(g)}>Otomatiğe döndür</button>
+          ? <button className="text-xs font-semibold text-pitch" onClick={onClear}>Otomatiğe döndür</button>
           : <span className="text-xs text-ink/40">otomatik</span>}
       </div>
       <div className="divide-y divide-black/5">

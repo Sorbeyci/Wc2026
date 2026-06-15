@@ -121,6 +121,11 @@ export default function Home({ setPage }) {
 
 const CHANGELOG = [
   {
+    v: '1.3', date: 'Haziran 2026', items: [
+      'Yönetim > Sıralamalar: "Kimin sıralaması" seçici — gerçek tablo veya herhangi bir kişinin tahmin sıralaması oklarla düzenlenebilir.',
+    ],
+  },
+  {
     v: '1.2', date: 'Haziran 2026', items: [
       'Sıralamada görünüm seçenekleri: Detay / Liste / Tablo (hepsinde puan).',
       'Kategori dökümünde "Bildiğin maçlar" listesi (maç + skor + puan).',
