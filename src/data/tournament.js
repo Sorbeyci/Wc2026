@@ -419,7 +419,7 @@ export const GROUP_MATCHES = [
     "group": "A"
   },
   {
-    "no": 31,
+    "no": 29,
     "date": "Haz 20, 2026",
     "time": "03:30",
     "home": "Brezilya",
@@ -435,7 +435,7 @@ export const GROUP_MATCHES = [
     "group": "C"
   },
   {
-    "no": 29,
+    "no": 31,
     "date": "Haz 19, 2026",
     "time": "22:00",
     "home": "Amerika Birleşik Devletleri",
