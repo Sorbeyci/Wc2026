@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useStore } from '../lib/store.jsx';
 import { GROUP_MATCHES, GROUP_NAMES } from '../data/tournament.js';
-import { ScoreBox, SectionTitle, Flag } from '../components/ui.jsx';
+import { ScoreBox, SectionTitle, Flag, Dot } from '../components/ui.jsx';
 import { shortName } from '../data/flags.js';
 import Standings from '../components/Standings.jsx';
 import Bracket from '../components/Bracket.jsx';
@@ -11,6 +11,7 @@ const SUB = [
   { id: 'results', label: 'Sonuçlar' },
   { id: 'standings', label: 'Sıralamalar' },
   { id: 'knockout', label: 'Eleme' },
+  { id: 'people', label: 'Kişiler' },
   { id: 'transfer', label: 'Aktar' },
   { id: 'logs', label: 'Kayıtlar' },
   { id: 'settings', label: 'Ayarlar' },
@@ -55,6 +56,7 @@ export default function Admin() {
       {sub === 'results' && <AdminResults store={store} />}
       {sub === 'standings' && <AdminStandings store={store} />}
       {sub === 'knockout' && <AdminKnockout store={store} />}
+      {sub === 'people' && <ListAdmin store={store} />}
       {sub === 'transfer' && <ImportExport store={store} />}
       {sub === 'logs' && <AdminLogs store={store} />}
       {sub === 'settings' && <AdminSettings store={store} />}
@@ -190,6 +192,58 @@ function AdminSettings({ store }) {
         >
           Gerçek sonuçları sıfırla
         </button>
+      </div>
+    </div>
+  );
+}
+
+function ListAdmin({ store }) {
+  const { lists, updateListMeta, deleteList } = store;
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-ink/60 px-1">
+        Liste adlarını ve atanan e-postaları düzenle. Atanan e-posta, o kişinin kendi listesini
+        silebilmesini sağlar.
+      </p>
+      {lists.length === 0 ? (
+        <div className="card p-6 text-center text-ink/50">Henüz liste yok.</div>
+      ) : (
+        lists.map((l) => (
+          <ListAdminRow key={l.id} l={l}
+            onSave={(p) => updateListMeta(l.id, p)}
+            onDelete={() => {
+              if (window.confirm(`"${l.name}" listesi silinsin mi?`) && window.confirm('Emin misin? Geri alınamaz.'))
+                deleteList(l.id);
+            }} />
+        ))
+      )}
+    </div>
+  );
+}
+
+function ListAdminRow({ l, onSave, onDelete }) {
+  const [name, setName] = useState(l.name || '');
+  const [email, setEmail] = useState(l.ownerEmail || '');
+  const dirty = name.trim() !== (l.name || '') || email.trim() !== (l.ownerEmail || '');
+  return (
+    <div className="card p-3 space-y-2">
+      <div className="flex items-center gap-2">
+        <Dot color={l.color} />
+        <span className="text-xs text-ink/45">
+          {l.imported ? 'İçe aktarıldı' : 'Kullanıcı'}{l.ownerName ? ` · ${l.ownerName}` : ''}
+        </span>
+      </div>
+      <div>
+        <label className="label">Ad</label>
+        <input className="field mt-1" value={name} onChange={(e) => setName(e.target.value)} />
+      </div>
+      <div>
+        <label className="label">Atanan e-posta</label>
+        <input className="field mt-1" value={email} placeholder="ornek@eposta.com" onChange={(e) => setEmail(e.target.value)} />
+      </div>
+      <div className="flex gap-2 pt-0.5">
+        <button className="btn btn-primary" disabled={!dirty} onClick={() => onSave({ name, ownerEmail: email })}>Kaydet</button>
+        <button className="btn bg-white border border-red-300 text-red-600 hover:bg-red-50" onClick={onDelete}>Sil</button>
       </div>
     </div>
   );

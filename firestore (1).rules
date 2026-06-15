@@ -21,6 +21,13 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Admin action log: only admins can read; admins append (no edits/deletes).
+    match /logs/{id} {
+      allow read: if isAdmin();
+      allow create: if isAdmin();
+      allow update, delete: if false;
+    }
+
     // Prediction lists: anyone signed in can read (leaderboard + viewing others).
     // Create/edit your own only while unlocked; admins can always create/edit/delete.
     match /lists/{id} {
@@ -31,7 +38,12 @@ service cloud.firestore {
       allow update: if signedIn()
         && (isAdmin() || (resource.data.ownerUid == request.auth.uid && !locked()));
       allow delete: if signedIn()
-        && (resource.data.ownerUid == request.auth.uid || isAdmin());
+        && (
+          isAdmin()
+          || resource.data.ownerUid == request.auth.uid
+          || (resource.data.imported == true
+              && resource.data.ownerEmail == request.auth.token.email)
+        );
     }
   }
-}g
+}

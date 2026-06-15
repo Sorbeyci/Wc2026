@@ -186,6 +186,24 @@ export function StoreProvider({ children }) {
       return reportSave(deleteDoc(doc(db, 'lists', id)));
     },
     canEditList: (l) => !!l && (l.ownerUid === user?.uid || isAdmin) && (!locked || isAdmin),
+    // Who may delete a list: admins, the real owner, or — for imported lists —
+    // the person whose e-mail was assigned to it.
+    canDeleteList: (l) => {
+      if (!l) return false;
+      if (isAdmin) return true;
+      if (l.ownerUid === user?.uid) return true;
+      const em = (user?.email || '').toLowerCase();
+      return !!(l.imported && l.ownerEmail && em && l.ownerEmail.toLowerCase() === em);
+    },
+    // Admin: edit a list's display name + assigned e-mail.
+    updateListMeta: (id, { name, ownerEmail }) => {
+      if (!isAdmin) return;
+      const patch = { updatedAt: serverTimestamp() };
+      if (name != null) { patch.name = name.trim(); patch.ownerName = name.trim(); }
+      if (ownerEmail != null) patch.ownerEmail = ownerEmail.trim();
+      logAction('Liste düzenlendi', `${name ?? ''} ${ownerEmail ? '· ' + ownerEmail : ''}`.trim());
+      return reportSave(setDoc(doc(db, 'lists', id), patch, { merge: true }));
+    },
 
     // ---- admin controls ----
     setLocked: (val) => {
