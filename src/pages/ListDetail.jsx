@@ -3,6 +3,7 @@ import { useStore } from '../lib/store.jsx';
 import { scoreUser } from '../lib/scoring.js';
 import { GROUP_MATCHES, GROUP_NAMES } from '../data/tournament.js';
 import { resolveBracket, bestThirds } from '../data/bracket.js';
+import { exportPredictionXlsx } from '../lib/excel.js';
 import { Flag, Dot } from '../components/ui.jsx';
 import Standings from '../components/Standings.jsx';
 import { shortName } from '../data/flags.js';
@@ -58,6 +59,9 @@ export default function ListDetail({ listId, onBack, onEdit }) {
       {mine && (
         <button className="w-full btn-primary" onClick={() => onEdit(listId)}>Tahminleri düzenle</button>
       )}
+      <button className="w-full btn btn-ghost" onClick={() => exportPredictionXlsx(list.name || list.ownerName || 'tahmin', pred)}>
+        Excel olarak dışa aktar
+      </button>
 
       <div className="flex rounded-xl bg-black/5 p-1">
         {SUB.map((s) => (

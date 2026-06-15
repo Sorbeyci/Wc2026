@@ -123,7 +123,7 @@ export function StoreProvider({ children }) {
     signIn: () => signInWithPopup(auth, googleProvider).catch((e) => setLastError(e.code || e.message)),
     logout: () => signOut(auth),
 
-    async createList(name) {
+    async createList(name, email) {
       if (!user) return;
       if (locked && !isAdmin) return;
       if (!isAdmin && myLists.length >= 1) return;
@@ -131,11 +131,28 @@ export function StoreProvider({ children }) {
       await reportSave(setDoc(doc(db, 'lists', id), {
         ownerUid: user.uid,
         ownerName: user.displayName || user.email || 'Oyuncu',
+        ownerEmail: (email || user.email || '').trim(),
         name: (name || '').trim() || (user.displayName || 'Listem'),
         color: COLORS[lists.length % COLORS.length],
         prediction: EMPTY_PRED(),
         createdAt: serverTimestamp(),
       }));
+    },
+    // Admin: import a prediction (e.g. from Excel) under a given name + email.
+    async importList({ name, email, prediction }) {
+      if (!user || !isAdmin) return null;
+      const id = `${user.uid}_imp_${Date.now().toString(36)}`;
+      await reportSave(setDoc(doc(db, 'lists', id), {
+        ownerUid: user.uid,
+        ownerName: (name || 'Oyuncu').trim(),
+        ownerEmail: (email || '').trim(),
+        name: (name || 'Oyuncu').trim(),
+        color: COLORS[lists.length % COLORS.length],
+        prediction: { ...EMPTY_PRED(), ...prediction },
+        imported: true,
+        createdAt: serverTimestamp(),
+      }));
+      return id;
     },
     deleteList: (id) => reportSave(deleteDoc(doc(db, 'lists', id))),
     canEditList: (l) => !!l && (l.ownerUid === user?.uid || isAdmin) && (!locked || isAdmin),
@@ -202,6 +219,19 @@ export function StoreProvider({ children }) {
       }),
     setActualTopScorer: (value) =>
       editActual((a) => { a.topScorer = value; return a; }),
+    // Bulk-apply auto-fetched results into actual (merge by match no).
+    applyFetchedScores: ({ groupMatches = {}, ko = {} }) =>
+      editActual((a) => {
+        a.groupMatches = { ...a.groupMatches };
+        for (const [no, sc] of Object.entries(groupMatches)) {
+          a.groupMatches[no] = { ...(a.groupMatches[no] || {}), home: String(sc.home), away: String(sc.away) };
+        }
+        if (Object.keys(ko).length) {
+          a.ko = { ...a.ko };
+          for (const [no, v] of Object.entries(ko)) a.ko[no] = { ...(a.ko[no] || {}), ...v };
+        }
+        return a;
+      }),
   }), [user, isAdmin, authLoading, lists, actual, settings, locked, lastError, drafts, actualDraft]);
 
   return <StoreCtx.Provider value={api}>{children}</StoreCtx.Provider>;

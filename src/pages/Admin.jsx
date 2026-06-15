@@ -5,11 +5,13 @@ import { ScoreBox, SectionTitle, Flag } from '../components/ui.jsx';
 import { shortName } from '../data/flags.js';
 import Standings from '../components/Standings.jsx';
 import Bracket from '../components/Bracket.jsx';
+import ImportExport from './ImportExport.jsx';
 
 const SUB = [
   { id: 'results', label: 'Sonuçlar' },
   { id: 'standings', label: 'Sıralamalar' },
   { id: 'knockout', label: 'Eleme' },
+  { id: 'transfer', label: 'Aktar' },
   { id: 'settings', label: 'Ayarlar' },
 ];
 
@@ -50,6 +52,7 @@ export default function Admin() {
       {sub === 'results' && <AdminResults store={store} />}
       {sub === 'standings' && <AdminStandings store={store} />}
       {sub === 'knockout' && <AdminKnockout store={store} />}
+      {sub === 'transfer' && <ImportExport store={store} />}
       {sub === 'settings' && <AdminSettings store={store} />}
     </div>
   );
