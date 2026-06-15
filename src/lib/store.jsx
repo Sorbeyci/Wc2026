@@ -25,6 +25,7 @@ export function StoreProvider({ children }) {
   const [actualDraft, setActualDraft] = useState(null);
   const [logs, setLogs] = useState([]);
   const [presence, setPresence] = useState([]);
+  const [deleteRequests, setDeleteRequests] = useState([]);
   const [, setTick] = useState(0);
   useEffect(() => { const iv = setInterval(() => setTick((t) => t + 1), 30000); return () => clearInterval(iv); }, []);
   const [adminMode, setAdminModeState] = useState(() => {
@@ -63,6 +64,9 @@ export function StoreProvider({ children }) {
         (snap) => setLogs(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
         () => {});
       subs.push(unsubLogs);
+      const unsubReq = onSnapshot(collection(db, 'deleteRequests'),
+        (snap) => setDeleteRequests(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), () => {});
+      subs.push(unsubReq);
     }
     const unsubPres = onSnapshot(collection(db, 'presence'),
       (snap) => setPresence(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), () => {});
@@ -195,7 +199,7 @@ export function StoreProvider({ children }) {
     user, isAdmin, adminEligible, adminMode, setAdminMode,
     authLoading, lists, actual: liveActual,
     settings, locked, lastError, clearError: () => setLastError(null),
-    myLists, canCreateList, getPrediction, logs, isOnline, onlineCount,
+    myLists, canCreateList, getPrediction, logs, isOnline, onlineCount, deleteRequests,
 
     signIn: () => signInWithPopup(auth, googleProvider).catch((e) => setLastError(e.code || e.message)),
     logout: () => signOut(auth),
@@ -231,6 +235,26 @@ export function StoreProvider({ children }) {
       }));
       logAction('Excel içe aktarıldı', `${(name || 'Oyuncu').trim()} (${Object.keys(prediction?.groupMatches || {}).length} grup maçı)`);
       return id;
+    },
+    // User asks the admin to delete their list (instead of deleting directly).
+    requestDeleteList: (l) => {
+      if (!user || !l) return;
+      return addDoc(collection(db, 'deleteRequests'), {
+        listId: l.id, listName: l.name || l.ownerName || '',
+        by: user.uid, byName: user.displayName || '', byEmail: user.email || '',
+        at: serverTimestamp(),
+      }).catch(() => setLastError('İstek gönderilemedi.'));
+    },
+    approveDelete: async (req) => {
+      if (!isAdmin) return;
+      logAction('Silme isteği onaylandı', req.listName || req.listId);
+      await reportSave(deleteDoc(doc(db, 'lists', req.listId)));
+      await deleteDoc(doc(db, 'deleteRequests', req.id)).catch(() => {});
+    },
+    rejectDelete: async (req) => {
+      if (!isAdmin) return;
+      logAction('Silme isteği reddedildi', req.listName || req.listId);
+      await deleteDoc(doc(db, 'deleteRequests', req.id)).catch(() => {});
     },
     deleteList: (id) => {
       const l = listsRef.current.find((x) => x.id === id);
@@ -347,7 +371,7 @@ export function StoreProvider({ children }) {
         return a;
       });
     },
-  }), [user, isAdmin, adminEligible, adminMode, authLoading, lists, actual, settings, locked, lastError, drafts, actualDraft, logs, presence]);
+  }), [user, isAdmin, adminEligible, adminMode, authLoading, lists, actual, settings, locked, lastError, drafts, actualDraft, logs, presence, deleteRequests]);
 
   return <StoreCtx.Provider value={api}>{children}</StoreCtx.Provider>;
 }

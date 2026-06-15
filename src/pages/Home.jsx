@@ -14,8 +14,20 @@ const dayKey = (date) => {
 const timeKey = (m) => { const [h, mm] = (m.time || '0:0').split(':').map(Number); return dayKey(m.date) * 10000 + h * 100 + mm; };
 const hasScore = (s) => s && s.home !== '' && s.home != null && s.away !== '' && s.away != null;
 
+const TOUR_START = new Date(2026, 5, 11); // 11 Haziran 2026
+const TOUR_FINAL = new Date(2026, 6, 19); // 19 Temmuz 2026 (final)
+const DAY_MS = 86400000;
+function tournamentStatus() {
+  const t = new Date(); t.setHours(0, 0, 0, 0);
+  if (t < TOUR_START) return `Başlamasına ${Math.ceil((TOUR_START - t) / DAY_MS)} gün`;
+  if (t > TOUR_FINAL) return 'Turnuva tamamlandı';
+  const dayNo = Math.floor((t - TOUR_START) / DAY_MS) + 1;
+  const left = Math.ceil((TOUR_FINAL - t) / DAY_MS);
+  return `Turnuvanın ${dayNo}. günü · finale ${left} gün kaldı`;
+}
+
 export default function Home({ setPage }) {
-  const { lists, actual, getPrediction, user, isAdmin, adminEligible, adminMode, setAdminMode, logout } = useStore();
+  const { lists, actual, getPrediction, user, isAdmin, adminEligible, adminMode, setAdminMode, logout, isMyList } = useStore();
 
   const rows = useMemo(() => {
     return lists
@@ -32,12 +44,14 @@ export default function Home({ setPage }) {
       <div className="relative overflow-hidden rounded-2xl bg-ink text-white p-5">
         <div className="absolute -right-8 -top-8 w-40 h-40 rounded-full bg-pitch/30 blur-2xl" />
         <div className="absolute right-6 bottom-4 text-6xl opacity-10 font-display">26</div>
-        <p className="label text-white/60">FIFA Dünya Kupası 2026</p>
+        <p className="font-display text-lg text-pitch leading-none">kupayikimalir.com</p>
+        <p className="label text-white/60 mt-2">FIFA Dünya Kupası 2026</p>
         <h1 className="font-display text-4xl leading-none mt-1">Tahmin<br />Oyunu</h1>
-        <p className="mt-3 text-sm text-white/70">Merhaba {user?.displayName?.split(' ')[0] || 'oyuncu'}{isAdmin ? ' · yönetici' : ''}.</p>
+        <p className="mt-2 text-xs font-semibold text-gold">{tournamentStatus()}</p>
+        <p className="mt-2 text-sm text-white/70">Merhaba {user?.displayName?.split(' ')[0] || 'oyuncu'}{isAdmin ? ' · yönetici' : ''}.</p>
         <div className="mt-4 flex gap-2">
           <button className="btn-primary" onClick={() => setPage('predict')}>Tahmin yap</button>
-          <button className="btn bg-white/10 text-white hover:bg-white/20" onClick={() => setPage('board')}>Sıralama</button>
+          <button className="btn bg-red-600 text-white hover:bg-red-700 shadow-sm" onClick={() => setPage('board')}>Sıralama →</button>
         </div>
       </div>
 
@@ -65,7 +79,8 @@ export default function Home({ setPage }) {
         </div>
       )}
 
-      <TodayMatches lists={lists} getPrediction={getPrediction} actual={actual} />
+      <MyScore rows={rows} isMyList={isMyList} setPage={setPage} onCreate={() => setPage('lists')} />
+      <DayBrowser lists={lists} getPrediction={getPrediction} actual={actual} />
       <RecentResults actual={actual} />
 
       <div className="card p-4">
@@ -105,6 +120,98 @@ export default function Home({ setPage }) {
       </div>
 
       <button className="w-full btn-ghost" onClick={logout}>Çıkış yap</button>
+
+      <Footer />
+    </div>
+  );
+}
+
+const CHANGELOG = [
+  {
+    v: '1.1', date: 'Haziran 2026', items: [
+      'Ana sayfa yenilendi: bugünün maçları, gün gezgini (dün/yarın) ve canlı tahmin yüzdeleri.',
+      'Kendi puanını ana sayfada gör; turnuva günü ve finale kalan gün sayacı.',
+      'Sıralamada şampiyon & gol kralı, "en çok puan" rozeti ve tıklanır puan dökümü.',
+      'Çevrimiçi (Online) göstergesi ve "kaç kişi çevrimiçi" bilgisi.',
+      'Excel içe aktarım: excely.com şablonundan grup + tüm eleme turları.',
+      'Yönetim > Kişiler: ad/e-posta düzenleme, e-posta atama, silme istekleri onayı.',
+      'Kullanıcı liste silme artık yönetici onayına düşer.',
+    ],
+  },
+];
+
+function Footer() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="pt-2 pb-6 text-center">
+      <button onClick={() => setOpen((o) => !o)} className="text-xs font-semibold text-ink/40 hover:text-ink/70">
+        Version {CHANGELOG[0].v}
+      </button>
+      {open && (
+        <div className="mt-3 text-left space-y-3">
+          {CHANGELOG.map((c) => (
+            <div key={c.v} className="card p-4">
+              <div className="flex items-baseline justify-between border-b border-black/5 pb-2 mb-2">
+                <span className="font-display text-lg">Sürüm {c.v}</span>
+                <span className="text-xs text-ink/45">{c.date}</span>
+              </div>
+              <ul className="space-y-1.5 text-sm text-ink/70">
+                {c.items.map((it, i) => (
+                  <li key={i} className="flex gap-2"><span className="text-pitch">•</span><span>{it}</span></li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MyScore({ rows, isMyList, setPage }) {
+  const mine = rows.map((r, i) => ({ ...r, rank: i + 1 })).filter((r) => isMyList(r.list));
+  if (mine.length === 0) {
+    return (
+      <div className="card p-4 flex items-center justify-between">
+        <div>
+          <p className="font-display text-xl">Senin puanın</p>
+          <p className="text-xs text-ink/55 mt-0.5">Henüz bir listen yok.</p>
+        </div>
+        <button className="btn-primary" onClick={() => setPage('lists')}>Liste oluştur</button>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-2">
+      {mine.map((r) => (
+        <button key={r.list.id} onClick={() => setPage('board')}
+          className="card p-4 w-full text-left active:scale-[.99] transition ring-1 ring-pitch/30">
+          <div className="flex items-center gap-3">
+            <div className="flex-1 min-w-0">
+              <p className="label text-pitch">Senin puanın</p>
+              <p className="font-semibold text-ink truncate mt-0.5">{r.list.name} · {r.rank}. sıra</p>
+            </div>
+            <span className="font-display text-3xl text-pitch leading-none">{r.total}</span>
+            <span className="text-ink/25">›</span>
+          </div>
+          <div className="mt-2 grid grid-cols-5 gap-1.5 text-center">
+            <MyMini label="Maçlar" v={r.breakdown.groupMatches} />
+            <MyMini label="Gruplar" v={r.breakdown.groupTables} />
+            <MyMini label="3.'ler" v={r.breakdown.thirds} />
+            <MyMini label="Eleme" v={r.breakdown.knockout} />
+            <MyMini label="Final" v={r.breakdown.finals} />
+          </div>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function MyMini({ label, v }) {
+  return (
+    <div className="rounded-lg bg-black/[0.03] py-1.5">
+      <div className="font-display text-lg text-ink leading-none">{v}</div>
+      <div className="text-[10px] uppercase tracking-wide text-ink/45 mt-0.5">{label}</div>
     </div>
   );
 }
@@ -143,64 +250,77 @@ function distribution(no, lists, getPrediction) {
   return { tot, who, ph: pct(who.H.length), pd: pct(who.D.length), pa: pct(who.A.length) };
 }
 
-function TodayMatches({ lists, getPrediction, actual }) {
-  const today = todayStr();
-  const todays = useMemo(
-    () => GROUP_MATCHES.filter((m) => m.date === today).sort((a, b) => timeKey(a) - timeKey(b)),
-    [today]
-  );
+const dateForOffset = (off) => { const n = new Date(); n.setDate(n.getDate() + off); return `${TR_MON[n.getMonth()]} ${n.getDate()}, ${n.getFullYear()}`; };
+
+function DayBrowser({ lists, getPrediction, actual }) {
+  const [off, setOff] = useState(0);
   const [openNo, setOpenNo] = useState(null);
-  if (todays.length === 0) {
-    return (
-      <div className="card p-4">
-        <p className="font-display text-xl">Bugünün maçları</p>
-        <p className="mt-1 text-sm text-ink/55">Bugün ({today}) maç yok.</p>
-      </div>
-    );
-  }
+  const date = dateForOffset(off);
+  const matches = useMemo(
+    () => GROUP_MATCHES.filter((m) => m.date === date).sort((a, b) => timeKey(a) - timeKey(b)),
+    [date]
+  );
+  const setDay = (o) => { setOff(o); setOpenNo(null); };
+  const label = off === 0 ? 'Bugün' : off === -1 ? 'Dün' : off === 1 ? 'Yarın' : date;
   return (
     <div className="card overflow-hidden">
       <div className="px-4 py-3 border-b border-black/5">
-        <p className="font-display text-xl">Bugünün maçları</p>
-        <p className="text-xs text-ink/45">{today} · maça dokun, kim kimi kaç % tutmuş gör</p>
+        <div className="flex items-center justify-between">
+          <p className="font-display text-xl">Maçlar · {label}</p>
+          <div className="flex items-center gap-1">
+            <button className="h-7 w-7 rounded-full bg-black/5 text-ink/70 active:scale-95" onClick={() => setDay(off - 1)} aria-label="Önceki gün">‹</button>
+            <button className="h-7 w-7 rounded-full bg-black/5 text-ink/70 active:scale-95" onClick={() => setDay(off + 1)} aria-label="Sonraki gün">›</button>
+          </div>
+        </div>
+        <div className="mt-2 flex gap-1.5">
+          {[['Dün', -1], ['Bugün', 0], ['Yarın', 1]].map(([t, o]) => (
+            <button key={o} onClick={() => setDay(o)}
+              className={`rounded-full px-3 py-1 text-xs font-semibold ${off === o ? 'bg-ink text-white' : 'bg-black/5 text-ink/70'}`}>{t}</button>
+          ))}
+          <span className="ml-auto text-xs text-ink/40 self-center">{date}</span>
+        </div>
       </div>
-      <div className="divide-y divide-black/5">
-        {todays.map((m) => {
-          const open = openNo === m.no;
-          const a = actual.groupMatches?.[m.no];
-          const d = open ? distribution(m.no, lists, getPrediction) : null;
-          return (
-            <div key={m.no}>
-              <button className="w-full px-4 py-2.5 text-left" onClick={() => setOpenNo(open ? null : m.no)}>
-                <div className="text-[11px] text-ink/45 mb-1">{m.no}. maç · {m.group} Grubu · {m.time}</div>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 min-w-0 flex items-center justify-end gap-1.5">
-                    <span className="truncate text-sm font-semibold">{shortName(m.home)}</span>
-                    <Flag team={m.home} size={18} className="shrink-0" />
+      {matches.length === 0 ? (
+        <p className="px-4 py-4 text-sm text-ink/55">Bu gün maç yok.</p>
+      ) : (
+        <div className="divide-y divide-black/5">
+          {matches.map((m) => {
+            const open = openNo === m.no;
+            const a = actual.groupMatches?.[m.no];
+            const d = open ? distribution(m.no, lists, getPrediction) : null;
+            return (
+              <div key={m.no}>
+                <button className="w-full px-4 py-2.5 text-left" onClick={() => setOpenNo(open ? null : m.no)}>
+                  <div className="text-[11px] text-ink/45 mb-1">{m.no}. maç · {m.group} Grubu · {m.time}</div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 min-w-0 flex items-center justify-end gap-1.5">
+                      <span className="truncate text-sm font-semibold">{shortName(m.home)}</span>
+                      <Flag team={m.home} size={18} className="shrink-0" />
+                    </div>
+                    <span className="shrink-0 w-12 text-center font-display tabular-nums text-ink/70">
+                      {hasScore(a) ? `${a.home}-${a.away}` : 'vs'}
+                    </span>
+                    <div className="flex-1 min-w-0 flex items-center gap-1.5">
+                      <Flag team={m.away} size={18} className="shrink-0" />
+                      <span className="truncate text-sm font-semibold">{shortName(m.away)}</span>
+                    </div>
+                    <span className={`shrink-0 text-ink/30 transition ${open ? 'rotate-180' : ''}`}>▾</span>
                   </div>
-                  <span className="shrink-0 w-12 text-center font-display tabular-nums text-ink/70">
-                    {hasScore(a) ? `${a.home}-${a.away}` : 'vs'}
-                  </span>
-                  <div className="flex-1 min-w-0 flex items-center gap-1.5">
-                    <Flag team={m.away} size={18} className="shrink-0" />
-                    <span className="truncate text-sm font-semibold">{shortName(m.away)}</span>
+                </button>
+                {open && (
+                  <div className="px-4 pb-3">
+                    {d.tot === 0 ? (
+                      <p className="text-xs text-ink/45">Henüz kimse bu maça skor tahmini girmemiş.</p>
+                    ) : (
+                      <DistBars m={m} d={d} />
+                    )}
                   </div>
-                  <span className={`shrink-0 text-ink/30 transition ${open ? 'rotate-180' : ''}`}>▾</span>
-                </div>
-              </button>
-              {open && (
-                <div className="px-4 pb-3">
-                  {d.tot === 0 ? (
-                    <p className="text-xs text-ink/45">Henüz kimse bu maça skor tahmini girmemiş.</p>
-                  ) : (
-                    <DistBars m={m} d={d} />
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

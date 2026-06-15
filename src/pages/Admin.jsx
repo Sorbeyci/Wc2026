@@ -196,9 +196,26 @@ function AdminSettings({ store }) {
 }
 
 function ListAdmin({ store }) {
-  const { lists, updateListMeta, deleteList } = store;
+  const { lists, updateListMeta, deleteList, deleteRequests, approveDelete, rejectDelete } = store;
   return (
     <div className="space-y-3">
+      {deleteRequests.length > 0 && (
+        <div className="card p-3 border border-red-200 bg-red-50/50 space-y-2">
+          <p className="font-display text-lg text-red-700">Silme istekleri ({deleteRequests.length})</p>
+          {deleteRequests.map((req) => (
+            <div key={req.id} className="flex items-center gap-2 rounded-xl bg-white px-3 py-2">
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-sm truncate">{req.listName}</div>
+                <div className="text-xs text-ink/45 truncate">{req.byName || req.byEmail}</div>
+              </div>
+              <button className="btn bg-red-600 text-white hover:bg-red-700 px-3 py-1.5 text-sm"
+                onClick={() => { if (window.confirm(`"${req.listName}" silinsin mi?`)) approveDelete(req); }}>Onayla & sil</button>
+              <button className="btn bg-white border border-black/10 px-3 py-1.5 text-sm"
+                onClick={() => rejectDelete(req)}>Reddet</button>
+            </div>
+          ))}
+        </div>
+      )}
       <p className="text-sm text-ink/60 px-1">
         Liste adlarını ve atanan e-postaları düzenle. Atanan e-posta, o kişinin kendi listesini
         silebilmesini sağlar.

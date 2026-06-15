@@ -4,8 +4,9 @@ import { SectionTitle, Dot, Empty } from '../components/ui.jsx';
 import ListDetail from './ListDetail.jsx';
 
 export default function Lists({ viewListId, setViewListId, onEdit }) {
-  const { lists, myLists, isAdmin, user, canCreateList, createList, deleteList, canDeleteList, isMyList, isOnline } = useStore();
+  const { lists, myLists, isAdmin, user, canCreateList, createList, deleteList, canDeleteList, isMyList, isOnline, requestDeleteList } = useStore();
   const [name, setName] = useState('');
+  const [requested, setRequested] = useState(() => new Set());
 
   if (viewListId) {
     return <ListDetail listId={viewListId} onBack={() => setViewListId(null)} onEdit={onEdit} />;
@@ -63,10 +64,22 @@ export default function Lists({ viewListId, setViewListId, onEdit }) {
                   <span className="text-ink/25">›</span>
                 </button>
                 {canDelete && (
-                  <button className="text-sm font-semibold text-red-500/80 hover:text-red-600 pl-1"
-                    onClick={() => { if (window.confirm(`"${l.name}" listesi ve tahminleri silinsin mi?`) && window.confirm('Emin misin? Bu işlem geri alınamaz.')) deleteList(l.id); }}>
-                    Sil
-                  </button>
+                  requested.has(l.id) ? (
+                    <span className="text-xs font-semibold text-pitch-dark pl-1 whitespace-nowrap">İstek gönderildi</span>
+                  ) : (
+                    <button className="text-sm font-semibold text-red-500/80 hover:text-red-600 pl-1"
+                      onClick={() => {
+                        if (isAdmin) {
+                          if (window.confirm(`"${l.name}" listesi ve tahminleri silinsin mi?`) && window.confirm('Emin misin? Bu işlem geri alınamaz.'))
+                            deleteList(l.id);
+                        } else if (window.confirm(`"${l.name}" listenin silinmesi için yöneticiye istek gönderilsin mi?`)) {
+                          requestDeleteList(l);
+                          setRequested((s) => new Set(s).add(l.id));
+                        }
+                      }}>
+                      Sil
+                    </button>
+                  )
                 )}
               </div>
             );
