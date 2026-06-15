@@ -182,7 +182,8 @@ function scoreKoPair(p, a) {
   return 0;
 }
 
-export function scoreBracketKnockout(P, A, predKo = {}, actualKo = {}) {
+export function scoreBracketKnockout(P, A, predKo = {}, actualKo = {}, opts = {}) {
+  const r32Final = opts.r32Final !== false; // R32 pairings only settle once the group stage is done
   let advancePts = 0, scorePts = 0, matchupPts = 0, matchupHits = 0;
   const counts = { R32: 0, R16: 0, QF: 0, SF: 0 };
   let scored = 0, exact = 0, result = 0;
@@ -198,6 +199,7 @@ export function scoreBracketKnockout(P, A, predKo = {}, actualKo = {}) {
   // home/away order AND regardless of which slot they land in within that round.
   const canon = (x, y) => [x, y].sort().join('|');
   for (const [from, to] of KO_ALL) {
+    if (from === 73 && !r32Final) continue; // Son 32 eşleşmeleri grup aşaması bitene kadar puanlanmaz
     const actualPairs = new Set();
     for (let no = from; no <= to; no++) {
       const a = A.matches[no];
@@ -249,7 +251,7 @@ export function scoreUser(prediction, actual) {
   const th = scoreThirds(prediction, actual);
   const P = resolveBracket(prediction, prediction?.ko || {});
   const A = resolveBracket(actual, actual?.ko || {});
-  const ko = scoreBracketKnockout(P, A, prediction?.ko || {}, actual?.ko || {});
+  const ko = scoreBracketKnockout(P, A, prediction?.ko || {}, actual?.ko || {}, { r32Final: allGroupsComplete(actual) });
   const fn = scoreBracketFinals(P, A, prediction?.topScorer, actual?.topScorer);
   const total = gm.pts + gt.pts + th.pts + ko.pts + fn.pts;
 

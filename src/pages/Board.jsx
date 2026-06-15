@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useStore } from '../lib/store.jsx';
-import { scoreUser, SCORING } from '../lib/scoring.js';
+import { scoreUser, SCORING, allGroupsComplete } from '../lib/scoring.js';
 import { GROUP_MATCHES } from '../data/tournament.js';
 import { shortName } from '../data/flags.js';
 import { SectionTitle, Dot, Empty, Avatar, Flag } from '../components/ui.jsx';
@@ -52,10 +52,11 @@ const koRoundLabel = (no) => (no <= 88 ? 'S32' : no <= 96 ? 'S16' : no <= 100 ? 
 
 // Knockout matchups where the pairing (two teams) is right — ignoring home/away
 // and ignoring which slot they land in within that round (10p each).
-function matchupHitsOf(P, A) {
+function matchupHitsOf(P, A, r32Final) {
   const hits = [];
   const canon = (x, y) => [x, y].sort().join('|');
   for (const [from, to] of KO_ROUND_RANGES) {
+    if (from === 73 && !r32Final) continue;
     const actualPairs = new Map();
     for (let no = from; no <= to; no++) {
       const a = A?.matches?.[no];
@@ -419,7 +420,7 @@ function CategoryDetail({ cat, r, actual }) {
   const hits = cat === 'gm' ? groupHits(r.pred, actual)
     : cat === 'ko' ? koHits(r.pred, actual, r.bracket?.actual)
     : null;
-  const mhits = cat === 'ko' ? matchupHitsOf(r.bracket?.pred, r.bracket?.actual) : null;
+  const mhits = cat === 'ko' ? matchupHitsOf(r.bracket?.pred, r.bracket?.actual, allGroupsComplete(actual)) : null;
   return (
     <div className="mt-2 rounded-xl bg-black/[0.02] border border-black/5 p-3">
       <div className="flex justify-between text-xs font-bold uppercase tracking-wide text-ink/50 mb-1">
