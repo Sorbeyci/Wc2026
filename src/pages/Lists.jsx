@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useStore } from '../lib/store.jsx';
-import { SectionTitle, Dot, Empty } from '../components/ui.jsx';
+import { SectionTitle, Dot, Empty, Avatar } from '../components/ui.jsx';
 import ListDetail from './ListDetail.jsx';
 
 export default function Lists({ viewListId, setViewListId, onEdit }) {
@@ -53,7 +53,7 @@ export default function Lists({ viewListId, setViewListId, onEdit }) {
               <div key={l.id} className="flex items-center gap-3 px-4 py-3">
                 <button className="flex items-center gap-3 flex-1 min-w-0 text-left" onClick={() => setViewListId(l.id)}>
                   <span className="font-display text-lg text-ink/30 w-6">{i + 1}</span>
-                  <Dot color={l.color} />
+                  <Avatar name={l.ownerName || l.name} color={l.color} src={l.ownerPhoto} size={34} />
                   <span className="flex-1 min-w-0">
                     <span className="block font-semibold text-ink truncate">
                       {l.name}

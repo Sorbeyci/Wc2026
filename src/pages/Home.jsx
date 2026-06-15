@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useStore } from '../lib/store.jsx';
 import { GROUP_MATCHES } from '../data/tournament.js';
 import { scoreUser, SCORING } from '../lib/scoring.js';
-import { Dot, Flag } from '../components/ui.jsx';
+import { Dot, Flag, Avatar, CountUp } from '../components/ui.jsx';
 import { shortName } from '../data/flags.js';
 
 const TR_MON = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
@@ -140,6 +140,16 @@ export default function Home({ setPage }) {
 
 const CHANGELOG = [
   {
+    v: '1.8', date: 'Haziran 2026', items: [
+      'Puanlar değişince yukarı sayan animasyon; sıra değişiminde satırların yumuşak kayması.',
+      'Bugünün maçlarında "CANLI" rozeti ve maç öncesi geri sayım.',
+      'Profil avatarları (baş harf/foto) listelerde, sıralamada ve podyumda.',
+      'Tek dokunuşla paylaşılabilir sıralama görseli (story).',
+      'Sekmelerde kayan vurgu + içerik geçiş animasyonu.',
+      'Yükleme iskeletleri (skeleton) ve dokunsal geri bildirim.',
+    ],
+  },
+  {
     v: '1.7', date: 'Haziran 2026', items: [
       'Maçlar kartında "Kendi skorum" anahtarı: her maçın altında senin tahminin.',
       'Karşılaştır (H2H) içinde kişi başına açılır detaylı istatistik.',
@@ -252,11 +262,12 @@ function MyScore({ rows, isMyList, setPage }) {
         <button key={r.list.id} onClick={() => setPage('board')}
           className="card p-4 w-full text-left active:scale-[.99] transition ring-1 ring-pitch/30">
           <div className="flex items-center gap-3">
+            <Avatar name={r.list.ownerName || r.list.name} color={r.list.color} src={r.list.ownerPhoto} size={40} />
             <div className="flex-1 min-w-0">
               <p className="label text-pitch">Senin puanın</p>
               <p className="font-semibold text-ink truncate mt-0.5">{r.list.name} · {r.rank}. sıra</p>
             </div>
-            <span className="font-display text-3xl text-pitch leading-none">{r.total}</span>
+            <span className="font-display text-3xl text-pitch leading-none"><CountUp value={r.total} /></span>
             <span className="text-ink/25">›</span>
           </div>
           <div className="mt-2 grid grid-cols-5 gap-1.5 text-center">
@@ -316,11 +327,31 @@ function distribution(no, lists, getPrediction) {
 }
 
 const dateForOffset = (off) => { const n = new Date(); n.setDate(n.getDate() + off); return `${TR_MON[n.getMonth()]} ${n.getDate()}, ${n.getFullYear()}`; };
+const matchDate = (m) => {
+  const md = (m.date || '').match(/^(\S+)\s+(\d+),\s*(\d+)$/);
+  if (!md) return null;
+  const mon = TR_MON.indexOf(md[1]);
+  const [h, mi] = (m.time || '0:0').split(':').map(Number);
+  return new Date(+md[3], mon, +md[2], h || 0, mi || 0);
+};
+function liveBadge(m, now) {
+  const st = matchDate(m);
+  if (!st) return null;
+  const diff = st.getTime() - now;
+  if (diff <= 0 && now - st.getTime() < 130 * 60000) return { type: 'live' };
+  if (diff > 0 && diff <= 24 * 3600000) {
+    const h = Math.floor(diff / 3600000), mm = Math.floor((diff % 3600000) / 60000);
+    return { type: 'count', text: h > 0 ? `${h} sa ${mm} dk` : `${mm} dk` };
+  }
+  return null;
+}
 
 function DayBrowser({ lists, getPrediction, actual, myPred }) {
   const [off, setOff] = useState(0);
   const [openNo, setOpenNo] = useState(null);
   const [showMine, setShowMine] = useState(false);
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => { const iv = setInterval(() => setNow(Date.now()), 30000); return () => clearInterval(iv); }, []);
   const date = dateForOffset(off);
   const matches = useMemo(
     () => GROUP_MATCHES.filter((m) => m.date === date).sort((a, b) => timeKey(a) - timeKey(b)),
@@ -364,7 +395,16 @@ function DayBrowser({ lists, getPrediction, actual, myPred }) {
             return (
               <div key={m.no}>
                 <button className="w-full px-4 py-2.5 text-left" onClick={() => setOpenNo(open ? null : m.no)}>
-                  <div className="text-[11px] text-ink/45 mb-1">{m.no}. maç · {m.group} Grubu · {m.time}</div>
+                  <div className="text-[11px] text-ink/45 mb-1 flex items-center gap-2">
+                    <span>{m.no}. maç · {m.group} Grubu · {m.time}</span>
+                    {(() => {
+                      const lb = liveBadge(m, now);
+                      if (!lb) return null;
+                      return lb.type === 'live'
+                        ? <span className="blink inline-flex items-center gap-1 rounded-full bg-red-600 text-white px-1.5 py-0.5 text-[10px] font-bold"><span className="inline-block h-1.5 w-1.5 rounded-full bg-white" />CANLI</span>
+                        : <span className="inline-flex items-center gap-1 rounded-full bg-gold/20 text-gold-dark px-1.5 py-0.5 text-[10px] font-bold">⏱ {lb.text}</span>;
+                    })()}
+                  </div>
                   <div className="flex items-center gap-2">
                     <div className="flex-1 min-w-0 flex items-center justify-end gap-1.5">
                       <span className="truncate text-sm font-semibold">{shortName(m.home)}</span>

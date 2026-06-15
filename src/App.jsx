@@ -8,6 +8,7 @@ import Lists from './pages/Lists.jsx';
 import Predict from './pages/Predict.jsx';
 import Board from './pages/Board.jsx';
 import Admin from './pages/Admin.jsx';
+import { Skeleton } from './components/ui.jsx';
 
 export default function App() {
   const { user, authLoading, isAdmin } = useStore();
@@ -45,8 +46,16 @@ export default function App() {
 
 function Splash() {
   return (
-    <div className="min-h-full flex items-center justify-center">
-      <div className="font-display text-3xl text-ink/30 animate-pulse">Yükleniyor…</div>
+    <div className="min-h-full">
+      <main className="mx-auto max-w-lg px-4 pt-6 pb-24 space-y-4">
+        <Skeleton className="h-44 rounded-2xl" />
+        <div className="grid grid-cols-3 gap-3">
+          <Skeleton className="h-20" /><Skeleton className="h-20" /><Skeleton className="h-20" />
+        </div>
+        <Skeleton className="h-28 rounded-2xl" />
+        <Skeleton className="h-48 rounded-2xl" />
+        <div className="text-center text-xs text-ink/30 pt-2">Yükleniyor…</div>
+      </main>
     </div>
   );
 }

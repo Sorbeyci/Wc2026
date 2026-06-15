@@ -4,7 +4,7 @@ import { scoreUser, SCORING } from '../lib/scoring.js';
 import { GROUP_MATCHES, GROUP_NAMES } from '../data/tournament.js';
 import { resolveBracket, bestThirds } from '../data/bracket.js';
 import { exportPredictionXlsx } from '../lib/excel.js';
-import { Flag, Dot } from '../components/ui.jsx';
+import { Flag, Dot, Segmented, CountUp } from '../components/ui.jsx';
 import Standings from '../components/Standings.jsx';
 import { shortName } from '../data/flags.js';
 import FullStats from '../components/FullStats.jsx';
@@ -52,7 +52,7 @@ export default function ListDetail({ listId, onBack, onEdit }) {
           <p className="text-xs text-ink/45 truncate">{list.ownerName}{owned ? ' · senin listen' : ''}</p>
         </div>
         <div className="text-right">
-          <div className="font-display text-3xl text-pitch leading-none">{result.total}</div>
+          <div className="font-display text-3xl text-pitch leading-none"><CountUp value={result.total} /></div>
           <div className="text-[10px] uppercase tracking-wide text-ink/45">puan</div>
         </div>
       </div>
@@ -64,18 +64,13 @@ export default function ListDetail({ listId, onBack, onEdit }) {
         Excel olarak dışa aktar
       </button>
 
-      <div className="flex rounded-xl bg-black/5 p-1">
-        {SUB.map((s) => (
-          <button key={s.id} onClick={() => setSub(s.id)}
-            className={`flex-1 rounded-lg py-2 text-sm font-semibold transition ${sub === s.id ? 'bg-white shadow-sm text-ink' : 'text-ink/55'}`}>
-            {s.label}
-          </button>
-        ))}
-      </div>
+      <Segmented items={SUB} value={sub} onChange={setSub} />
 
-      {sub === 'standings' && <Standings scores={pred.groupMatches} />}
-      {sub === 'stats' && <FullStats result={result} />}
-      {sub === 'picks' && <Picks pred={pred} actual={actual} />}
+      <div key={sub} className="fade-in">
+        {sub === 'standings' && <Standings scores={pred.groupMatches} />}
+        {sub === 'stats' && <FullStats result={result} />}
+        {sub === 'picks' && <Picks pred={pred} actual={actual} />}
+      </div>
     </div>
   );
 }

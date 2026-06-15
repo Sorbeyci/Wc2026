@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef, useLayoutEffect } from 'react';
 import { useStore } from '../lib/store.jsx';
 import { scoreUser, SCORING, allGroupsComplete, groupOrder, hasOrder } from '../lib/scoring.js';
 import { GROUP_MATCHES, GROUP_NAMES } from '../data/tournament.js';
 import { bestThirds } from '../data/bracket.js';
 import { shortName } from '../data/flags.js';
-import { SectionTitle, Dot, Empty, Avatar, Flag } from '../components/ui.jsx';
+import { SectionTitle, Dot, Empty, Avatar, Flag, CountUp, Segmented } from '../components/ui.jsx';
+import { shareLeaderboard } from '../lib/shareCard.js';
 import FullStats from '../components/FullStats.jsx';
 
 const SUB = [
@@ -94,6 +95,36 @@ function koHits(pred, actual, bracketActual) {
   return hits;
 }
 
+// FLIP animation: smoothly slides rows to new positions when ranking changes.
+function useFlip() {
+  const ref = useRef(null);
+  const prev = useRef(new Map());
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const nodes = el.querySelectorAll('[data-flip-id]');
+    const next = new Map();
+    nodes.forEach((n) => next.set(n.getAttribute('data-flip-id'), n.getBoundingClientRect().top));
+    nodes.forEach((n) => {
+      const id = n.getAttribute('data-flip-id');
+      const p = prev.current.get(id), c = next.get(id);
+      if (p != null && c != null) {
+        const dy = p - c;
+        if (Math.abs(dy) > 1) {
+          n.style.transition = 'none';
+          n.style.transform = `translateY(${dy}px)`;
+          requestAnimationFrame(() => {
+            n.style.transition = 'transform .32s cubic-bezier(.4,0,.2,1)';
+            n.style.transform = '';
+          });
+        }
+      }
+    });
+    prev.current = next;
+  });
+  return ref;
+}
+
 export default function Board({ onOpenList }) {
   const { lists, actual, getPrediction, isOnline, onlineCount } = useStore();
   const [sub, setSub] = useState('board');
@@ -129,15 +160,16 @@ export default function Board({ onOpenList }) {
         </div>
       )}
 
-      <div className="flex rounded-xl bg-black/5 p-1">
-        {SUB.map((s) => (
-          <button key={s.id} onClick={() => setSub(s.id)}
-            className={`flex-1 rounded-lg py-2 text-sm font-semibold transition ${sub === s.id ? 'bg-white shadow-sm text-ink' : 'text-ink/55'}`}>
-            {s.label}
-          </button>
-        ))}
-      </div>
+      <Segmented items={SUB} value={sub} onChange={setSub} />
 
+      {lists.length > 0 && sub === 'board' && (
+        <button onClick={() => shareLeaderboard(rows, { title: 'Sıralama', subtitle: new Date().toLocaleDateString('tr-TR') })}
+          className="w-full btn bg-ink text-white hover:opacity-90 text-sm">
+          📲 Sıralamayı paylaş (story)
+        </button>
+      )}
+
+      <div key={sub} className="fade-in">
       {lists.length === 0 ? (
         <Empty title="Henüz liste yok">Tabloyu görmek için liste ve tahmin ekle.</Empty>
       ) : sub === 'h2h' ? (
@@ -154,14 +186,7 @@ export default function Board({ onOpenList }) {
           </button>
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs text-ink/45">Görünüm</p>
-            <div className="flex rounded-lg bg-black/5 p-0.5">
-              {VIEWS.map((v) => (
-                <button key={v.id} onClick={() => setView(v.id)}
-                  className={`rounded-md px-3 py-1 text-xs font-semibold transition ${view === v.id ? 'bg-white shadow-sm text-ink' : 'text-ink/55'}`}>
-                  {v.label}
-                </button>
-              ))}
-            </div>
+            <Segmented items={VIEWS} value={view} onChange={setView} className="flex-1 max-w-[240px]" />
           </div>
           {proj && (
             <div className="rounded-xl bg-gold/10 border border-gold/30 px-3 py-2 text-xs text-gold-dark">
@@ -176,6 +201,7 @@ export default function Board({ onOpenList }) {
       ) : (
         <Stats rows={rows} />
       )}
+      </div>
     </div>
   );
 }
@@ -208,7 +234,7 @@ function Podium({ rows, onOpenList }) {
             </div>
             <div className="mt-1 text-lg">{['🥇', '🥈', '🥉'][idx]}</div>
             <p className="font-semibold text-xs truncate">{r.list.name}</p>
-            <p className="font-display text-2xl text-ink leading-none">{r.total}</p>
+            <p className="font-display text-2xl text-ink leading-none"><CountUp value={r.total} /></p>
           </button>
         );
       })}
@@ -318,21 +344,22 @@ function H2HFull({ r }) {
 }
 
 function CompactList({ rows, onOpenList, isOnline }) {
+  const flipRef = useFlip();
   return (
-    <div className="card divide-y divide-black/5">
+    <div className="card divide-y divide-black/5" ref={flipRef}>
       {rows.map((r, i) => {
         const leader = i === 0 && r.total > 0;
         return (
-          <button key={r.list.id} onClick={() => onOpenList(r.list.id)}
-            className="w-full flex items-center gap-3 px-4 py-2.5 text-left active:bg-black/[0.02]">
+          <button key={r.list.id} data-flip-id={r.list.id} onClick={() => onOpenList(r.list.id)}
+            className="w-full flex items-center gap-3 px-4 py-2.5 text-left active:bg-black/[0.02] bg-[var(--surface)]">
             <span className={`font-display text-lg w-6 ${leader ? 'text-gold-dark' : 'text-ink/30'}`}>{i + 1}</span>
-            <Dot color={r.list.color} />
+            <Avatar name={r.list.ownerName || r.list.name} color={r.list.color} src={r.list.ownerPhoto} size={28} />
             <span className="flex-1 min-w-0 font-semibold text-sm truncate">
               {r.list.name}
               {isOnline?.(r.list) && <span className="ml-1.5 inline-block h-2 w-2 rounded-full bg-pitch align-middle" />}
             </span>
             <Delta d={r.delta} />
-            <span className="font-display text-lg text-ink tabular-nums">{r.total}</span>
+            <span className="font-display text-lg text-ink tabular-nums"><CountUp value={r.total} /></span>
           </button>
         );
       })}
@@ -350,11 +377,11 @@ function GridView({ rows, onOpenList, isOnline }) {
             className={`card p-3 text-left active:scale-[.99] transition ${leader ? 'ring-2 ring-gold' : ''}`}>
             <div className="flex items-center gap-1.5">
               <span className={`font-display text-base ${leader ? 'text-gold-dark' : 'text-ink/30'}`}>{i + 1}</span>
-              <Dot color={r.list.color} />
+              <Avatar name={r.list.ownerName || r.list.name} color={r.list.color} src={r.list.ownerPhoto} size={24} />
               {isOnline?.(r.list) && <span className="h-2 w-2 rounded-full bg-pitch" />}
             </div>
             <p className="mt-1 font-semibold text-sm leading-tight truncate">{r.list.name}</p>
-            <p className="font-display text-3xl text-ink leading-none mt-1">{r.total}</p>
+            <p className="font-display text-3xl text-ink leading-none mt-1"><CountUp value={r.total} /></p>
             <p className="mt-1 text-[11px] text-ink/45 truncate">🏆 {r.champion || '—'}</p>
           </button>
         );
@@ -364,12 +391,17 @@ function GridView({ rows, onOpenList, isOnline }) {
 }
 
 function Leaderboard({ rows, onOpenList, isOnline, actual, proj }) {
+  const flipRef = useFlip();
   return (
-    <div className="space-y-2">
+    <div className="space-y-2" ref={flipRef}>
       <p className="text-xs text-ink/45 px-1">
         Adına dokunarak tahminlerini gör; kategori kutucuklarına dokunarak nereden kaç puan aldığını ve hangi maçları bildiğini aç.
       </p>
-      {rows.map((r, i) => <LbRow key={r.list.id} r={r} i={i} onOpenList={onOpenList} online={isOnline?.(r.list)} actual={actual} proj={proj} />)}
+      {rows.map((r, i) => (
+        <div key={r.list.id} data-flip-id={r.list.id}>
+          <LbRow r={r} i={i} onOpenList={onOpenList} online={isOnline?.(r.list)} actual={actual} proj={proj} />
+        </div>
+      ))}
     </div>
   );
 }
@@ -389,7 +421,7 @@ function LbRow({ r, i, onOpenList, online, actual, proj }) {
     <div className={`card p-4 ${leader ? 'ring-2 ring-gold' : ''}`}>
       <button className="w-full flex items-center gap-3 text-left active:scale-[.99] transition" onClick={() => onOpenList(r.list.id)}>
         <span className={`font-display text-2xl w-7 ${leader ? 'text-gold-dark' : 'text-ink/30'}`}>{i + 1}</span>
-        <Dot color={r.list.color} />
+        <Avatar name={r.list.ownerName || r.list.name} color={r.list.color} src={r.list.ownerPhoto} size={38} />
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-ink truncate">
             {r.list.name}{leader && <span className="ml-2 chip bg-gold/20 text-gold-dark">Lider</span>}
@@ -397,7 +429,7 @@ function LbRow({ r, i, onOpenList, online, actual, proj }) {
           </p>
           <p className="text-xs text-ink/45 truncate flex items-center gap-1.5">{r.list.ownerName}<Delta d={r.delta} /></p>
         </div>
-        <span className="font-display text-2xl text-ink">{r.total}</span>
+        <span className="font-display text-2xl text-ink"><CountUp value={r.total} /></span>
         <span className="text-ink/25">›</span>
       </button>
 

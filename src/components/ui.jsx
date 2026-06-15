@@ -1,3 +1,4 @@
+import { useState, useEffect, useRef } from 'react';
 import { TEAMS } from '../data/tournament.js';
 import { flagUrl, flagEmoji } from '../data/flags.js';
 
@@ -119,4 +120,50 @@ export function FormBadges({ form }) {
       ))}
     </span>
   );
+}
+
+// Tactile feedback (no-op where unsupported).
+export const tap = () => { try { navigator.vibrate?.(8); } catch (e) {} };
+
+// Animated count-up number.
+export function CountUp({ value, className }) {
+  const [disp, setDisp] = useState(value);
+  const ref = useRef(value);
+  useEffect(() => {
+    const from = ref.current, to = Number(value) || 0;
+    if (from === to) { setDisp(to); return; }
+    const dur = 500, t0 = performance.now();
+    let raf;
+    const step = (t) => {
+      const p = Math.min(1, (t - t0) / dur);
+      const e = 1 - Math.pow(1 - p, 3);
+      setDisp(Math.round(from + (to - from) * e));
+      if (p < 1) raf = requestAnimationFrame(step); else { ref.current = to; setDisp(to); }
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [value]);
+  return <span className={className}>{disp}</span>;
+}
+
+// Segmented control with a sliding highlight pill.
+export function Segmented({ items, value, onChange, className = '' }) {
+  const n = items.length;
+  const idx = Math.max(0, items.findIndex((i) => i.id === value));
+  return (
+    <div className={`relative flex rounded-xl bg-black/5 p-1 ${className}`}>
+      <div className="absolute top-1 bottom-1 rounded-lg bg-white shadow-sm"
+        style={{ width: `calc((100% - 8px) / ${n})`, left: `calc(4px + ${idx} * (100% - 8px) / ${n})`, transition: 'left .22s cubic-bezier(.4,0,.2,1)' }} />
+      {items.map((it) => (
+        <button key={it.id} onClick={() => { tap(); onChange(it.id); }}
+          className={`relative z-10 flex-1 rounded-lg py-2 text-sm font-semibold transition-colors ${value === it.id ? 'text-ink' : 'text-ink/55'}`}>
+          {it.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export function Skeleton({ className = '' }) {
+  return <div className={`skeleton rounded-lg ${className}`} />;
 }
