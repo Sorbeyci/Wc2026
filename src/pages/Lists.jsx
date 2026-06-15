@@ -4,7 +4,7 @@ import { SectionTitle, Dot, Empty } from '../components/ui.jsx';
 import ListDetail from './ListDetail.jsx';
 
 export default function Lists({ viewListId, setViewListId, onEdit }) {
-  const { lists, myLists, isAdmin, user, canCreateList, createList, deleteList, canDeleteList, isMyList } = useStore();
+  const { lists, myLists, isAdmin, user, canCreateList, createList, deleteList, canDeleteList, isMyList, isOnline } = useStore();
   const [name, setName] = useState('');
 
   if (viewListId) {
@@ -54,7 +54,10 @@ export default function Lists({ viewListId, setViewListId, onEdit }) {
                   <span className="font-display text-lg text-ink/30 w-6">{i + 1}</span>
                   <Dot color={l.color} />
                   <span className="flex-1 min-w-0">
-                    <span className="block font-semibold text-ink truncate">{l.name}</span>
+                    <span className="block font-semibold text-ink truncate">
+                      {l.name}
+                      {isOnline(l) && <span className="ml-2 inline-flex items-center gap-1 text-[11px] font-bold text-pitch align-middle"><span className="inline-block h-2 w-2 rounded-full bg-pitch" />Online</span>}
+                    </span>
                     <span className="block text-xs text-ink/45 truncate">{l.ownerName}{mine ? ' · sen' : ''}</span>
                   </span>
                   <span className="text-ink/25">›</span>

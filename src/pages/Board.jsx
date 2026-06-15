@@ -10,7 +10,7 @@ const SUB = [
 ];
 
 export default function Board({ onOpenList }) {
-  const { lists, actual, getPrediction } = useStore();
+  const { lists, actual, getPrediction, isOnline, onlineCount } = useStore();
   const [sub, setSub] = useState('board');
 
   const rows = useMemo(() => (
@@ -27,6 +27,13 @@ export default function Board({ onOpenList }) {
     <div className="space-y-4">
       <SectionTitle eyebrow="3. Adım" title="Sıralama" />
 
+      {onlineCount > 0 && (
+        <div className="flex items-center gap-1.5 text-xs font-semibold text-pitch -mt-1">
+          <span className="inline-block h-2 w-2 rounded-full bg-pitch animate-pulse" />
+          {onlineCount} kişi çevrimiçi
+        </div>
+      )}
+
       <div className="flex rounded-xl bg-black/5 p-1">
         {SUB.map((s) => (
           <button key={s.id} onClick={() => setSub(s.id)}
@@ -39,7 +46,7 @@ export default function Board({ onOpenList }) {
       {lists.length === 0 ? (
         <Empty title="Henüz liste yok">Tabloyu görmek için liste ve tahmin ekle.</Empty>
       ) : sub === 'board' ? (
-        <Leaderboard rows={rows} onOpenList={onOpenList} />
+        <Leaderboard rows={rows} onOpenList={onOpenList} isOnline={isOnline} />
       ) : (
         <Stats rows={rows} />
       )}
@@ -47,18 +54,18 @@ export default function Board({ onOpenList }) {
   );
 }
 
-function Leaderboard({ rows, onOpenList }) {
+function Leaderboard({ rows, onOpenList, isOnline }) {
   return (
     <div className="space-y-2">
       <p className="text-xs text-ink/45 px-1">
         Adına dokunarak tahminlerini gör; kategori kutucuklarına dokunarak nereden kaç puan aldığını aç.
       </p>
-      {rows.map((r, i) => <LbRow key={r.list.id} r={r} i={i} onOpenList={onOpenList} />)}
+      {rows.map((r, i) => <LbRow key={r.list.id} r={r} i={i} onOpenList={onOpenList} online={isOnline?.(r.list)} />)}
     </div>
   );
 }
 
-function LbRow({ r, i, onOpenList }) {
+function LbRow({ r, i, onOpenList, online }) {
   const [cat, setCat] = useState(null);
   const leader = i === 0 && r.total > 0;
   const cats = [
@@ -77,6 +84,7 @@ function LbRow({ r, i, onOpenList }) {
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-ink truncate">
             {r.list.name}{leader && <span className="ml-2 chip bg-gold/20 text-gold-dark">Lider</span>}
+            {online && <span className="ml-2 inline-flex items-center gap-1 text-[11px] font-bold text-pitch align-middle"><span className="inline-block h-2 w-2 rounded-full bg-pitch" />Online</span>}
           </p>
           <p className="text-xs text-ink/45 truncate">{r.list.ownerName}</p>
         </div>

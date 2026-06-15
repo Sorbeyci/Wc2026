@@ -1,8 +1,18 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useStore } from '../lib/store.jsx';
 import { GROUP_MATCHES } from '../data/tournament.js';
 import { scoreUser, SCORING } from '../lib/scoring.js';
-import { Dot } from '../components/ui.jsx';
+import { Dot, Flag } from '../components/ui.jsx';
+import { shortName } from '../data/flags.js';
+
+const TR_MON = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
+const todayStr = () => { const n = new Date(); return `${TR_MON[n.getMonth()]} ${n.getDate()}, ${n.getFullYear()}`; };
+const dayKey = (date) => {
+  const mt = (date || '').match(/^(\S+)\s+(\d+),\s*(\d+)$/);
+  return mt ? (Number(mt[3]) * 10000 + (TR_MON.indexOf(mt[1]) + 1) * 100 + Number(mt[2])) : 0;
+};
+const timeKey = (m) => { const [h, mm] = (m.time || '0:0').split(':').map(Number); return dayKey(m.date) * 10000 + h * 100 + mm; };
+const hasScore = (s) => s && s.home !== '' && s.home != null && s.away !== '' && s.away != null;
 
 export default function Home({ setPage }) {
   const { lists, actual, getPrediction, user, isAdmin, adminEligible, adminMode, setAdminMode, logout } = useStore();
@@ -54,6 +64,9 @@ export default function Home({ setPage }) {
           </button>
         </div>
       )}
+
+      <TodayMatches lists={lists} getPrediction={getPrediction} actual={actual} />
+      <RecentResults actual={actual} />
 
       <div className="card p-4">
         <div className="flex items-center justify-between">
@@ -111,5 +124,145 @@ function Rule({ t, v }) {
       <span>{t}</span>
       <span className="font-semibold text-ink whitespace-nowrap">{v}</span>
     </li>
+  );
+}
+
+// Prediction distribution for a group match across all lists.
+function distribution(no, lists, getPrediction) {
+  const who = { H: [], D: [], A: [] };
+  for (const l of lists) {
+    const p = getPrediction(l.id).groupMatches?.[no];
+    if (!hasScore(p)) continue;
+    const hs = Number(p.home), as = Number(p.away);
+    if (isNaN(hs) || isNaN(as)) continue;
+    const o = hs > as ? 'H' : hs < as ? 'A' : 'D';
+    who[o].push(l.name);
+  }
+  const tot = who.H.length + who.D.length + who.A.length;
+  const pct = (n) => (tot ? Math.round((n / tot) * 100) : 0);
+  return { tot, who, ph: pct(who.H.length), pd: pct(who.D.length), pa: pct(who.A.length) };
+}
+
+function TodayMatches({ lists, getPrediction, actual }) {
+  const today = todayStr();
+  const todays = useMemo(
+    () => GROUP_MATCHES.filter((m) => m.date === today).sort((a, b) => timeKey(a) - timeKey(b)),
+    [today]
+  );
+  const [openNo, setOpenNo] = useState(null);
+  if (todays.length === 0) {
+    return (
+      <div className="card p-4">
+        <p className="font-display text-xl">Bugünün maçları</p>
+        <p className="mt-1 text-sm text-ink/55">Bugün ({today}) maç yok.</p>
+      </div>
+    );
+  }
+  return (
+    <div className="card overflow-hidden">
+      <div className="px-4 py-3 border-b border-black/5">
+        <p className="font-display text-xl">Bugünün maçları</p>
+        <p className="text-xs text-ink/45">{today} · maça dokun, kim kimi kaç % tutmuş gör</p>
+      </div>
+      <div className="divide-y divide-black/5">
+        {todays.map((m) => {
+          const open = openNo === m.no;
+          const a = actual.groupMatches?.[m.no];
+          const d = open ? distribution(m.no, lists, getPrediction) : null;
+          return (
+            <div key={m.no}>
+              <button className="w-full px-4 py-2.5 text-left" onClick={() => setOpenNo(open ? null : m.no)}>
+                <div className="text-[11px] text-ink/45 mb-1">{m.no}. maç · {m.group} Grubu · {m.time}</div>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 min-w-0 flex items-center justify-end gap-1.5">
+                    <span className="truncate text-sm font-semibold">{shortName(m.home)}</span>
+                    <Flag team={m.home} size={18} className="shrink-0" />
+                  </div>
+                  <span className="shrink-0 w-12 text-center font-display tabular-nums text-ink/70">
+                    {hasScore(a) ? `${a.home}-${a.away}` : 'vs'}
+                  </span>
+                  <div className="flex-1 min-w-0 flex items-center gap-1.5">
+                    <Flag team={m.away} size={18} className="shrink-0" />
+                    <span className="truncate text-sm font-semibold">{shortName(m.away)}</span>
+                  </div>
+                  <span className={`shrink-0 text-ink/30 transition ${open ? 'rotate-180' : ''}`}>▾</span>
+                </div>
+              </button>
+              {open && (
+                <div className="px-4 pb-3">
+                  {d.tot === 0 ? (
+                    <p className="text-xs text-ink/45">Henüz kimse bu maça skor tahmini girmemiş.</p>
+                  ) : (
+                    <DistBars m={m} d={d} />
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function DistBars({ m, d }) {
+  const rows = [
+    { label: `${shortName(m.home)} kazanır`, pct: d.ph, names: d.who.H, color: 'bg-pitch' },
+    { label: 'Beraberlik', pct: d.pd, names: d.who.D, color: 'bg-gold' },
+    { label: `${shortName(m.away)} kazanır`, pct: d.pa, names: d.who.A, color: 'bg-ink/70' },
+  ];
+  return (
+    <div className="space-y-2">
+      {rows.map((r, i) => (
+        <div key={i}>
+          <div className="flex items-center justify-between text-xs font-semibold">
+            <span>{r.label}</span>
+            <span className="tabular-nums">%{r.pct} · {r.names.length}</span>
+          </div>
+          <div className="mt-0.5 h-2 rounded-full bg-black/5 overflow-hidden">
+            <div className={`h-full ${r.color}`} style={{ width: `${r.pct}%` }} />
+          </div>
+          {r.names.length > 0 && (
+            <div className="mt-0.5 text-[11px] text-ink/45 truncate">{r.names.join(', ')}</div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function RecentResults({ actual }) {
+  const recent = useMemo(() => {
+    const scored = GROUP_MATCHES.filter((m) => hasScore(actual.groupMatches?.[m.no]));
+    if (scored.length === 0) return null;
+    const latest = scored.reduce((best, m) => (dayKey(m.date) > dayKey(best) ? m.date : best), scored[0].date);
+    return { date: latest, matches: scored.filter((m) => m.date === latest).sort((a, b) => timeKey(a) - timeKey(b)) };
+  }, [actual]);
+  if (!recent) return null;
+  return (
+    <div className="card overflow-hidden">
+      <div className="px-4 py-3 border-b border-black/5">
+        <p className="font-display text-xl">Son sonuçlar</p>
+        <p className="text-xs text-ink/45">{recent.date}</p>
+      </div>
+      <div className="divide-y divide-black/5">
+        {recent.matches.map((m) => {
+          const a = actual.groupMatches[m.no];
+          return (
+            <div key={m.no} className="flex items-center gap-2 px-4 py-2 text-sm">
+              <div className="flex-1 min-w-0 flex items-center justify-end gap-1.5">
+                <span className={`truncate ${Number(a.home) > Number(a.away) ? 'font-bold' : ''}`}>{shortName(m.home)}</span>
+                <Flag team={m.home} size={16} className="shrink-0" />
+              </div>
+              <span className="shrink-0 w-12 text-center font-display tabular-nums">{a.home}-{a.away}</span>
+              <div className="flex-1 min-w-0 flex items-center gap-1.5">
+                <Flag team={m.away} size={16} className="shrink-0" />
+                <span className={`truncate ${Number(a.away) > Number(a.home) ? 'font-bold' : ''}`}>{shortName(m.away)}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }

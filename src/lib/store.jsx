@@ -24,6 +24,9 @@ export function StoreProvider({ children }) {
   const [drafts, setDrafts] = useState({});
   const [actualDraft, setActualDraft] = useState(null);
   const [logs, setLogs] = useState([]);
+  const [presence, setPresence] = useState([]);
+  const [, setTick] = useState(0);
+  useEffect(() => { const iv = setInterval(() => setTick((t) => t + 1), 30000); return () => clearInterval(iv); }, []);
   const [adminMode, setAdminModeState] = useState(() => {
     try { return localStorage.getItem('wc_admin_mode') === '1'; } catch { return false; }
   });
@@ -61,6 +64,9 @@ export function StoreProvider({ children }) {
         () => {});
       subs.push(unsubLogs);
     }
+    const unsubPres = onSnapshot(collection(db, 'presence'),
+      (snap) => setPresence(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), () => {});
+    subs.push(unsubPres);
     return () => subs.forEach((fn) => fn());
   }, [user]);
 
@@ -138,6 +144,39 @@ export function StoreProvider({ children }) {
     });
   };
 
+  // Presence heartbeat: mark this user online while the app is open.
+  useEffect(() => {
+    if (!user) return;
+    const beat = () => setDoc(doc(db, 'presence', user.uid), {
+      uid: user.uid, email: user.email || '', name: user.displayName || '', lastSeen: serverTimestamp(),
+    }, { merge: true }).catch(() => {});
+    beat();
+    const iv = setInterval(beat, 30000);
+    const onVis = () => { if (document.visibilityState === 'visible') beat(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => { clearInterval(iv); document.removeEventListener('visibilitychange', onVis); };
+  }, [user]);
+
+  const ONLINE_MS = 70000;
+  const lastSeenMs = (p) => (p?.lastSeen?.toMillis ? p.lastSeen.toMillis() : (p?.lastSeen?.seconds ? p.lastSeen.seconds * 1000 : 0));
+  const isOnline = (l) => {
+    if (!l) return false;
+    const now = Date.now();
+    for (const p of presence) {
+      if (!lastSeenMs(p) || now - lastSeenMs(p) >= ONLINE_MS) continue;
+      const pe = (p.email || '').toLowerCase();
+      const le = (l.ownerEmail || '').toLowerCase();
+      if (l.imported) { if (le && pe && pe === le) return true; }
+      else { if (p.uid === l.ownerUid) return true; if (le && pe && pe === le) return true; }
+    }
+    return false;
+  };
+  const onlineCount = (() => {
+    const now = Date.now(); let n = 0;
+    for (const p of presence) if (lastSeenMs(p) && now - lastSeenMs(p) < ONLINE_MS) n++;
+    return n;
+  })();
+
   const getPrediction = (listId) =>
     drafts[listId] ?? lists.find((l) => l.id === listId)?.prediction ?? EMPTY_PRED();
   const liveActual = actualDraft ?? actual;
@@ -156,7 +195,7 @@ export function StoreProvider({ children }) {
     user, isAdmin, adminEligible, adminMode, setAdminMode,
     authLoading, lists, actual: liveActual,
     settings, locked, lastError, clearError: () => setLastError(null),
-    myLists, canCreateList, getPrediction, logs,
+    myLists, canCreateList, getPrediction, logs, isOnline, onlineCount,
 
     signIn: () => signInWithPopup(auth, googleProvider).catch((e) => setLastError(e.code || e.message)),
     logout: () => signOut(auth),
@@ -308,7 +347,7 @@ export function StoreProvider({ children }) {
         return a;
       });
     },
-  }), [user, isAdmin, adminEligible, adminMode, authLoading, lists, actual, settings, locked, lastError, drafts, actualDraft, logs]);
+  }), [user, isAdmin, adminEligible, adminMode, authLoading, lists, actual, settings, locked, lastError, drafts, actualDraft, logs, presence]);
 
   return <StoreCtx.Provider value={api}>{children}</StoreCtx.Provider>;
 }
