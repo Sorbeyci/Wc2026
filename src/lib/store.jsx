@@ -66,6 +66,19 @@ export function StoreProvider({ children }) {
 
   const reportSave = (p) => p.catch((e) => setLastError('Kaydedilemedi (' + (e.code || e.message) + '). Firestore kuralları / admin e-postası doğru mu?'));
 
+  // Backfill the signed-in user's e-mail onto their own lists that lack it
+  // (older lists created before e-mail was stored). Runs as each user opens the app.
+  const healed = useRef(new Set());
+  useEffect(() => {
+    if (!user?.email) return;
+    for (const l of lists) {
+      if (l.ownerUid === user.uid && !l.ownerEmail && !healed.current.has(l.id)) {
+        healed.current.add(l.id);
+        setDoc(doc(db, 'lists', l.id), { ownerEmail: user.email }, { merge: true }).catch(() => {});
+      }
+    }
+  }, [lists, user]);
+
   const logAction = (action, detail = '') => {
     if (!adminEligible) return;
     addDoc(collection(db, 'logs'), {
