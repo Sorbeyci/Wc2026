@@ -5,6 +5,7 @@ import {
 } from 'firebase/firestore';
 import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
 import { auth, db, googleProvider, isAdminEmail } from './firebase.js';
+import { setScoring } from './scoring.js';
 
 const StoreCtx = createContext(null);
 
@@ -19,6 +20,17 @@ export function StoreProvider({ children }) {
   const [lists, setLists] = useState([]);
   const [actual, setActual] = useState(EMPTY_ACTUAL());
   const [settings, setSettings] = useState({ locked: false });
+  const [theme, setTheme] = useState(() => (typeof localStorage !== 'undefined' && localStorage.getItem('wc_theme')) || 'system');
+  useEffect(() => {
+    try { localStorage.setItem('wc_theme', theme); } catch {}
+    const mql = window.matchMedia('(prefers-color-scheme: dark)');
+    const apply = () => {
+      const dark = theme === 'dark' || (theme === 'system' && mql.matches);
+      document.documentElement.classList.toggle('dark', dark);
+    };
+    apply();
+    if (theme === 'system') { mql.addEventListener('change', apply); return () => mql.removeEventListener('change', apply); }
+  }, [theme]);
   const [lastError, setLastError] = useState(null);
 
   const [drafts, setDrafts] = useState({});
@@ -57,7 +69,7 @@ export function StoreProvider({ children }) {
       (d) => setActual(d.exists() ? { ...EMPTY_ACTUAL(), ...d.data() } : EMPTY_ACTUAL()),
       (e) => setLastError('Sonuçlar okunamadı: ' + e.code));
     const unsubSettings = onSnapshot(doc(db, 'config', 'settings'),
-      (d) => setSettings(d.exists() ? { locked: false, ...d.data() } : { locked: false }));
+      (d) => { const s = d.exists() ? { locked: false, ...d.data() } : { locked: false }; setScoring(s.scoring || {}); setSettings(s); });
     const subs = [unsubLists, unsubActual, unsubSettings];
     if (isAdminEmail(user.email)) {
       const unsubLogs = onSnapshot(query(collection(db, 'logs'), orderBy('ts', 'desc'), limit(100)),
@@ -82,9 +94,12 @@ export function StoreProvider({ children }) {
   useEffect(() => {
     if (!user?.email) return;
     for (const l of lists) {
-      if (l.ownerUid === user.uid && !l.ownerEmail && !healed.current.has(l.id)) {
+      if (l.ownerUid === user.uid && (!l.ownerEmail || (!l.ownerPhoto && user.photoURL)) && !healed.current.has(l.id)) {
         healed.current.add(l.id);
-        setDoc(doc(db, 'lists', l.id), { ownerEmail: user.email }, { merge: true }).catch(() => {});
+        const patch = {};
+        if (!l.ownerEmail) patch.ownerEmail = user.email;
+        if (!l.ownerPhoto && user.photoURL) patch.ownerPhoto = user.photoURL;
+        if (Object.keys(patch).length) setDoc(doc(db, 'lists', l.id), patch, { merge: true }).catch(() => {});
       }
     }
   }, [lists, user]);
@@ -198,7 +213,7 @@ export function StoreProvider({ children }) {
   const api = useMemo(() => ({
     user, isAdmin, adminEligible, adminMode, setAdminMode,
     authLoading, lists, actual: liveActual,
-    settings, locked, lastError, clearError: () => setLastError(null),
+    settings, locked, lastError, clearError: () => setLastError(null), theme, setTheme,
     myLists, canCreateList, getPrediction, logs, isOnline, onlineCount, deleteRequests,
 
     signIn: () => signInWithPopup(auth, googleProvider).catch((e) => setLastError(e.code || e.message)),
@@ -213,6 +228,7 @@ export function StoreProvider({ children }) {
         ownerUid: user.uid,
         ownerName: user.displayName || user.email || 'Oyuncu',
         ownerEmail: (email || user.email || '').trim(),
+        ownerPhoto: user.photoURL || '',
         name: (name || '').trim() || (user.displayName || 'Listem'),
         color: COLORS[lists.length % COLORS.length],
         prediction: EMPTY_PRED(),
@@ -290,6 +306,11 @@ export function StoreProvider({ children }) {
     },
 
     // ---- admin controls ----
+    setScoringConfig: (cfg) => {
+      if (!isAdmin) return;
+      logAction('Puanlama güncellendi', '');
+      return reportSave(setDoc(doc(db, 'config', 'settings'), { scoring: cfg, updatedAt: serverTimestamp() }, { merge: true }));
+    },
     setLocked: (val) => {
       logAction('Kilit', val ? 'açıldı (kilitli)' : 'kaldırıldı');
       return reportSave(setDoc(doc(db, 'config', 'settings'), { locked: !!val, updatedAt: serverTimestamp() }, { merge: true }));
@@ -371,7 +392,7 @@ export function StoreProvider({ children }) {
         return a;
       });
     },
-  }), [user, isAdmin, adminEligible, adminMode, authLoading, lists, actual, settings, locked, lastError, drafts, actualDraft, logs, presence, deleteRequests]);
+  }), [user, isAdmin, adminEligible, adminMode, authLoading, lists, actual, settings, locked, lastError, drafts, actualDraft, logs, presence, deleteRequests, theme]);
 
   return <StoreCtx.Provider value={api}>{children}</StoreCtx.Provider>;
 }

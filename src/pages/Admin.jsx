@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useStore } from '../lib/store.jsx';
 import { GROUP_MATCHES, GROUP_NAMES } from '../data/tournament.js';
-import { computeStandings } from '../lib/scoring.js';
-import { ScoreBox, SectionTitle, Flag, Dot } from '../components/ui.jsx';
+import { computeStandings, teamForm } from '../lib/scoring.js';
+import { SCORING, DEFAULT_SCORING } from '../lib/scoring.js';
+import { ScoreBox, SectionTitle, Flag, Dot, FormBadges } from '../components/ui.jsx';
 import { shortName } from '../data/flags.js';
 import Standings from '../components/Standings.jsx';
 import Bracket from '../components/Bracket.jsx';
@@ -164,6 +165,7 @@ function GroupOrderEditor({ g, scores, override, onSet, onClear }) {
               <span className={`font-display text-sm w-5 ${i < 2 ? 'text-pitch' : 'text-ink/40'}`}>{i + 1}</span>
               <Flag team={t} size={18} className="shrink-0" />
               <span className="flex-1 min-w-0 truncate text-sm font-semibold">{shortName(t)}</span>
+              <FormBadges form={teamForm(t, scores)} />
               <span className="text-[11px] text-ink/45 tabular-nums">{r.Pts}p · Av {r.GD >= 0 ? '+' : ''}{r.GD} · AG {r.GF}</span>
               <div className="flex flex-col leading-none">
                 <button className="text-ink/40 hover:text-ink disabled:opacity-20" disabled={i === 0} onClick={() => move(i, -1)} aria-label="Yukarı">▲</button>
@@ -200,10 +202,53 @@ function AdminKnockout({ store }) {
   );
 }
 
+const SCORE_FIELDS = [
+  ['Grup maçı', [['match.exact', 'Tam skor'], ['match.result', 'Doğru sonuç']]],
+  ['Grup sıralaması', [['groupTable.qualified', 'Üst tura çıkan takım'], ['groupTable.position', 'Doğru sıra'], ['thirdPlace.advance', 'Üst tura çıkan 3.']]],
+  ['Eleme', [['knockout.match.exact', 'Tam skor'], ['knockout.match.result', 'Doğru sonuç'], ['knockout.matchup', 'Doğru eşleşme (her tur)'], ['knockout.advance.R32', 'Son 32 kazanan'], ['knockout.advance.R16', 'Son 16 kazanan'], ['knockout.advance.QF', 'Çeyrek kazanan'], ['knockout.advance.SF', 'Yarı kazanan']]],
+  ['Final & podyum', [['finals.champion', 'Şampiyon'], ['finals.runnerUp', 'Finalist'], ['finals.third', '3.'], ['finals.fourth', '4.'], ['finals.inThirdPlaceMatch', "3.'lük maçında"], ['finals.topScorer', 'Gol kralı']]],
+];
+const getP = (o, p) => p.split('.').reduce((a, k) => (a == null ? a : a[k]), o);
+const setP = (o, p, v) => { const ks = p.split('.'); const c = structuredClone(o); let t = c; for (let i = 0; i < ks.length - 1; i++) t = t[ks[i]]; t[ks[ks.length - 1]] = v; return c; };
+
+function ScoringEditor({ store }) {
+  const [form, setForm] = useState(() => structuredClone(SCORING));
+  const [saved, setSaved] = useState(false);
+  const save = () => { store.setScoringConfig(structuredClone(form)); setSaved(true); setTimeout(() => setSaved(false), 1500); };
+  return (
+    <div className="card p-4">
+      <p className="font-display text-lg text-ink">Puanlama</p>
+      <p className="text-xs text-ink/55 mt-0.5">Değerleri değiştir, kaydet — herkes için geçerli olur, puanlar anında güncellenir.</p>
+      {SCORE_FIELDS.map(([grp, fields]) => (
+        <div key={grp} className="mt-3">
+          <div className="label">{grp}</div>
+          <div className="mt-1 divide-y divide-black/5">
+            {fields.map(([path, lbl]) => (
+              <div key={path} className="flex items-center gap-2 py-1">
+                <span className="flex-1 text-sm text-ink/70">{lbl}</span>
+                <input type="number" inputMode="numeric"
+                  className="w-16 h-9 text-center text-base font-bold rounded-lg border-2 border-black/10 bg-[var(--surface-2)] text-ink focus:border-pitch focus:outline-none"
+                  value={getP(form, path)}
+                  onChange={(e) => setForm((f) => setP(f, path, e.target.value === '' ? '' : Number(e.target.value)))} />
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+      <div className="mt-3 flex gap-2">
+        <button className="btn-primary flex-1" onClick={save}>{saved ? 'Kaydedildi ✓' : 'Kaydet'}</button>
+        <button className="btn bg-black/5 text-ink" onClick={() => setForm(structuredClone(DEFAULT_SCORING))}>Varsayılan</button>
+      </div>
+    </div>
+  );
+}
+
 function AdminSettings({ store }) {
   const { locked, setLocked, resetAllLists, resetActual, lists } = store;
   return (
     <div className="space-y-3">
+      <ScoringEditor store={store} />
+
       <div className="card p-4">
         <div className="flex items-center justify-between">
           <div>

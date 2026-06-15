@@ -7,16 +7,35 @@
 import { GROUP_MATCHES, GROUPS, KO_ROUNDS } from '../data/tournament.js';
 import { resolveBracket, bestThirds } from '../data/bracket.js';
 
-export const SCORING = {
+export const DEFAULT_SCORING = {
   match: { exact: 5, result: 3 },
   groupTable: { qualified: 10, position: 5 },
   thirdPlace: { advance: 10 },           // per correct best-third team (8 advance)
   knockout: {
     match: { exact: 5, result: 3 },      // predicted knockout scorelines
     advance: { R32: 20, R16: 20, QF: 40, SF: 60 }, // per correct winner
+    matchup: 10,                          // per correct round matchup (both teams), all rounds
   },
   finals: { champion: 80, runnerUp: 50, third: 30, fourth: 20, inThirdPlaceMatch: 20, topScorer: 50 },
 };
+
+export const SCORING = structuredClone(DEFAULT_SCORING);
+
+function applyScoring(target, defaults, partial) {
+  for (const k of Object.keys(defaults)) {
+    if (defaults[k] && typeof defaults[k] === 'object') {
+      target[k] = target[k] || {};
+      applyScoring(target[k], defaults[k], partial?.[k]);
+    } else {
+      const v = partial?.[k];
+      target[k] = (v === '' || v == null || isNaN(v)) ? defaults[k] : Number(v);
+    }
+  }
+}
+// Overlay admin-configured point values on top of the defaults (mutates SCORING).
+export function setScoring(partial) {
+  applyScoring(SCORING, DEFAULT_SCORING, partial || {});
+}
 
 const num = (v) => (v === '' || v == null || isNaN(v) ? null : Number(v));
 
@@ -63,6 +82,21 @@ export function computeStandings(group, scores) {
 export function standingsAll(scores) {
   const out = {};
   for (const g of Object.keys(GROUPS)) out[g] = computeStandings(g, scores);
+  return out;
+}
+
+// A team's group-stage form (oldest→newest) from the team's perspective: G/B/M.
+export function teamForm(team, scores) {
+  const out = [];
+  for (const m of GROUP_MATCHES) {
+    if (m.home !== team && m.away !== team) continue;
+    const s = scores?.[m.no];
+    const hs = num(s?.home), as = num(s?.away);
+    if (hs == null || as == null) continue;
+    const gf = m.home === team ? hs : as;
+    const ga = m.home === team ? as : hs;
+    out.push(gf > ga ? 'G' : gf < ga ? 'M' : 'B');
+  }
   return out;
 }
 
@@ -149,7 +183,7 @@ function scoreKoPair(p, a) {
 }
 
 export function scoreBracketKnockout(P, A, predKo = {}, actualKo = {}) {
-  let advancePts = 0, scorePts = 0;
+  let advancePts = 0, scorePts = 0, matchupPts = 0, matchupHits = 0;
   const counts = { R32: 0, R16: 0, QF: 0, SF: 0 };
   let scored = 0, exact = 0, result = 0;
 
@@ -158,6 +192,15 @@ export function scoreBracketKnockout(P, A, predKo = {}, actualKo = {}) {
     for (let no = from; no <= to; no++) {
       const aw = A.matches[no]?.winner;
       if (aw && P.matches[no]?.winner === aw) { advancePts += SCORING.knockout.advance[id]; counts[id]++; }
+    }
+  }
+  // correct-matchup points: both teams of the pairing right, every round (73–104)
+  for (const [from, to] of KO_ALL) {
+    for (let no = from; no <= to; no++) {
+      const a = A.matches[no], p = P.matches[no];
+      if (!a?.home || !a?.away || !p?.home || !p?.away) continue;
+      const set = new Set([a.home, a.away]);
+      if (p.home !== p.away && set.has(p.home) && set.has(p.away)) { matchupPts += SCORING.knockout.matchup; matchupHits++; }
     }
   }
   // scoreline points: every knockout match (73–104)
@@ -172,7 +215,7 @@ export function scoreBracketKnockout(P, A, predKo = {}, actualKo = {}) {
       scorePts += got;
     }
   }
-  return { pts: advancePts + scorePts, advancePts, scorePts, counts, scored, exact, result };
+  return { pts: advancePts + scorePts + matchupPts, advancePts, scorePts, matchupPts, matchupHits, counts, scored, exact, result };
 }
 
 // ---- Finals (champion / podium / top scorer), derived from the bracket ----
@@ -239,6 +282,7 @@ export function scoreUser(prediction, actual) {
       koR32: ko.counts.R32, koR16: ko.counts.R16, koQF: ko.counts.QF, koSF: ko.counts.SF,
       koScored: ko.scored, koExact: ko.exact, koResult: ko.result,
       koAdvancePoints: ko.advancePts, koScorePoints: ko.scorePts, knockoutPoints: ko.pts,
+      koMatchupHits: ko.matchupHits, koMatchupPoints: ko.matchupPts,
       finalsHits, finalsPoints: fn.pts, finalsHit: fn.hit,
     },
   };

@@ -49,7 +49,8 @@ export default function FullStats({ result }) {
       </Group>
 
       <Group title="Eleme turu" points={s.knockoutPoints}>
-        <Row label="Tam skor (eleme)" hint="5 puan" value={s.koExact} />
+        <Row label="Doğru eşleşme (her tur)" hint="eşleşme başına" value={s.koMatchupHits} />
+        <Row label="Tam skor (eleme)" hint="tam skor" value={s.koExact} />
         <Row label="Doğru sonuç (eleme)" hint="3 puan" value={s.koResult} />
         <Row label="Son 32 / 16 doğru kazanan" hint="20 / 20" value={`${s.koR32} / ${s.koR16}`} />
         <Row label="Çeyrek / Yarı doğru kazanan" hint="40 / 60" value={`${s.koQF} / ${s.koSF}`} />

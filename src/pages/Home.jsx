@@ -27,7 +27,7 @@ function tournamentStatus() {
 }
 
 export default function Home({ setPage }) {
-  const { lists, actual, getPrediction, user, isAdmin, adminEligible, adminMode, setAdminMode, logout, isMyList } = useStore();
+  const { lists, actual, getPrediction, user, isAdmin, adminEligible, adminMode, setAdminMode, logout, isMyList, theme, setTheme } = useStore();
 
   const rows = useMemo(() => {
     return lists
@@ -112,6 +112,18 @@ export default function Home({ setPage }) {
         </ul>
       </div>
 
+      <div className="card p-3 flex items-center justify-between">
+        <span className="text-sm font-semibold text-ink/70">Tema</span>
+        <div className="flex rounded-lg bg-black/5 p-0.5">
+          {[['system', 'Sistem'], ['light', 'Açık'], ['dark', 'Koyu']].map(([id, lbl]) => (
+            <button key={id} onClick={() => setTheme(id)}
+              className={`rounded-md px-3 py-1 text-xs font-semibold transition ${theme === id ? 'bg-white shadow-sm text-ink' : 'text-ink/55'}`}>
+              {lbl}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <button className="w-full btn-ghost" onClick={logout}>Çıkış yap</button>
 
       <Footer />
@@ -120,6 +132,15 @@ export default function Home({ setPage }) {
 }
 
 const CHANGELOG = [
+  {
+    v: '1.4', date: 'Haziran 2026', items: [
+      'Koyu mod (Sistem/Açık/Koyu) — ana sayfadan seçilir.',
+      'Yeni puan: doğru eleme eşleşmesi başına puan (tüm turlar).',
+      'Yönetim > Ayarlar: tüm puan değerleri düzenlenebilir.',
+      'Sıralamada podyum (ilk 3 + avatar) ve "Karşılaştır" (H2H) sekmesi.',
+      'Sıralama değişim oku (▲/▼) ve maç sonuçlarında kazanan yeşil / form rozetleri (G/B/M).',
+    ],
+  },
   {
     v: '1.3', date: 'Haziran 2026', items: [
       'Yönetim > Sıralamalar: "Kimin sıralaması" seçici — gerçek tablo veya herhangi bir kişinin tahmin sıralaması oklarla düzenlenebilir.',
@@ -447,13 +468,13 @@ function RecentResults({ actual }) {
           return (
             <div key={m.no} className="flex items-center gap-2 px-4 py-2 text-sm">
               <div className="flex-1 min-w-0 flex items-center justify-end gap-1.5">
-                <span className={`truncate ${Number(a.home) > Number(a.away) ? 'font-bold' : ''}`}>{shortName(m.home)}</span>
+                <span className={`truncate ${Number(a.home) > Number(a.away) ? 'font-bold text-pitch' : Number(a.home) < Number(a.away) ? 'text-ink/40' : ''}`}>{shortName(m.home)}</span>
                 <Flag team={m.home} size={16} className="shrink-0" />
               </div>
               <span className="shrink-0 w-12 text-center font-display tabular-nums">{a.home}-{a.away}</span>
               <div className="flex-1 min-w-0 flex items-center gap-1.5">
                 <Flag team={m.away} size={16} className="shrink-0" />
-                <span className={`truncate ${Number(a.away) > Number(a.home) ? 'font-bold' : ''}`}>{shortName(m.away)}</span>
+                <span className={`truncate ${Number(a.away) > Number(a.home) ? 'font-bold text-pitch' : Number(a.away) < Number(a.home) ? 'text-ink/40' : ''}`}>{shortName(m.away)}</span>
               </div>
             </div>
           );

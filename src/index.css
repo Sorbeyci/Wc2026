@@ -2,18 +2,20 @@
 @tailwind components;
 @tailwind utilities;
 
-:root { color-scheme: light; }
+:root { color-scheme: light; --bg: #eef1f0; --surface: #ffffff; --surface-2: #f5f7f6; --text: 15 23 34; }
+.dark { color-scheme: dark; --bg: #0b0f16; --surface: #161d29; --surface-2: #10161f; --text: 226 232 240; }
 
 html, body, #root { height: 100%; }
 body {
   margin: 0;
-  background: #eef1f0;
+  background: var(--bg);
   -webkit-tap-highlight-color: transparent;
 }
 
 @layer components {
   .card {
-    @apply bg-white rounded-2xl shadow-sm border border-black/5;
+    @apply rounded-2xl shadow-sm border border-black/5;
+    background: var(--surface);
   }
   .label {
     @apply text-xs font-semibold uppercase tracking-wider text-ink/50;
@@ -28,14 +30,45 @@ body {
     @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold;
   }
   .score-input {
-    @apply w-12 h-12 text-center text-xl font-bold rounded-xl border-2 border-black/10 bg-chalk
+    @apply w-12 h-12 text-center text-xl font-bold rounded-xl border-2 border-black/10
            focus:border-pitch focus:outline-none focus:ring-2 focus:ring-pitch/20;
+    background: var(--surface-2);
+    color: rgb(var(--text));
   }
   .field {
-    @apply w-full rounded-xl border-2 border-black/10 bg-white px-3 py-2.5 text-ink
+    @apply w-full rounded-xl border-2 border-black/10 px-3 py-2.5
            focus:border-pitch focus:outline-none focus:ring-2 focus:ring-pitch/20;
+    background: var(--surface);
+    color: rgb(var(--text));
   }
 }
+
+/* ---- Dark mode: re-skin light utilities used across the app ---------------- */
+.dark .bg-white { background-color: var(--surface) !important; }
+.dark .bg-white\/95 { background-color: rgb(22 29 41 / 0.95) !important; }
+.dark .text-ink { color: rgb(var(--text)); }
+.dark .text-ink\/25 { color: rgb(var(--text) / .25); }
+.dark .text-ink\/30 { color: rgb(var(--text) / .30); }
+.dark .text-ink\/35 { color: rgb(var(--text) / .35); }
+.dark .text-ink\/40 { color: rgb(var(--text) / .40); }
+.dark .text-ink\/45 { color: rgb(var(--text) / .45); }
+.dark .text-ink\/50 { color: rgb(var(--text) / .50); }
+.dark .text-ink\/55 { color: rgb(var(--text) / .55); }
+.dark .text-ink\/60 { color: rgb(var(--text) / .60); }
+.dark .text-ink\/65 { color: rgb(var(--text) / .65); }
+.dark .text-ink\/70 { color: rgb(var(--text) / .70); }
+.dark .text-ink\/75 { color: rgb(var(--text) / .75); }
+.dark .border-black\/5 { border-color: rgb(255 255 255 / .08); }
+.dark .border-black\/10 { border-color: rgb(255 255 255 / .12); }
+.dark .border-black\/15 { border-color: rgb(255 255 255 / .16); }
+.dark .divide-black\/5 > :not([hidden]) ~ :not([hidden]) { border-color: rgb(255 255 255 / .08); }
+.dark .bg-black\/5 { background-color: rgb(255 255 255 / .06); }
+.dark .bg-black\/10 { background-color: rgb(255 255 255 / .10); }
+.dark .bg-black\/15 { background-color: rgb(255 255 255 / .14); }
+.dark .bg-black\/\[0\.015\] { background-color: rgb(255 255 255 / .03); }
+.dark .bg-black\/\[0\.02\] { background-color: rgb(255 255 255 / .04); }
+.dark .bg-black\/\[0\.03\] { background-color: rgb(255 255 255 / .05); }
+.dark .bg-black\/\[0\.04\] { background-color: rgb(255 255 255 / .06); }
 
 /* hide number spinners */
 input[type=number]::-webkit-inner-spin-button,

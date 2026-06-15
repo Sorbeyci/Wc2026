@@ -3,18 +3,34 @@ import { useStore } from '../lib/store.jsx';
 import { scoreUser } from '../lib/scoring.js';
 import { GROUP_MATCHES } from '../data/tournament.js';
 import { shortName } from '../data/flags.js';
-import { SectionTitle, Dot, Empty } from '../components/ui.jsx';
+import { SectionTitle, Dot, Empty, Avatar, Flag } from '../components/ui.jsx';
 import FullStats from '../components/FullStats.jsx';
 
 const SUB = [
   { id: 'board', label: 'Sıralama' },
   { id: 'stats', label: 'İstatistik' },
+  { id: 'h2h', label: 'Karşılaştır' },
 ];
 const VIEWS = [
   { id: 'detay', label: 'Detay' },
   { id: 'liste', label: 'Liste' },
   { id: 'tablo', label: 'Tablo' },
 ];
+
+const MON = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
+const dkeyOf = (d) => { const m = (d || '').match(/^(\S+)\s+(\d+),\s*(\d+)$/); return m ? (+m[3]) * 10000 + (MON.indexOf(m[1]) + 1) * 100 + (+m[2]) : 0; };
+const hasS = (s) => s && s.home !== '' && s.home != null && s.away !== '' && s.away != null;
+function prevActualOf(actual) {
+  const byNo = Object.fromEntries(GROUP_MATCHES.map((m) => [m.no, m]));
+  const scoredNos = Object.keys(actual.groupMatches || {}).filter((no) => hasS(actual.groupMatches[no]));
+  if (scoredNos.length === 0) return null;
+  const latest = Math.max(...scoredNos.map((no) => dkeyOf(byNo[no]?.date)));
+  if (!latest) return null;
+  const gm = { ...actual.groupMatches };
+  let removed = 0;
+  for (const no of scoredNos) if (dkeyOf(byNo[no]?.date) === latest) { delete gm[no]; removed++; }
+  return removed ? { ...actual, groupMatches: gm } : null;
+}
 
 const sg = (n) => (n > 0 ? 1 : n < 0 ? -1 : 0);
 const scored = (s) => s && s.home !== '' && s.home != null && s.away !== '' && s.away != null;
@@ -52,15 +68,23 @@ export default function Board({ onOpenList }) {
   const [sub, setSub] = useState('board');
   const [view, setView] = useState('detay');
 
-  const rows = useMemo(() => (
-    lists
+  const rows = useMemo(() => {
+    const cur = lists
       .map((l) => {
         const pred = getPrediction(l.id);
         const res = scoreUser(pred, actual);
         return { list: l, ...res, pred, champion: res.bracket?.pred?.champion || null, topScorer: pred.topScorer || '' };
       })
-      .sort((a, b) => b.total - a.total)
-  ), [lists, actual]);
+      .sort((a, b) => b.total - a.total);
+    const prevA = prevActualOf(actual);
+    const prevRank = {};
+    if (prevA) {
+      lists.map((l) => ({ id: l.id, total: scoreUser(getPrediction(l.id), prevA).total }))
+        .sort((a, b) => b.total - a.total)
+        .forEach((r, i) => { prevRank[r.id] = i + 1; });
+    }
+    return cur.map((r, i) => ({ ...r, rank: i + 1, delta: prevRank[r.list.id] ? prevRank[r.list.id] - (i + 1) : 0 }));
+  }, [lists, actual]);
 
   return (
     <div className="space-y-4">
@@ -84,8 +108,11 @@ export default function Board({ onOpenList }) {
 
       {lists.length === 0 ? (
         <Empty title="Henüz liste yok">Tabloyu görmek için liste ve tahmin ekle.</Empty>
+      ) : sub === 'h2h' ? (
+        <H2H rows={rows} />
       ) : sub === 'board' ? (
         <>
+          <Podium rows={rows} onOpenList={onOpenList} />
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs text-ink/45">Görünüm</p>
             <div className="flex rounded-lg bg-black/5 p-0.5">
@@ -108,6 +135,102 @@ export default function Board({ onOpenList }) {
   );
 }
 
+function Delta({ d }) {
+  if (!d) return null;
+  const up = d > 0;
+  return (
+    <span className={`inline-flex items-center text-[11px] font-bold ${up ? 'text-pitch' : 'text-red-500'}`}>
+      {up ? '▲' : '▼'}{Math.abs(d)}
+    </span>
+  );
+}
+
+function Podium({ rows, onOpenList }) {
+  const top = rows.slice(0, 3).filter((r) => r.total > 0);
+  if (top.length < 3) return null;
+  const medal = ['ring-gold bg-gold/10', 'ring-black/15 bg-black/[0.03]', 'ring-[#cd7f32]/40 bg-[#cd7f32]/10'];
+  const order = [1, 0, 2]; // 2nd, 1st, 3rd visually
+  return (
+    <div className="grid grid-cols-3 gap-2 items-end">
+      {order.map((idx, pos) => {
+        const r = top[idx];
+        const big = idx === 0;
+        return (
+          <button key={r.list.id} onClick={() => onOpenList(r.list.id)}
+            className={`card p-3 text-center ring-2 ${medal[idx]} ${big ? '-translate-y-1' : ''}`}>
+            <div className="flex justify-center">
+              <Avatar name={r.list.ownerName || r.list.name} color={r.list.color} src={r.list.ownerPhoto} size={big ? 48 : 40} />
+            </div>
+            <div className="mt-1 text-lg">{['🥇', '🥈', '🥉'][idx]}</div>
+            <p className="font-semibold text-xs truncate">{r.list.name}</p>
+            <p className="font-display text-2xl text-ink leading-none">{r.total}</p>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function H2H({ rows }) {
+  const [a, setA] = useState(rows[0]?.list.id || '');
+  const [b, setB] = useState(rows[1]?.list.id || rows[0]?.list.id || '');
+  const ra = rows.find((r) => r.list.id === a);
+  const rb = rows.find((r) => r.list.id === b);
+  const cats = [
+    ['Toplam', 'total'], ['Maçlar', 'groupMatches'], ['Gruplar', 'groupTables'],
+    ["3.'ler", 'thirds'], ['Eleme', 'knockout'], ['Final', 'finals'],
+  ];
+  const val = (r, k) => (k === 'total' ? r?.total : r?.breakdown?.[k]) || 0;
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-2">
+        <select className="field" value={a} onChange={(e) => setA(e.target.value)}>
+          {rows.map((r) => <option key={r.list.id} value={r.list.id}>{r.list.name}</option>)}
+        </select>
+        <select className="field" value={b} onChange={(e) => setB(e.target.value)}>
+          {rows.map((r) => <option key={r.list.id} value={r.list.id}>{r.list.name}</option>)}
+        </select>
+      </div>
+      {ra && rb && (
+        <div className="card p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 min-w-0">
+              <Avatar name={ra.list.ownerName || ra.list.name} color={ra.list.color} src={ra.list.ownerPhoto} size={36} />
+              <span className="font-semibold text-sm truncate">{ra.list.name}</span>
+            </div>
+            <span className="text-xs text-ink/40 px-2">vs</span>
+            <div className="flex items-center gap-2 min-w-0 justify-end">
+              <span className="font-semibold text-sm truncate text-right">{rb.list.name}</span>
+              <Avatar name={rb.list.ownerName || rb.list.name} color={rb.list.color} src={rb.list.ownerPhoto} size={36} />
+            </div>
+          </div>
+          {cats.map(([label, k]) => {
+            const va = val(ra, k), vb = val(rb, k);
+            const max = Math.max(va, vb, 1);
+            return (
+              <div key={k}>
+                <div className="flex items-center justify-between text-xs font-semibold mb-0.5">
+                  <span className={va >= vb ? 'text-pitch' : 'text-ink/50'}>{va}</span>
+                  <span className="text-ink/45 uppercase tracking-wide">{label}</span>
+                  <span className={vb >= va ? 'text-pitch' : 'text-ink/50'}>{vb}</span>
+                </div>
+                <div className="flex gap-1 h-2">
+                  <div className="flex-1 flex justify-end"><div className="bg-pitch/70 rounded-l" style={{ width: `${(va / max) * 100}%` }} /></div>
+                  <div className="flex-1"><div className="bg-ink/60 rounded-r h-full" style={{ width: `${(vb / max) * 100}%` }} /></div>
+                </div>
+              </div>
+            );
+          })}
+          <div className="grid grid-cols-2 gap-2 pt-1 text-xs">
+            <div className="rounded-lg bg-black/[0.03] p-2">🏆 {ra.champion || '—'}<br />⚽ {ra.topScorer || '—'}</div>
+            <div className="rounded-lg bg-black/[0.03] p-2 text-right">{rb.champion || '—'} 🏆<br />{rb.topScorer || '—'} ⚽</div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CompactList({ rows, onOpenList, isOnline }) {
   return (
     <div className="card divide-y divide-black/5">
@@ -122,6 +245,7 @@ function CompactList({ rows, onOpenList, isOnline }) {
               {r.list.name}
               {isOnline?.(r.list) && <span className="ml-1.5 inline-block h-2 w-2 rounded-full bg-pitch align-middle" />}
             </span>
+            <Delta d={r.delta} />
             <span className="font-display text-lg text-ink tabular-nums">{r.total}</span>
           </button>
         );
@@ -185,7 +309,7 @@ function LbRow({ r, i, onOpenList, online, actual }) {
             {r.list.name}{leader && <span className="ml-2 chip bg-gold/20 text-gold-dark">Lider</span>}
             {online && <span className="ml-2 inline-flex items-center gap-1 text-[11px] font-bold text-pitch align-middle"><span className="inline-block h-2 w-2 rounded-full bg-pitch" />Online</span>}
           </p>
-          <p className="text-xs text-ink/45 truncate">{r.list.ownerName}</p>
+          <p className="text-xs text-ink/45 truncate flex items-center gap-1.5">{r.list.ownerName}<Delta d={r.delta} /></p>
         </div>
         <span className="font-display text-2xl text-ink">{r.total}</span>
         <span className="text-ink/25">›</span>
@@ -241,7 +365,7 @@ function CategoryDetail({ cat, r, actual }) {
     gm: [['Tam skor (5p)', s.exact], ['Doğru sonuç (3p)', s.correctResult], ['Puanlanan maç', s.playedScored]],
     gt: [['Üst tura çıkan (10p)', s.correctQualified], ['Doğru sıra (5p)', s.correctPositions], ['Tamamlanan grup', `${s.groupsFinal}/12`]],
     th: [['Doğru 3. takım (10p)', `${s.thirdsCorrect}/8`]],
-    ko: [['Tam skor (5p)', s.koExact], ['Doğru sonuç (3p)', s.koResult], ['Son 32 doğru (20p)', s.koR32], ['Son 16 doğru (20p)', s.koR16], ['Çeyrek doğru (40p)', s.koQF], ['Yarı doğru (60p)', s.koSF]],
+    ko: [['Doğru eşleşme (her tur)', s.koMatchupHits], ['Tam skor (5p)', s.koExact], ['Doğru sonuç (3p)', s.koResult], ['Son 32 doğru (20p)', s.koR32], ['Son 16 doğru (20p)', s.koR16], ['Çeyrek doğru (40p)', s.koQF], ['Yarı doğru (60p)', s.koSF]],
     fn: [['Şampiyon (80p)', tick(s.finalsHit.champion)], ['Finalist (50p)', tick(s.finalsHit.runnerUp)], ["3.'lük (30p)", tick(s.finalsHit.third)], ["4.'lük (20p)", tick(s.finalsHit.fourth)], ['Gol kralı (50p)', tick(s.finalsHit.topScorer)]],
   }[cat] || [];
   const total = { gm: r.breakdown.groupMatches, gt: r.breakdown.groupTables, th: r.breakdown.thirds, ko: r.breakdown.knockout, fn: r.breakdown.finals }[cat];
