@@ -436,16 +436,16 @@ export const GROUP_MATCHES = [
   },
   {
     "no": 31,
-    "date": "Haz 20, 2026",
-    "time": "06:00",
+    "date": "Haz 19, 2026",
+    "time": "22:00",
     "home": "Amerika Birleşik Devletleri",
     "away": "Avustralya",
     "group": "D"
   },
   {
     "no": 32,
-    "date": "Haz 19, 2026",
-    "time": "22:00",
+    "date": "Haz 20, 2026",
+    "time": "06:00",
     "home": "Türkiye",
     "away": "Paraguay",
     "group": "D"

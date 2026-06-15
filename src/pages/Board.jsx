@@ -97,24 +97,25 @@ export default function Board({ onOpenList }) {
   const { lists, actual, getPrediction, isOnline, onlineCount } = useStore();
   const [sub, setSub] = useState('board');
   const [view, setView] = useState('detay');
+  const [proj, setProj] = useState(false);
 
   const rows = useMemo(() => {
     const cur = lists
       .map((l) => {
         const pred = getPrediction(l.id);
-        const res = scoreUser(pred, actual);
+        const res = scoreUser(pred, actual, { projection: proj });
         return { list: l, ...res, pred, champion: res.bracket?.pred?.champion || null, topScorer: pred.topScorer || '' };
       })
       .sort((a, b) => b.total - a.total);
     const prevA = prevActualOf(actual);
     const prevRank = {};
     if (prevA) {
-      lists.map((l) => ({ id: l.id, total: scoreUser(getPrediction(l.id), prevA).total }))
+      lists.map((l) => ({ id: l.id, total: scoreUser(getPrediction(l.id), prevA, { projection: proj }).total }))
         .sort((a, b) => b.total - a.total)
         .forEach((r, i) => { prevRank[r.id] = i + 1; });
     }
     return cur.map((r, i) => ({ ...r, rank: i + 1, delta: prevRank[r.list.id] ? prevRank[r.list.id] - (i + 1) : 0 }));
-  }, [lists, actual]);
+  }, [lists, actual, proj]);
 
   return (
     <div className="space-y-4">
@@ -144,7 +145,11 @@ export default function Board({ onOpenList }) {
         <>
           <Podium rows={rows} onOpenList={onOpenList} />
           <div className="flex items-center justify-between gap-2">
-            <p className="text-xs text-ink/45">Görünüm</p>
+            <button onClick={() => setProj(!proj)}
+              className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition ${proj ? 'bg-gold/20 text-gold-dark' : 'bg-black/5 text-ink/55'}`}>
+              <span className={`inline-block h-2 w-2 rounded-full ${proj ? 'bg-gold animate-pulse' : 'bg-ink/30'}`} />
+              {proj ? 'Geçici puanlar açık' : 'Geçici puanlar'}
+            </button>
             <div className="flex rounded-lg bg-black/5 p-0.5">
               {VIEWS.map((v) => (
                 <button key={v.id} onClick={() => setView(v.id)}
@@ -154,6 +159,12 @@ export default function Board({ onOpenList }) {
               ))}
             </div>
           </div>
+          {proj && (
+            <div className="rounded-xl bg-gold/10 border border-gold/30 px-3 py-2 text-xs text-gold-dark">
+              <b>Geçici / projeksiyon:</b> şu anki sonuçlara göre tahmini puanlar. Gruplar
+              ve eşleşmeler kesinleşince değişebilir — resmî sıralama bu değildir.
+            </div>
+          )}
           {view === 'detay' && <Leaderboard rows={rows} onOpenList={onOpenList} isOnline={isOnline} actual={actual} />}
           {view === 'liste' && <CompactList rows={rows} onOpenList={onOpenList} isOnline={isOnline} />}
           {view === 'tablo' && <GridView rows={rows} onOpenList={onOpenList} isOnline={isOnline} />}

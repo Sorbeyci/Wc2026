@@ -133,6 +133,12 @@ export default function Home({ setPage }) {
 
 const CHANGELOG = [
   {
+    v: '1.5', date: 'Haziran 2026', items: [
+      'Sıralamada "Geçici puanlar" (projeksiyon): şu anki sonuçlara göre tahmini puanlar — resmî sıralamayı titretmeden, etiketli.',
+      'Tahmin detayında her maçın getirdiği puan rozeti (+5/+3, eleme kazananı için ✓).',
+    ],
+  },
+  {
     v: '1.4', date: 'Haziran 2026', items: [
       'Koyu mod (Sistem/Açık/Koyu) — ana sayfadan seçilir.',
       'Yeni puan: doğru eleme eşleşmesi başına puan (tüm turlar).',

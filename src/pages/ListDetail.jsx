@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useStore } from '../lib/store.jsx';
-import { scoreUser } from '../lib/scoring.js';
+import { scoreUser, SCORING } from '../lib/scoring.js';
 import { GROUP_MATCHES, GROUP_NAMES } from '../data/tournament.js';
 import { resolveBracket, bestThirds } from '../data/bracket.js';
 import { exportPredictionXlsx } from '../lib/excel.js';
@@ -75,14 +75,38 @@ export default function ListDetail({ listId, onBack, onEdit }) {
 
       {sub === 'standings' && <Standings scores={pred.groupMatches} />}
       {sub === 'stats' && <FullStats result={result} />}
-      {sub === 'picks' && <Picks pred={pred} />}
+      {sub === 'picks' && <Picks pred={pred} actual={actual} />}
     </div>
   );
 }
 
-export function Picks({ pred }) {
+const numv = (v) => (v === '' || v == null || isNaN(v) ? null : Number(v));
+const outc = (h, a) => (h > a ? 'H' : h < a ? 'A' : 'D');
+function grpPts(p, a) {
+  const ph = numv(p?.home), pa = numv(p?.away), ah = numv(a?.home), aa = numv(a?.away);
+  if (ph == null || pa == null || ah == null || aa == null) return null;
+  if (ph === ah && pa === aa) return SCORING.match.exact;
+  if (outc(ph, pa) === outc(ah, aa)) return SCORING.match.result;
+  return 0;
+}
+function koScorePts(p, a) {
+  const ph = numv(p?.hs), pa = numv(p?.as), ah = numv(a?.hs), aa = numv(a?.as);
+  if (ph == null || pa == null || ah == null || aa == null) return null;
+  if (ph === ah && pa === aa) return SCORING.knockout.match.exact;
+  if (outc(ph, pa) === outc(ah, aa)) return SCORING.knockout.match.result;
+  return 0;
+}
+const advanceOf = (no) => (no <= 88 ? SCORING.knockout.advance.R32 : no <= 96 ? SCORING.knockout.advance.R16 : no <= 100 ? SCORING.knockout.advance.QF : no <= 102 ? SCORING.knockout.advance.SF : 0);
+
+function Pts({ n }) {
+  if (n == null) return null;
+  return <span className={`chip shrink-0 ${n > 0 ? 'bg-pitch/15 text-pitch-dark' : 'bg-black/5 text-ink/40'}`}>+{n}</span>;
+}
+
+export function Picks({ pred, actual }) {
   const hasScore = (s) => s && s.home !== '' && s.home != null && s.away !== '' && s.away != null;
   const b = resolveBracket(pred, pred.ko || {});
+  const bA = resolveBracket(actual || {}, actual?.ko || {});
   const thirds = bestThirds(pred);
   const anyGroupScore = GROUP_MATCHES.some((m) => hasScore(pred.groupMatches?.[m.no]));
   return (
@@ -98,6 +122,7 @@ export function Picks({ pred }) {
             <div className="divide-y divide-black/5">
               {matches.map((m) => {
                 const s = pred.groupMatches?.[m.no] || {};
+                const pts = grpPts(s, actual?.groupMatches?.[m.no]);
                 return (
                   <div key={m.no} className="flex items-center gap-2 px-4 py-2 text-sm">
                     <div className="flex-1 min-w-0 flex items-center justify-end gap-1.5">
@@ -111,6 +136,7 @@ export function Picks({ pred }) {
                       <Flag team={m.away} size={16} className="shrink-0" />
                       <span className="truncate">{shortName(m.away)}</span>
                     </div>
+                    <Pts n={pts} />
                   </div>
                 );
               })}
@@ -145,6 +171,9 @@ export function Picks({ pred }) {
               {rows.map((m) => {
                 const sc = pred.ko?.[m.no] || {};
                 const hasSc = sc.hs !== '' && sc.hs != null && sc.as !== '' && sc.as != null;
+                const spts = koScorePts(sc, actual?.ko?.[m.no]);
+                const aw = bA.matches?.[m.no]?.winner;
+                const advHit = aw && m.winner === aw && advanceOf(m.no) > 0;
                 return (
                   <div key={m.no} className="flex items-center gap-2 px-4 py-2 text-sm">
                     <div className="flex-1 min-w-0 flex items-center justify-end gap-1.5">
@@ -158,6 +187,8 @@ export function Picks({ pred }) {
                       <Flag team={m.away} size={16} className="shrink-0" />
                       <span className={`truncate ${m.winner === m.away ? 'font-bold text-pitch-dark' : ''}`}>{shortName(m.away)}</span>
                     </div>
+                    {advHit && <span className="chip shrink-0 bg-gold/20 text-gold-dark">✓{advanceOf(m.no)}</span>}
+                    <Pts n={spts} />
                   </div>
                 );
               })}

@@ -139,10 +139,15 @@ export function scoreGroupMatches(pred, actual) {
 }
 
 // ---- Group table (qualified + exact position) ----------------------------
-export function scoreGroupTables(pred, actual) {
+export function scoreGroupTables(pred, actual, projection = false) {
   let pts = 0;
   for (const g of Object.keys(GROUPS)) {
-    if (!hasOrder(actual, g) || !hasOrder(pred, g)) continue;
+    if (projection) {
+      const started = GROUP_MATCHES.some((m) => m.group === g && num(actual?.groupMatches?.[m.no]?.home) != null);
+      if (!started) continue;
+    } else if (!hasOrder(actual, g) || !hasOrder(pred, g)) {
+      continue;
+    }
     const predicted = groupOrder(pred, g);
     const real = groupOrder(actual, g);
     const realTop2 = real.slice(0, 2);
@@ -160,8 +165,8 @@ export const scoreMatchPair = scoreMatch;
 // ---- Best third-placed teams (auto from standings) ------------------------
 // 8 of the 12 third-placed teams advance. Both sides are derived from scores;
 // only counts once the actual group stage is complete.
-export function scoreThirds(predSource, actualSource) {
-  if (!allGroupsComplete(actualSource) || !allGroupsComplete(predSource)) return { pts: 0, correct: 0 };
+export function scoreThirds(predSource, actualSource, projection = false) {
+  if (!projection && (!allGroupsComplete(actualSource) || !allGroupsComplete(predSource))) return { pts: 0, correct: 0 };
   const a = new Set(bestThirds(actualSource).teams.filter(Boolean));
   const p = bestThirds(predSource).teams.filter(Boolean);
   let correct = 0;
@@ -245,13 +250,14 @@ export function scoreBracketFinals(P, A, predTop, actualTop) {
 }
 
 // ---- Aggregate ------------------------------------------------------------
-export function scoreUser(prediction, actual) {
+export function scoreUser(prediction, actual, opts = {}) {
+  const proj = !!opts.projection;
   const gm = scoreGroupMatches(prediction, actual);
-  const gt = scoreGroupTables(prediction, actual);
-  const th = scoreThirds(prediction, actual);
+  const gt = scoreGroupTables(prediction, actual, proj);
+  const th = scoreThirds(prediction, actual, proj);
   const P = resolveBracket(prediction, prediction?.ko || {});
   const A = resolveBracket(actual, actual?.ko || {});
-  const ko = scoreBracketKnockout(P, A, prediction?.ko || {}, actual?.ko || {}, { r32Final: allGroupsComplete(actual) });
+  const ko = scoreBracketKnockout(P, A, prediction?.ko || {}, actual?.ko || {}, { r32Final: proj || allGroupsComplete(actual) });
   const fn = scoreBracketFinals(P, A, prediction?.topScorer, actual?.topScorer);
   const total = gm.pts + gt.pts + th.pts + ko.pts + fn.pts;
 
