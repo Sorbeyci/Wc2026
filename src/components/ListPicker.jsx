@@ -1,27 +1,30 @@
 import { Dot } from './ui.jsx';
 
-// Horizontal selector for the active list whose predictions are being edited.
+// Dropdown selector for the active list whose predictions are being edited.
 export default function ListPicker({ lists, value, onChange }) {
   if (lists.length === 0) return null;
-  return (
-    <div className="-mx-4 px-4 overflow-x-auto">
-      <div className="flex gap-2 w-max pb-1">
-        {lists.map((l) => {
-          const active = l.id === value;
-          return (
-            <button
-              key={l.id}
-              onClick={() => onChange(l.id)}
-              className={`flex items-center gap-2 rounded-full px-3.5 py-2 text-sm font-semibold whitespace-nowrap transition ${
-                active ? 'bg-ink text-white' : 'bg-white text-ink border border-black/10'
-              }`}
-            >
-              <Dot color={l.color} />
-              {l.name}
-            </button>
-          );
-        })}
+  if (lists.length === 1) {
+    const l = lists[0];
+    return (
+      <div className="card px-4 py-2.5 flex items-center gap-2">
+        <Dot color={l.color} />
+        <span className="font-semibold text-ink truncate">{l.name}</span>
       </div>
+    );
+  }
+  const active = lists.find((l) => l.id === value) || lists[0];
+  return (
+    <div className="card px-3 py-2 flex items-center gap-2">
+      <Dot color={active.color} />
+      <select
+        className="flex-1 bg-transparent font-semibold text-ink focus:outline-none py-1"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      >
+        {lists.map((l) => (
+          <option key={l.id} value={l.id}>{l.name}</option>
+        ))}
+      </select>
     </div>
   );
 }

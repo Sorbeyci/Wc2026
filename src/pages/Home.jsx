@@ -66,7 +66,7 @@ export default function Home({ setPage }) {
       </div>
 
       <div className="grid grid-cols-3 gap-3">
-        <Tile value={lists.length} label="Liste" onClick={() => setPage('lists')} />
+        <Tile value={lists.length} label="Katılımcı" onClick={() => setPage('lists')} />
         <Tile value={`${resultsIn}/${GROUP_MATCHES.length}`} label="Sonuç girildi" onClick={() => isAdmin && setPage('admin')} />
         <Tile value={rows[0]?.total ?? 0} label="En yüksek" onClick={() => setPage('board')} />
       </div>
@@ -132,6 +132,15 @@ export default function Home({ setPage }) {
 }
 
 const CHANGELOG = [
+  {
+    v: '1.6', date: 'Haziran 2026', items: [
+      'Geçici puanlar daha belirgin (büyük buton); grup/3.\'ler/eleme dökümünde kim nereden puan almış detayı.',
+      'Tahmin detayında puan rozetleri artık takımları kaydırmıyor (ortada sabit).',
+      '"Liste" sayısı "Katılımcı" oldu.',
+      'Tahmin düzenlemede kişi seçimi kayan çubuk yerine açılır menü.',
+      'Karşılaştır (H2H) artık detaylı istatistik karşılaştırması içeriyor.',
+    ],
+  },
   {
     v: '1.5', date: 'Haziran 2026', items: [
       'Sıralamada "Geçici puanlar" (projeksiyon): şu anki sonuçlara göre tahmini puanlar — resmî sıralamayı titretmeden, etiketli.',

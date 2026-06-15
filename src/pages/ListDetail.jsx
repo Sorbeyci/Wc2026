@@ -124,7 +124,8 @@ export function Picks({ pred, actual }) {
                 const s = pred.groupMatches?.[m.no] || {};
                 const pts = grpPts(s, actual?.groupMatches?.[m.no]);
                 return (
-                  <div key={m.no} className="flex items-center gap-2 px-4 py-2 text-sm">
+                  <div key={m.no} className="flex items-center gap-2 px-3 py-2 text-sm">
+                    <div className="w-10 shrink-0" />
                     <div className="flex-1 min-w-0 flex items-center justify-end gap-1.5">
                       <span className="truncate">{shortName(m.home)}</span>
                       <Flag team={m.home} size={16} className="shrink-0" />
@@ -136,7 +137,7 @@ export function Picks({ pred, actual }) {
                       <Flag team={m.away} size={16} className="shrink-0" />
                       <span className="truncate">{shortName(m.away)}</span>
                     </div>
-                    <Pts n={pts} />
+                    <div className="w-10 shrink-0 flex justify-end"><Pts n={pts} /></div>
                   </div>
                 );
               })}
@@ -175,7 +176,8 @@ export function Picks({ pred, actual }) {
                 const aw = bA.matches?.[m.no]?.winner;
                 const advHit = aw && m.winner === aw && advanceOf(m.no) > 0;
                 return (
-                  <div key={m.no} className="flex items-center gap-2 px-4 py-2 text-sm">
+                  <div key={m.no} className="flex items-center gap-2 px-3 py-2 text-sm">
+                    <div className="w-12 shrink-0" />
                     <div className="flex-1 min-w-0 flex items-center justify-end gap-1.5">
                       <span className={`truncate ${m.winner === m.home ? 'font-bold text-pitch-dark' : ''}`}>{shortName(m.home)}</span>
                       <Flag team={m.home} size={16} className="shrink-0" />
@@ -187,8 +189,10 @@ export function Picks({ pred, actual }) {
                       <Flag team={m.away} size={16} className="shrink-0" />
                       <span className={`truncate ${m.winner === m.away ? 'font-bold text-pitch-dark' : ''}`}>{shortName(m.away)}</span>
                     </div>
-                    {advHit && <span className="chip shrink-0 bg-gold/20 text-gold-dark">✓{advanceOf(m.no)}</span>}
-                    <Pts n={spts} />
+                    <div className="w-12 shrink-0 flex flex-col items-end gap-0.5">
+                      {advHit && <span className="chip bg-gold/20 text-gold-dark text-[10px] px-1.5 py-0">✓{advanceOf(m.no)}</span>}
+                      <Pts n={spts} />
+                    </div>
                   </div>
                 );
               })}

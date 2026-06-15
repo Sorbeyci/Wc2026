@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useStore } from '../lib/store.jsx';
-import { scoreUser, SCORING, allGroupsComplete } from '../lib/scoring.js';
-import { GROUP_MATCHES } from '../data/tournament.js';
+import { scoreUser, SCORING, allGroupsComplete, groupOrder, hasOrder } from '../lib/scoring.js';
+import { GROUP_MATCHES, GROUP_NAMES } from '../data/tournament.js';
+import { bestThirds } from '../data/bracket.js';
 import { shortName } from '../data/flags.js';
 import { SectionTitle, Dot, Empty, Avatar, Flag } from '../components/ui.jsx';
 import FullStats from '../components/FullStats.jsx';
@@ -144,12 +145,15 @@ export default function Board({ onOpenList }) {
       ) : sub === 'board' ? (
         <>
           <Podium rows={rows} onOpenList={onOpenList} />
+          <button onClick={() => setProj(!proj)}
+            className={`w-full flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold border transition ${
+              proj ? 'bg-gold text-ink border-gold-dark shadow-sm' : 'bg-gold/15 text-gold-dark border-gold/40 hover:bg-gold/25'
+            }`}>
+            <span className={`inline-block h-2.5 w-2.5 rounded-full ${proj ? 'bg-pitch animate-pulse' : 'bg-gold-dark'}`} />
+            {proj ? 'Geçici puanlar AÇIK — kapatmak için dokun' : '⚡ Geçici puanları göster (canlı projeksiyon)'}
+          </button>
           <div className="flex items-center justify-between gap-2">
-            <button onClick={() => setProj(!proj)}
-              className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition ${proj ? 'bg-gold/20 text-gold-dark' : 'bg-black/5 text-ink/55'}`}>
-              <span className={`inline-block h-2 w-2 rounded-full ${proj ? 'bg-gold animate-pulse' : 'bg-ink/30'}`} />
-              {proj ? 'Geçici puanlar açık' : 'Geçici puanlar'}
-            </button>
+            <p className="text-xs text-ink/45">Görünüm</p>
             <div className="flex rounded-lg bg-black/5 p-0.5">
               {VIEWS.map((v) => (
                 <button key={v.id} onClick={() => setView(v.id)}
@@ -165,7 +169,7 @@ export default function Board({ onOpenList }) {
               ve eşleşmeler kesinleşince değişebilir — resmî sıralama bu değildir.
             </div>
           )}
-          {view === 'detay' && <Leaderboard rows={rows} onOpenList={onOpenList} isOnline={isOnline} actual={actual} />}
+          {view === 'detay' && <Leaderboard rows={rows} onOpenList={onOpenList} isOnline={isOnline} actual={actual} proj={proj} />}
           {view === 'liste' && <CompactList rows={rows} onOpenList={onOpenList} isOnline={isOnline} />}
           {view === 'tablo' && <GridView rows={rows} onOpenList={onOpenList} isOnline={isOnline} />}
         </>
@@ -211,6 +215,15 @@ function Podium({ rows, onOpenList }) {
     </div>
   );
 }
+
+const H2H_DETAIL = [
+  ['Grup tam skor', 'exact'], ['Grup doğru sonuç', 'correctResult'],
+  ['Üst tura çıkan', 'correctQualified'], ['Doğru grup sırası', 'correctPositions'],
+  ['Doğru 3. takım', 'thirdsCorrect'],
+  ['Doğru eşleşme', 'koMatchupHits'], ['Eleme tam skor', 'koExact'], ['Eleme doğru sonuç', 'koResult'],
+  ['Son 32 kazanan', 'koR32'], ['Son 16 kazanan', 'koR16'], ['Çeyrek kazanan', 'koQF'], ['Yarı kazanan', 'koSF'],
+  ['Final isabet', 'finalsHits'],
+];
 
 function H2H({ rows }) {
   const [a, setA] = useState(rows[0]?.list.id || '');
@@ -262,6 +275,21 @@ function H2H({ rows }) {
               </div>
             );
           })}
+          <div className="rounded-xl bg-black/[0.02] border border-black/5 p-2">
+            <div className="text-[11px] font-bold uppercase tracking-wide text-ink/45 mb-1 text-center">Detaylı istatistik</div>
+            {H2H_DETAIL.map(([label, k]) => {
+              const av = ra.stats?.[k] || 0, bv = rb.stats?.[k] || 0;
+              if (!av && !bv) return null;
+              return (
+                <div key={k} className="flex items-center gap-2 py-0.5 text-xs">
+                  <span className={`w-8 text-right font-semibold tabular-nums ${av > bv ? 'text-pitch' : av < bv ? 'text-ink/40' : 'text-ink/60'}`}>{av}</span>
+                  <span className="flex-1 text-center text-ink/50 truncate">{label}</span>
+                  <span className={`w-8 text-left font-semibold tabular-nums ${bv > av ? 'text-pitch' : bv < av ? 'text-ink/40' : 'text-ink/60'}`}>{bv}</span>
+                </div>
+              );
+            })}
+          </div>
+
           <div className="grid grid-cols-2 gap-2 pt-1 text-xs">
             <div className="rounded-lg bg-black/[0.03] p-2">🏆 {ra.champion || '—'}<br />⚽ {ra.topScorer || '—'}</div>
             <div className="rounded-lg bg-black/[0.03] p-2 text-right">{rb.champion || '—'} 🏆<br />{rb.topScorer || '—'} ⚽</div>
@@ -318,18 +346,18 @@ function GridView({ rows, onOpenList, isOnline }) {
   );
 }
 
-function Leaderboard({ rows, onOpenList, isOnline, actual }) {
+function Leaderboard({ rows, onOpenList, isOnline, actual, proj }) {
   return (
     <div className="space-y-2">
       <p className="text-xs text-ink/45 px-1">
         Adına dokunarak tahminlerini gör; kategori kutucuklarına dokunarak nereden kaç puan aldığını ve hangi maçları bildiğini aç.
       </p>
-      {rows.map((r, i) => <LbRow key={r.list.id} r={r} i={i} onOpenList={onOpenList} online={isOnline?.(r.list)} actual={actual} />)}
+      {rows.map((r, i) => <LbRow key={r.list.id} r={r} i={i} onOpenList={onOpenList} online={isOnline?.(r.list)} actual={actual} proj={proj} />)}
     </div>
   );
 }
 
-function LbRow({ r, i, onOpenList, online, actual }) {
+function LbRow({ r, i, onOpenList, online, actual, proj }) {
   const [cat, setCat] = useState(null);
   const leader = i === 0 && r.total > 0;
   const cats = [
@@ -376,7 +404,7 @@ function LbRow({ r, i, onOpenList, online, actual }) {
         ))}
       </div>
 
-      {cat && <CategoryDetail cat={cat} r={r} actual={actual} />}
+      {cat && <CategoryDetail cat={cat} r={r} actual={actual} proj={proj} />}
     </div>
   );
 }
@@ -399,6 +427,55 @@ function MatchupList({ hits }) {
   );
 }
 
+function GroupBreakdown({ pred, actual, proj }) {
+  const groups = [];
+  for (const g of GROUP_NAMES) {
+    const started = GROUP_MATCHES.some((m) => m.group === g && hasS(actual.groupMatches?.[m.no]));
+    const ok = proj ? started : (hasOrder(actual, g) && hasOrder(pred, g));
+    if (!ok) continue;
+    const P = groupOrder(pred, g), A = groupOrder(actual, g);
+    const top2 = new Set(A.slice(0, 2));
+    groups.push({ g, teams: P.map((t, idx) => ({ team: t, q: idx < 2 && top2.has(t), pos: A[idx] === t })) });
+  }
+  if (!groups.length) return <p className="mt-2 text-xs text-ink/45">Henüz puanlanan grup yok.</p>;
+  return (
+    <div className="mt-2 space-y-2">
+      {groups.map(({ g, teams }) => (
+        <div key={g} className="rounded-lg bg-white border border-black/5 p-2">
+          <div className="text-[11px] font-bold text-ink/45 mb-1">{g} Grubu</div>
+          {teams.map((t, i) => (
+            <div key={i} className="flex items-center gap-2 py-0.5 text-xs">
+              <span className="w-4 text-ink/40">{i + 1}</span>
+              <span className="flex-1 min-w-0 truncate">{shortName(t.team)}</span>
+              {t.q && <span className="chip bg-pitch/15 text-pitch-dark">üst tur +{SCORING.groupTable.qualified}</span>}
+              {t.pos && <span className="chip bg-gold/20 text-gold-dark">sıra +{SCORING.groupTable.position}</span>}
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ThirdsBreakdown({ pred, actual, proj }) {
+  if (!proj && !allGroupsComplete(actual)) return <p className="mt-2 text-xs text-ink/45">Tüm gruplar bitince hesaplanır.</p>;
+  const aSet = new Set(bestThirds(actual).teams.filter(Boolean));
+  const p = bestThirds(pred).top8 || [];
+  return (
+    <div className="mt-2 rounded-lg bg-white border border-black/5 p-2 space-y-0.5">
+      {p.map((t) => (
+        <div key={t.group} className="flex items-center gap-2 py-0.5 text-xs">
+          <span className="w-6 text-ink/40">{t.group}</span>
+          <span className="flex-1 min-w-0 truncate">{shortName(t.team)}</span>
+          {aSet.has(t.team)
+            ? <span className="chip bg-pitch/15 text-pitch-dark">+{SCORING.thirdPlace.advance}</span>
+            : <span className="chip bg-black/5 text-ink/40">—</span>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function HitList({ hits }) {
   if (hits.length === 0) return <p className="mt-2 text-xs text-ink/45">Bu kategoride henüz bilinen maç yok.</p>;
   return (
@@ -417,7 +494,7 @@ function HitList({ hits }) {
   );
 }
 
-function CategoryDetail({ cat, r, actual }) {
+function CategoryDetail({ cat, r, actual, proj }) {
   const s = r.stats;
   const tick = (b) => (b ? '✓' : '—');
   const data = {
@@ -445,6 +522,8 @@ function CategoryDetail({ cat, r, actual }) {
           </div>
         ))}
       </div>
+      {cat === 'gt' && <GroupBreakdown pred={r.pred} actual={actual} proj={proj} />}
+      {cat === 'th' && <ThirdsBreakdown pred={r.pred} actual={actual} proj={proj} />}
       {mhits && <MatchupList hits={mhits} />}
       {hits && <HitList hits={hits} />}
     </div>
