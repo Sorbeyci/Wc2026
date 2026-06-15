@@ -45,6 +45,7 @@ export default function Home({ setPage }) {
 
   const myList = lists.find((l) => isMyList(l));
   const myPred = myList ? getPrediction(myList.id) : null;
+  const [progMode, setProgMode] = useState('pct');
 
   return (
     <div className="space-y-4">
@@ -74,7 +75,11 @@ export default function Home({ setPage }) {
 
       <div className="grid grid-cols-3 gap-3">
         <Tile value={lists.length} label="Katılımcı" onClick={() => setPage('lists')} />
-        <Tile value={`%${progressPct}`} label="İlerleme" onClick={() => isAdmin && setPage('admin')} />
+        <Tile
+          value={progMode === 'pct' ? `%${progressPct}` : `${resultsIn + koIn}/${totalMatches}`}
+          label="İlerleme"
+          onClick={() => setProgMode((m) => (m === 'pct' ? 'frac' : 'pct'))}
+        />
         <Tile value={rows[0]?.total ?? 0} label="En yüksek" onClick={() => setPage('board')} />
       </div>
 
