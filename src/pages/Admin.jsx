@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useStore } from '../lib/store.jsx';
 import { GROUP_MATCHES, GROUP_NAMES } from '../data/tournament.js';
+import { computeStandings } from '../lib/scoring.js';
 import { ScoreBox, SectionTitle, Flag, Dot } from '../components/ui.jsx';
 import { shortName } from '../data/flags.js';
 import Standings from '../components/Standings.jsx';
@@ -106,13 +107,60 @@ function AdminResults({ store }) {
 }
 
 function AdminStandings({ store }) {
-  const { actual } = store;
+  const { actual, setActualTable, clearActualTable } = store;
   return (
     <div className="space-y-3">
       <p className="text-sm text-ink/60 px-1">
-        Gerçek puan durumu, girdiğin maç skorlarından otomatik oluşur.
+        Puan durumu skorlardan otomatik oluşur. Eşit puan/averajda üste çıkacak takımı
+        belirlemek için sırayı oklarla elle değiştirebilirsin.
       </p>
-      <Standings scores={actual.groupMatches} />
+      {GROUP_NAMES.map((g) => (
+        <GroupOrderEditor key={g} g={g} actual={actual}
+          setActualTable={setActualTable} clearActualTable={clearActualTable} />
+      ))}
+    </div>
+  );
+}
+
+function GroupOrderEditor({ g, actual, setActualTable, clearActualTable }) {
+  const rows = computeStandings(g, actual.groupMatches);
+  const byTeam = Object.fromEntries(rows.map((r) => [r.team, r]));
+  const ov = actual.groupTables?.[g];
+  const manual = !!(ov && ov.length === 4 && ov.every(Boolean));
+  const order = manual ? ov.filter((t) => byTeam[t]) : rows.map((r) => r.team);
+  const move = (i, dir) => {
+    const j = i + dir;
+    if (j < 0 || j >= order.length) return;
+    const a = [...order];
+    [a[i], a[j]] = [a[j], a[i]];
+    setActualTable(g, a);
+  };
+  return (
+    <div className="card p-3">
+      <div className="flex items-center justify-between mb-1">
+        <span className="font-display text-lg">{g} Grubu</span>
+        {manual
+          ? <button className="text-xs font-semibold text-pitch" onClick={() => clearActualTable(g)}>Otomatiğe döndür</button>
+          : <span className="text-xs text-ink/40">otomatik</span>}
+      </div>
+      <div className="divide-y divide-black/5">
+        {order.map((t, i) => {
+          const r = byTeam[t] || { Pts: 0, GD: 0, GF: 0 };
+          return (
+            <div key={t} className="flex items-center gap-2 py-1.5">
+              <span className={`font-display text-sm w-5 ${i < 2 ? 'text-pitch' : 'text-ink/40'}`}>{i + 1}</span>
+              <Flag team={t} size={18} className="shrink-0" />
+              <span className="flex-1 min-w-0 truncate text-sm font-semibold">{shortName(t)}</span>
+              <span className="text-[11px] text-ink/45 tabular-nums">{r.Pts}p · Av {r.GD >= 0 ? '+' : ''}{r.GD} · AG {r.GF}</span>
+              <div className="flex flex-col leading-none">
+                <button className="text-ink/40 hover:text-ink disabled:opacity-20" disabled={i === 0} onClick={() => move(i, -1)} aria-label="Yukarı">▲</button>
+                <button className="text-ink/40 hover:text-ink disabled:opacity-20" disabled={i === order.length - 1} onClick={() => move(i, 1)} aria-label="Aşağı">▼</button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <p className="mt-1.5 text-[11px] text-ink/40">İlk 2 üst tura çıkar · 3. en iyi 8 üçüncüye girebilir.</p>
     </div>
   );
 }

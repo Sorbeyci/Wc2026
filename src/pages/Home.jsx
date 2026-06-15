@@ -44,7 +44,17 @@ export default function Home({ setPage }) {
       <div className="relative overflow-hidden rounded-2xl bg-ink text-white p-5">
         <div className="absolute -right-8 -top-8 w-40 h-40 rounded-full bg-pitch/30 blur-2xl" />
         <div className="absolute right-6 bottom-4 text-6xl opacity-10 font-display">26</div>
-        <p className="font-display text-lg text-pitch leading-none">kupayikimalir.com</p>
+        <div className="flex items-center justify-between gap-2">
+          <p className="font-display text-lg text-pitch leading-none">kupayikimalir.com</p>
+          {adminEligible && (
+            <button onClick={() => setAdminMode(!adminMode)} className="flex items-center gap-1.5 shrink-0" aria-label="Admin modu">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-white/60">Admin</span>
+              <span className={`relative h-5 w-9 rounded-full transition ${adminMode ? 'bg-pitch' : 'bg-white/20'}`}>
+                <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${adminMode ? 'left-[18px]' : 'left-0.5'}`} />
+              </span>
+            </button>
+          )}
+        </div>
         <p className="label text-white/60 mt-2">FIFA Dünya Kupası 2026</p>
         <h1 className="font-display text-4xl leading-none mt-1">Tahmin<br />Oyunu</h1>
         <p className="mt-2 text-xs font-semibold text-gold">{tournamentStatus()}</p>
@@ -60,24 +70,6 @@ export default function Home({ setPage }) {
         <Tile value={`${resultsIn}/${GROUP_MATCHES.length}`} label="Sonuç girildi" onClick={() => isAdmin && setPage('admin')} />
         <Tile value={rows[0]?.total ?? 0} label="En yüksek" onClick={() => setPage('board')} />
       </div>
-
-      {adminEligible && (
-        <div className={`card p-4 flex items-center justify-between ${adminMode ? 'ring-1 ring-pitch/40' : ''}`}>
-          <div>
-            <div className="font-semibold text-ink">Admin modu</div>
-            <div className="text-xs text-ink/55">
-              {adminMode ? 'Açık — yönetici yetkilerin aktif.' : 'Kapalı — normal kullanıcı gibi görüyorsun.'}
-            </div>
-          </div>
-          <button
-            onClick={() => setAdminMode(!adminMode)}
-            className={`relative h-7 w-12 rounded-full transition ${adminMode ? 'bg-pitch' : 'bg-black/20'}`}
-            aria-label="Admin modu"
-          >
-            <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-all ${adminMode ? 'left-[22px]' : 'left-0.5'}`} />
-          </button>
-        </div>
-      )}
 
       <MyScore rows={rows} isMyList={isMyList} setPage={setPage} onCreate={() => setPage('lists')} />
       <DayBrowser lists={lists} getPrediction={getPrediction} actual={actual} />
@@ -129,40 +121,57 @@ export default function Home({ setPage }) {
 
 const CHANGELOG = [
   {
+    v: '1.2', date: 'Haziran 2026', items: [
+      'Sıralamada görünüm seçenekleri: Detay / Liste / Tablo (hepsinde puan).',
+      'Kategori dökümünde "Bildiğin maçlar" listesi (maç + skor + puan).',
+      'Ana sayfada "Enteresan istatistikler" bölümü.',
+      'Tahmin yüzdelerinde tüm isimler tam görünür.',
+      'Yönetim > Sıralamalar: eşit puan/averajda elle sıralama (üste çıkarma).',
+      'Admin modu anahtarı ana sayfada marka satırına taşındı.',
+      '"1./2./3. Adım" başlıkları kaldırıldı.',
+    ],
+  },
+  {
     v: '1.1', date: 'Haziran 2026', items: [
-      'Ana sayfa yenilendi: bugünün maçları, gün gezgini (dün/yarın) ve canlı tahmin yüzdeleri.',
-      'Kendi puanını ana sayfada gör; turnuva günü ve finale kalan gün sayacı.',
-      'Sıralamada şampiyon & gol kralı, "en çok puan" rozeti ve tıklanır puan dökümü.',
-      'Çevrimiçi (Online) göstergesi ve "kaç kişi çevrimiçi" bilgisi.',
+      'Ana sayfa: bugünün maçları, gün gezgini (dün/yarın), canlı tahmin yüzdeleri.',
+      'Kendi puanın ana sayfada; turnuva günü ve finale kalan gün sayacı.',
+      'Sıralamada şampiyon & gol kralı, "en çok puan" rozeti, tıklanır puan dökümü.',
+      'Çevrimiçi (Online) göstergesi.',
       'Excel içe aktarım: excely.com şablonundan grup + tüm eleme turları.',
-      'Yönetim > Kişiler: ad/e-posta düzenleme, e-posta atama, silme istekleri onayı.',
-      'Kullanıcı liste silme artık yönetici onayına düşer.',
+      'Yönetim > Kişiler: ad/e-posta düzenleme, atama, silme istekleri onayı.',
     ],
   },
 ];
 
 function Footer() {
   const [open, setOpen] = useState(false);
+  const [openV, setOpenV] = useState(CHANGELOG[0].v);
   return (
     <div className="pt-2 pb-6 text-center">
       <button onClick={() => setOpen((o) => !o)} className="text-xs font-semibold text-ink/40 hover:text-ink/70">
         Version {CHANGELOG[0].v}
       </button>
       {open && (
-        <div className="mt-3 text-left space-y-3">
-          {CHANGELOG.map((c) => (
-            <div key={c.v} className="card p-4">
-              <div className="flex items-baseline justify-between border-b border-black/5 pb-2 mb-2">
-                <span className="font-display text-lg">Sürüm {c.v}</span>
-                <span className="text-xs text-ink/45">{c.date}</span>
+        <div className="mt-3 text-left space-y-2">
+          {CHANGELOG.map((c) => {
+            const exp = openV === c.v;
+            return (
+              <div key={c.v} className="card overflow-hidden">
+                <button className="w-full flex items-center gap-2 px-4 py-2.5" onClick={() => setOpenV(exp ? null : c.v)}>
+                  <span className="font-display text-lg">Sürüm {c.v}</span>
+                  <span className="text-xs text-ink/45">{c.date}</span>
+                  <span className={`ml-auto text-ink/40 transition ${exp ? 'rotate-180' : ''}`}>▾</span>
+                </button>
+                {exp && (
+                  <ul className="border-t border-black/5 px-4 py-3 space-y-1.5 text-sm text-ink/70">
+                    {c.items.map((it, i) => (
+                      <li key={i} className="flex gap-2"><span className="text-pitch">•</span><span>{it}</span></li>
+                    ))}
+                  </ul>
+                )}
               </div>
-              <ul className="space-y-1.5 text-sm text-ink/70">
-                {c.items.map((it, i) => (
-                  <li key={i} className="flex gap-2"><span className="text-pitch">•</span><span>{it}</span></li>
-                ))}
-              </ul>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

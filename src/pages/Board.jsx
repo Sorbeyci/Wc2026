@@ -64,7 +64,7 @@ export default function Board({ onOpenList }) {
 
   return (
     <div className="space-y-4">
-      <SectionTitle eyebrow="3. Adım" title="Sıralama" />
+      <SectionTitle title="Sıralama" />
 
       {onlineCount > 0 && (
         <div className="flex items-center gap-1.5 text-xs font-semibold text-pitch -mt-1">

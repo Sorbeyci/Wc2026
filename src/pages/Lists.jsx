@@ -20,7 +20,7 @@ export default function Lists({ viewListId, setViewListId, onEdit }) {
 
   return (
     <div className="space-y-4">
-      <SectionTitle eyebrow="1. Adım" title="Listeler" />
+      <SectionTitle title="Listeler" />
 
       <div className="card p-4">
         <label className="label">Yeni liste oluştur</label>

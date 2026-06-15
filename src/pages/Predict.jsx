@@ -25,7 +25,7 @@ export default function Predict({ goLists, initialListId }) {
 
   return (
     <div className="space-y-4">
-      <SectionTitle eyebrow="2. Adım" title="Tahminler" />
+      <SectionTitle title="Tahminler" />
 
       {locked && (
         <div className={`rounded-xl px-3 py-2 text-sm ${readOnly ? 'bg-amber-100 text-amber-800' : 'bg-pitch/10 text-pitch-dark'}`}>
