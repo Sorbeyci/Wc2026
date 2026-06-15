@@ -140,6 +140,12 @@ export default function Home({ setPage }) {
 
 const CHANGELOG = [
   {
+    v: '1.9', date: 'Haziran 2026', items: [
+      'Avatarlar her zaman isim-soyisim baş harfi (foto kullanılmıyor).',
+      'Sıralama bölümüne daha ferah boşluklar.',
+    ],
+  },
+  {
     v: '1.8', date: 'Haziran 2026', items: [
       'Puanlar değişince yukarı sayan animasyon; sıra değişiminde satırların yumuşak kayması.',
       'Bugünün maçlarında "CANLI" rozeti ve maç öncesi geri sayım.',

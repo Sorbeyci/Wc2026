@@ -150,7 +150,7 @@ export default function Board({ onOpenList }) {
   }, [lists, actual, proj]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <SectionTitle title="Sıralama" />
 
       {onlineCount > 0 && (
@@ -175,10 +175,10 @@ export default function Board({ onOpenList }) {
       ) : sub === 'h2h' ? (
         <H2H rows={rows} />
       ) : sub === 'board' ? (
-        <>
+        <div className="space-y-5">
           <Podium rows={rows} onOpenList={onOpenList} />
           <button onClick={() => setProj(!proj)}
-            className={`w-full flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold border transition ${
+            className={`w-full flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold border transition ${
               proj ? 'bg-gold text-ink border-gold-dark shadow-sm' : 'bg-gold/15 text-gold-dark border-gold/40 hover:bg-gold/25'
             }`}>
             <span className={`inline-block h-2.5 w-2.5 rounded-full ${proj ? 'bg-pitch animate-pulse' : 'bg-gold-dark'}`} />
@@ -197,7 +197,7 @@ export default function Board({ onOpenList }) {
           {view === 'detay' && <Leaderboard rows={rows} onOpenList={onOpenList} isOnline={isOnline} actual={actual} proj={proj} />}
           {view === 'liste' && <CompactList rows={rows} onOpenList={onOpenList} isOnline={isOnline} />}
           {view === 'tablo' && <GridView rows={rows} onOpenList={onOpenList} isOnline={isOnline} />}
-        </>
+        </div>
       ) : (
         <Stats rows={rows} />
       )}
@@ -222,7 +222,7 @@ function Podium({ rows, onOpenList }) {
   const medal = ['ring-gold bg-gold/10', 'ring-black/15 bg-black/[0.03]', 'ring-[#cd7f32]/40 bg-[#cd7f32]/10'];
   const order = [1, 0, 2]; // 2nd, 1st, 3rd visually
   return (
-    <div className="grid grid-cols-3 gap-2 items-end">
+    <div className="grid grid-cols-3 gap-2.5 items-end pt-1">
       {order.map((idx, pos) => {
         const r = top[idx];
         const big = idx === 0;

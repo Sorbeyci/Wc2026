@@ -98,10 +98,6 @@ export function SectionTitle({ eyebrow, title, right }) {
 
 export function Avatar({ name, color, src, size = 32 }) {
   const initials = (name || '?').trim().split(/\s+/).slice(0, 2).map((w) => w[0] || '').join('').toUpperCase() || '?';
-  if (src) {
-    return <img src={src} alt="" referrerPolicy="no-referrer"
-      className="rounded-full object-cover shrink-0" style={{ width: size, height: size }} />;
-  }
   return (
     <span className="inline-flex items-center justify-center rounded-full text-white font-bold shrink-0"
       style={{ width: size, height: size, background: color || '#0a8754', fontSize: Math.round(size * 0.4) }}>
