@@ -8,7 +8,7 @@ export const TEAM_ALIASES = {
   'İsviçre': ['Switzerland'],
   'Kanada': ['Canada'],
   'Katar': ['Qatar'],
-  'Bosna Hersek': ['Bosnia and Herzegovina', 'Bosnia'],
+  'Bosna Hersek': ['Bosnia and Herzegovina', 'Bosnia', 'Bosnia-Herzegovina'],
   'Brezilya': ['Brazil'],
   'Fas': ['Morocco'],
   'İskoçya': ['Scotland'],
