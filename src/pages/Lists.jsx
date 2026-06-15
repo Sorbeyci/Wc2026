@@ -61,7 +61,7 @@ export default function Lists({ viewListId, setViewListId, onEdit }) {
                 </button>
                 {canDelete && (
                   <button className="text-sm font-semibold text-red-500/80 hover:text-red-600 pl-1"
-                    onClick={() => { if (confirm(`"${l.name}" listesi ve tahminleri silinsin mi?`)) deleteList(l.id); }}>
+                    onClick={() => { if (window.confirm(`"${l.name}" listesi ve tahminleri silinsin mi?`) && window.confirm('Emin misin? Bu işlem geri alınamaz.')) deleteList(l.id); }}>
                     Sil
                   </button>
                 )}

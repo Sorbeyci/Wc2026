@@ -12,8 +12,11 @@ const SUB = [
   { id: 'standings', label: 'Sıralamalar' },
   { id: 'knockout', label: 'Eleme' },
   { id: 'transfer', label: 'Aktar' },
+  { id: 'logs', label: 'Kayıtlar' },
   { id: 'settings', label: 'Ayarlar' },
 ];
+
+const confirmTwice = (m1, m2) => window.confirm(m1) && window.confirm(m2);
 
 export default function Admin() {
   const store = useStore();
@@ -53,6 +56,7 @@ export default function Admin() {
       {sub === 'standings' && <AdminStandings store={store} />}
       {sub === 'knockout' && <AdminKnockout store={store} />}
       {sub === 'transfer' && <ImportExport store={store} />}
+      {sub === 'logs' && <AdminLogs store={store} />}
       {sub === 'settings' && <AdminSettings store={store} />}
     </div>
   );
@@ -146,7 +150,10 @@ function AdminSettings({ store }) {
             <p className="text-xs text-ink/55 mt-0.5">Kilitliyken oyuncular tahminlerini değiştiremez.</p>
           </div>
           <button
-            onClick={() => setLocked(!locked)}
+            onClick={() => {
+              if (!locked && !window.confirm('Tahminler herkes için kilitlensin mi?')) return;
+              setLocked(!locked);
+            }}
             className={`relative w-14 h-8 rounded-full transition ${locked ? 'bg-pitch' : 'bg-black/15'}`}
             aria-pressed={locked}
           >
@@ -164,7 +171,9 @@ function AdminSettings({ store }) {
 
         <button
           onClick={() => {
-            if (confirm(`${lists.length} listenin TAMAMI ve tüm tahminler silinecek. Emin misin?`))
+            if (confirmTwice(
+              `${lists.length} listenin TAMAMI ve tüm tahminler silinecek. Emin misin?`,
+              'SON UYARI: Bu işlem GERİ ALINAMAZ. Yine de devam edilsin mi?'))
               resetAllLists();
           }}
           className="mt-3 w-full btn bg-red-500 text-white hover:bg-red-600"
@@ -173,12 +182,46 @@ function AdminSettings({ store }) {
         </button>
 
         <button
-          onClick={() => { if (confirm('Girilen tüm gerçek sonuçlar silinsin mi?')) resetActual(); }}
+          onClick={() => {
+            if (confirmTwice('Girilen tüm gerçek sonuçlar silinsin mi?', 'SON UYARI: Geri alınamaz. Devam?'))
+              resetActual();
+          }}
           className="mt-2 w-full btn bg-white border border-red-300 text-red-600 hover:bg-red-50"
         >
           Gerçek sonuçları sıfırla
         </button>
       </div>
+    </div>
+  );
+}
+
+function AdminLogs({ store }) {
+  const { logs } = store;
+  const fmt = (ts) => {
+    try {
+      const d = ts?.toDate ? ts.toDate() : (ts?.seconds ? new Date(ts.seconds * 1000) : null);
+      return d ? d.toLocaleString('tr-TR') : '—';
+    } catch { return '—'; }
+  };
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-ink/60 px-1">Yönetici işlemleri (son 100 kayıt).</p>
+      {(!logs || logs.length === 0) ? (
+        <div className="card p-6 text-center text-ink/50">Henüz kayıt yok.</div>
+      ) : (
+        <div className="card divide-y divide-black/5 overflow-hidden">
+          {logs.map((l) => (
+            <div key={l.id} className="px-4 py-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-semibold text-ink">{l.action}</span>
+                <span className="text-[11px] text-ink/40 shrink-0">{fmt(l.ts)}</span>
+              </div>
+              {l.detail && <div className="text-xs text-ink/55">{l.detail}</div>}
+              <div className="text-[11px] text-ink/35">{l.email}</div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

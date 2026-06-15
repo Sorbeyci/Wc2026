@@ -5,7 +5,7 @@ import { scoreUser, SCORING } from '../lib/scoring.js';
 import { Dot } from '../components/ui.jsx';
 
 export default function Home({ setPage }) {
-  const { lists, actual, getPrediction, user, isAdmin, logout } = useStore();
+  const { lists, actual, getPrediction, user, isAdmin, adminEligible, adminMode, setAdminMode, logout } = useStore();
 
   const rows = useMemo(() => {
     return lists
@@ -36,6 +36,24 @@ export default function Home({ setPage }) {
         <Tile value={`${resultsIn}/${GROUP_MATCHES.length}`} label="Sonuç girildi" onClick={() => isAdmin && setPage('admin')} />
         <Tile value={rows[0]?.total ?? 0} label="En yüksek" onClick={() => setPage('board')} />
       </div>
+
+      {adminEligible && (
+        <div className={`card p-4 flex items-center justify-between ${adminMode ? 'ring-1 ring-pitch/40' : ''}`}>
+          <div>
+            <div className="font-semibold text-ink">Admin modu</div>
+            <div className="text-xs text-ink/55">
+              {adminMode ? 'Açık — yönetici yetkilerin aktif.' : 'Kapalı — normal kullanıcı gibi görüyorsun.'}
+            </div>
+          </div>
+          <button
+            onClick={() => setAdminMode(!adminMode)}
+            className={`relative h-7 w-12 rounded-full transition ${adminMode ? 'bg-pitch' : 'bg-black/20'}`}
+            aria-label="Admin modu"
+          >
+            <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-all ${adminMode ? 'left-[22px]' : 'left-0.5'}`} />
+          </button>
+        </div>
+      )}
 
       <div className="card p-4">
         <div className="flex items-center justify-between">

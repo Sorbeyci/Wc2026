@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   collection, doc, onSnapshot, setDoc, deleteDoc, serverTimestamp, writeBatch,
+  addDoc, query, orderBy, limit,
 } from 'firebase/firestore';
 import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
 import { auth, db, googleProvider, isAdminEmail } from './firebase.js';
@@ -22,6 +23,14 @@ export function StoreProvider({ children }) {
 
   const [drafts, setDrafts] = useState({});
   const [actualDraft, setActualDraft] = useState(null);
+  const [logs, setLogs] = useState([]);
+  const [adminMode, setAdminModeState] = useState(() => {
+    try { return localStorage.getItem('wc_admin_mode') === '1'; } catch { return false; }
+  });
+  const setAdminMode = (v) => {
+    try { localStorage.setItem('wc_admin_mode', v ? '1' : '0'); } catch {}
+    setAdminModeState(!!v);
+  };
 
   const listsRef = useRef(lists);     useEffect(() => { listsRef.current = lists; }, [lists]);
   const actualRef = useRef(actual);   useEffect(() => { actualRef.current = actual; }, [actual]);
@@ -29,7 +38,8 @@ export function StoreProvider({ children }) {
   const timers = useRef({});
   const pending = useRef({ lists: {}, actual: null }); // latest unsaved payloads, for flush-on-exit
 
-  const isAdmin = isAdminEmail(user?.email);
+  const adminEligible = isAdminEmail(user?.email);
+  const isAdmin = adminEligible && adminMode;
   const locked = !!settings.locked;
 
   useEffect(() => onAuthStateChanged(auth, (u) => { setUser(u); setAuthLoading(false); }), []);
@@ -44,10 +54,24 @@ export function StoreProvider({ children }) {
       (e) => setLastError('Sonuçlar okunamadı: ' + e.code));
     const unsubSettings = onSnapshot(doc(db, 'config', 'settings'),
       (d) => setSettings(d.exists() ? { locked: false, ...d.data() } : { locked: false }));
-    return () => { unsubLists(); unsubActual(); unsubSettings(); };
+    const subs = [unsubLists, unsubActual, unsubSettings];
+    if (isAdminEmail(user.email)) {
+      const unsubLogs = onSnapshot(query(collection(db, 'logs'), orderBy('ts', 'desc'), limit(100)),
+        (snap) => setLogs(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+        () => {});
+      subs.push(unsubLogs);
+    }
+    return () => subs.forEach((fn) => fn());
   }, [user]);
 
   const reportSave = (p) => p.catch((e) => setLastError('Kaydedilemedi (' + (e.code || e.message) + '). Firestore kuralları / admin e-postası doğru mu?'));
+
+  const logAction = (action, detail = '') => {
+    if (!adminEligible) return;
+    addDoc(collection(db, 'logs'), {
+      ts: serverTimestamp(), email: user?.email || '', action, detail,
+    }).catch(() => {});
+  };
 
   const writeList = (listId, prediction) => {
     pending.current.lists[listId] = prediction;
@@ -116,9 +140,10 @@ export function StoreProvider({ children }) {
   };
 
   const api = useMemo(() => ({
-    user, isAdmin, authLoading, lists, actual: liveActual,
+    user, isAdmin, adminEligible, adminMode, setAdminMode,
+    authLoading, lists, actual: liveActual,
     settings, locked, lastError, clearError: () => setLastError(null),
-    myLists, canCreateList, getPrediction,
+    myLists, canCreateList, getPrediction, logs,
 
     signIn: () => signInWithPopup(auth, googleProvider).catch((e) => setLastError(e.code || e.message)),
     logout: () => signOut(auth),
@@ -152,15 +177,24 @@ export function StoreProvider({ children }) {
         imported: true,
         createdAt: serverTimestamp(),
       }));
+      logAction('Excel içe aktarıldı', `${(name || 'Oyuncu').trim()} (${Object.keys(prediction?.groupMatches || {}).length} grup maçı)`);
       return id;
     },
-    deleteList: (id) => reportSave(deleteDoc(doc(db, 'lists', id))),
+    deleteList: (id) => {
+      const l = listsRef.current.find((x) => x.id === id);
+      logAction('Liste silindi', l?.name || id);
+      return reportSave(deleteDoc(doc(db, 'lists', id)));
+    },
     canEditList: (l) => !!l && (l.ownerUid === user?.uid || isAdmin) && (!locked || isAdmin),
 
     // ---- admin controls ----
-    setLocked: (val) => reportSave(setDoc(doc(db, 'config', 'settings'), { locked: !!val, updatedAt: serverTimestamp() }, { merge: true })),
+    setLocked: (val) => {
+      logAction('Kilit', val ? 'açıldı (kilitli)' : 'kaldırıldı');
+      return reportSave(setDoc(doc(db, 'config', 'settings'), { locked: !!val, updatedAt: serverTimestamp() }, { merge: true }));
+    },
     async resetAllLists() {
       if (!isAdmin) return;
+      logAction('Tüm listeler sıfırlandı', `${listsRef.current.length} liste`);
       const batch = writeBatch(db);
       listsRef.current.forEach((l) => batch.delete(doc(db, 'lists', l.id)));
       await reportSave(batch.commit());
@@ -168,6 +202,7 @@ export function StoreProvider({ children }) {
     },
     async resetActual() {
       if (!isAdmin) return;
+      logAction('Sonuçlar sıfırlandı');
       setActualDraft(null);
       await reportSave(deleteDoc(doc(db, 'config', 'actual')));
     },
@@ -220,8 +255,9 @@ export function StoreProvider({ children }) {
     setActualTopScorer: (value) =>
       editActual((a) => { a.topScorer = value; return a; }),
     // Bulk-apply auto-fetched results into actual (merge by match no).
-    applyFetchedScores: ({ groupMatches = {}, ko = {} }) =>
-      editActual((a) => {
+    applyFetchedScores: ({ groupMatches = {}, ko = {} }) => {
+      logAction('Otomatik skor uygulandı', `${Object.keys(groupMatches).length} grup maçı`);
+      return editActual((a) => {
         a.groupMatches = { ...a.groupMatches };
         for (const [no, sc] of Object.entries(groupMatches)) {
           a.groupMatches[no] = { ...(a.groupMatches[no] || {}), home: String(sc.home), away: String(sc.away) };
@@ -231,8 +267,9 @@ export function StoreProvider({ children }) {
           for (const [no, v] of Object.entries(ko)) a.ko[no] = { ...(a.ko[no] || {}), ...v };
         }
         return a;
-      }),
-  }), [user, isAdmin, authLoading, lists, actual, settings, locked, lastError, drafts, actualDraft]);
+      });
+    },
+  }), [user, isAdmin, adminEligible, adminMode, authLoading, lists, actual, settings, locked, lastError, drafts, actualDraft, logs]);
 
   return <StoreCtx.Provider value={api}>{children}</StoreCtx.Provider>;
 }

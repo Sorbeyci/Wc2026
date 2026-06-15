@@ -100,12 +100,19 @@ export default function ImportExport({ store }) {
                 {knownEmails.map((em) => <option key={em} value={em} />)}
               </datalist>
             </div>
-            <div className="flex gap-2 pt-1">
+            <div className="flex flex-wrap gap-2 pt-1">
               <button className="btn btn-primary" disabled={busy || !name.trim()} onClick={confirmImport}>
                 {busy ? 'Ekleniyor…' : 'İçe aktar'}
               </button>
+              <button className="btn btn-ghost" onClick={() => exportPredictionXlsx((name || 'eslesme'), parsed.pred)}>
+                Eşleşmeleri hesapla (Excel)
+              </button>
               <button className="btn btn-ghost" onClick={() => { setParsed(null); setMsg(null); }}>Vazgeç</button>
             </div>
+            <p className="text-[11px] text-ink/45">
+              "Eşleşmeleri hesapla", girilen skorlara göre Son 32'den finale eşleşmeleri ve en iyi 8 üçüncüyü
+              (uygulamadaki sistemle) hesaplayıp Excel olarak indirir.
+            </p>
           </div>
         )}
 

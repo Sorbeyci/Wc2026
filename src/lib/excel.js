@@ -1,8 +1,29 @@
 // Excel (xlsx) import/export for predictions, using SheetJS.
 import * as XLSX from 'xlsx';
 import { GROUP_MATCHES } from '../data/tournament.js';
-import { resolveBracket } from '../data/bracket.js';
+import { resolveBracket, bestThirds, R32, LATER } from '../data/bracket.js';
 import { resolveTeam } from '../data/teamAliases.js';
+
+const R32_BY_NO = Object.fromEntries(R32.map((m) => [m.no, m]));
+const LATER_BY_NO = Object.fromEntries(LATER.map((m) => [m.no, m]));
+
+// Positional origin of a knockout slot, mirroring the app bracket logic.
+function originLabel(no, side, thirdSlotGroup) {
+  const m32 = R32_BY_NO[no];
+  if (m32) {
+    const ref = m32[side];
+    if (ref.t === 'W') return `1${ref.g}`;
+    if (ref.t === 'R') return `2${ref.g}`;
+    if (ref.t === 'T') { const g = thirdSlotGroup?.[ref.slot]; return g ? `3.(${g})` : `3.(${ref.slot})`; }
+  }
+  const ml = LATER_BY_NO[no];
+  if (ml) {
+    const ref = ml[side];
+    if (ref.t === 'Wm') return `${ref.n}. maç galibi`;
+    if (ref.t === 'Lm') return `${ref.n}. maç mağlubu`;
+  }
+  return '';
+}
 
 const GROUP_SHEET = 'Grup Maclari';
 const KO_SHEET = 'Eleme';
@@ -30,18 +51,25 @@ export function buildPredictionWorkbook(pred, { blankKoTeams = false } = {}) {
     g.push([m.no, m.date, m.time, m.group, m.home, m.away, numOrBlank(s.home), numOrBlank(s.away)]);
   }
 
-  const k = [['No', 'Tur', 'Ev', 'Deplasman', 'Ev Skor', 'Dep Skor', 'Kazanan']];
+  const k = [['No', 'Tur', 'Ev (kaynak)', 'Ev', 'Deplasman', 'Dep (kaynak)', 'Ev Skor', 'Dep Skor', 'Kazanan']];
   for (let no = 73; no <= 104; no++) {
     const mm = b.matches[no] || {};
     const s = pred.ko?.[no] || {};
     k.push([
       no, koLabel(no),
+      originLabel(no, 'home', b.thirdSlotGroup),
       blankKoTeams ? '' : (mm.home || ''),
       blankKoTeams ? '' : (mm.away || ''),
+      originLabel(no, 'away', b.thirdSlotGroup),
       numOrBlank(s.hs), numOrBlank(s.as),
       s.winner || (blankKoTeams ? '' : mm.winner || ''),
     ]);
   }
+
+  // Best-8 third-placed teams, auto-derived from the group scores (like the app).
+  const thirds = bestThirds(pred);
+  const t = [['Sıra', 'Grup', 'Takım', 'Puan', 'Averaj', 'Attığı gol']];
+  thirds.top8.forEach((r, i) => t.push([i + 1, r.group, r.team, r.Pts, r.GD, r.GF]));
 
   const d = [['Alan', 'Değer'], ['Gol Kralı', pred.topScorer || '']];
 
@@ -49,7 +77,10 @@ export function buildPredictionWorkbook(pred, { blankKoTeams = false } = {}) {
   const gs = XLSX.utils.aoa_to_sheet(g);
   gs['!cols'] = [{ wch: 4 }, { wch: 14 }, { wch: 7 }, { wch: 6 }, { wch: 22 }, { wch: 22 }, { wch: 8 }, { wch: 8 }];
   XLSX.utils.book_append_sheet(wb, gs, GROUP_SHEET);
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(k), KO_SHEET);
+  const ks = XLSX.utils.aoa_to_sheet(k);
+  ks['!cols'] = [{ wch: 4 }, { wch: 13 }, { wch: 13 }, { wch: 20 }, { wch: 20 }, { wch: 13 }, { wch: 8 }, { wch: 8 }, { wch: 20 }];
+  XLSX.utils.book_append_sheet(wb, ks, KO_SHEET);
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(t), '3. Takimlar');
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(d), MISC_SHEET);
   return wb;
 }
