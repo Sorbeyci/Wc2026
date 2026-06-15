@@ -35,9 +35,16 @@ export default function Home({ setPage }) {
       .sort((a, b) => b.total - a.total);
   }, [lists, actual]);
 
-  const resultsIn = Object.values(actual.groupMatches).filter(
-    (m) => m && m.home !== '' && m.home != null && m.away !== '' && m.away != null
+  const hasSc = (m) => m && m.home !== '' && m.home != null && m.away !== '' && m.away != null;
+  const resultsIn = Object.values(actual.groupMatches).filter(hasSc).length;
+  const koIn = Object.values(actual.ko || {}).filter(
+    (k) => k && k.hs !== '' && k.hs != null && k.as !== '' && k.as != null
   ).length;
+  const totalMatches = GROUP_MATCHES.length + 32; // 72 grup + 32 eleme
+  const progressPct = Math.round(((resultsIn + koIn) / totalMatches) * 100);
+
+  const myList = lists.find((l) => isMyList(l));
+  const myPred = myList ? getPrediction(myList.id) : null;
 
   return (
     <div className="space-y-4">
@@ -67,12 +74,12 @@ export default function Home({ setPage }) {
 
       <div className="grid grid-cols-3 gap-3">
         <Tile value={lists.length} label="Katılımcı" onClick={() => setPage('lists')} />
-        <Tile value={`${resultsIn}/${GROUP_MATCHES.length}`} label="Sonuç girildi" onClick={() => isAdmin && setPage('admin')} />
+        <Tile value={`%${progressPct}`} label="İlerleme" onClick={() => isAdmin && setPage('admin')} />
         <Tile value={rows[0]?.total ?? 0} label="En yüksek" onClick={() => setPage('board')} />
       </div>
 
       <MyScore rows={rows} isMyList={isMyList} setPage={setPage} onCreate={() => setPage('lists')} />
-      <DayBrowser lists={lists} getPrediction={getPrediction} actual={actual} />
+      <DayBrowser lists={lists} getPrediction={getPrediction} actual={actual} myPred={myPred} />
       <RecentResults actual={actual} />
       <FunStats lists={lists} getPrediction={getPrediction} actual={actual} />
 
@@ -132,6 +139,13 @@ export default function Home({ setPage }) {
 }
 
 const CHANGELOG = [
+  {
+    v: '1.7', date: 'Haziran 2026', items: [
+      'Maçlar kartında "Kendi skorum" anahtarı: her maçın altında senin tahminin.',
+      'Karşılaştır (H2H) içinde kişi başına açılır detaylı istatistik.',
+      '"X/72 sonuç" yerine toplam ilerleme oranı (% — grup + eleme).',
+    ],
+  },
   {
     v: '1.6', date: 'Haziran 2026', items: [
       'Geçici puanlar daha belirgin (büyük buton); grup/3.\'ler/eleme dökümünde kim nereden puan almış detayı.',
@@ -303,9 +317,10 @@ function distribution(no, lists, getPrediction) {
 
 const dateForOffset = (off) => { const n = new Date(); n.setDate(n.getDate() + off); return `${TR_MON[n.getMonth()]} ${n.getDate()}, ${n.getFullYear()}`; };
 
-function DayBrowser({ lists, getPrediction, actual }) {
+function DayBrowser({ lists, getPrediction, actual, myPred }) {
   const [off, setOff] = useState(0);
   const [openNo, setOpenNo] = useState(null);
+  const [showMine, setShowMine] = useState(false);
   const date = dateForOffset(off);
   const matches = useMemo(
     () => GROUP_MATCHES.filter((m) => m.date === date).sort((a, b) => timeKey(a) - timeKey(b)),
@@ -323,12 +338,17 @@ function DayBrowser({ lists, getPrediction, actual }) {
             <button className="h-7 w-7 rounded-full bg-black/5 text-ink/70 active:scale-95" onClick={() => setDay(off + 1)} aria-label="Sonraki gün">›</button>
           </div>
         </div>
-        <div className="mt-2 flex gap-1.5">
+        <div className="mt-2 flex items-center gap-1.5">
           {[['Dün', -1], ['Bugün', 0], ['Yarın', 1]].map(([t, o]) => (
             <button key={o} onClick={() => setDay(o)}
               className={`rounded-full px-3 py-1 text-xs font-semibold ${off === o ? 'bg-ink text-white' : 'bg-black/5 text-ink/70'}`}>{t}</button>
           ))}
-          <span className="ml-auto text-xs text-ink/40 self-center">{date}</span>
+          {myPred && (
+            <button onClick={() => setShowMine((v) => !v)}
+              className={`ml-auto rounded-full px-3 py-1 text-xs font-semibold transition ${showMine ? 'bg-pitch text-white' : 'bg-black/5 text-ink/55'}`}>
+              Kendi skorum
+            </button>
+          )}
         </div>
       </div>
       {matches.length === 0 ? (
@@ -338,6 +358,8 @@ function DayBrowser({ lists, getPrediction, actual }) {
           {matches.map((m) => {
             const open = openNo === m.no;
             const a = actual.groupMatches?.[m.no];
+            const mine = myPred?.groupMatches?.[m.no];
+            const mineHas = mine && mine.home !== '' && mine.home != null && mine.away !== '' && mine.away != null;
             const d = open ? distribution(m.no, lists, getPrediction) : null;
             return (
               <div key={m.no}>
@@ -357,6 +379,11 @@ function DayBrowser({ lists, getPrediction, actual }) {
                     </div>
                     <span className={`shrink-0 text-ink/30 transition ${open ? 'rotate-180' : ''}`}>▾</span>
                   </div>
+                  {showMine && (
+                    <div className="text-center text-[11px] text-pitch-dark mt-0.5">
+                      {mineHas ? `Senin tahminin: ${mine.home}-${mine.away}` : 'Bu maça tahmin girmemişsin'}
+                    </div>
+                  )}
                 </button>
                 {open && (
                   <div className="px-4 pb-3">

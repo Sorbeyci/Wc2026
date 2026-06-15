@@ -296,6 +296,23 @@ function H2H({ rows }) {
           </div>
         </div>
       )}
+      {ra && <H2HFull r={ra} />}
+      {rb && rb.list.id !== ra?.list.id && <H2HFull r={rb} />}
+    </div>
+  );
+}
+
+function H2HFull({ r }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="card overflow-hidden">
+      <button className="w-full flex items-center gap-2 px-4 py-3" onClick={() => setOpen((o) => !o)}>
+        <Dot color={r.list.color} />
+        <span className="flex-1 text-left font-semibold truncate">{r.list.name} · detaylı istatistik</span>
+        <span className="font-display text-lg">{r.total}</span>
+        <span className={`transition ${open ? 'rotate-180' : ''}`}>▾</span>
+      </button>
+      {open && <div className="border-t border-black/5 p-3 bg-black/[0.015]"><FullStats result={r} /></div>}
     </div>
   );
 }
