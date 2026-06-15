@@ -84,3 +84,35 @@ export const flagEmoji = (name) => {
   if (SPECIAL_EMOJI[code]) return SPECIAL_EMOJI[code];
   return [...code.toUpperCase()].map((c) => String.fromCodePoint(127397 + c.charCodeAt(0))).join('');
 };
+
+// Representative identity color per team (approx. primary flag color).
+// Falls back to a deterministic pleasant hue derived from the name.
+const TEAM_COLOR = {
+  'Brezilya': '#0a9d4a', 'Arjantin': '#5aa9e6', 'Fransa': '#1b3a8c', 'İspanya': '#c60b1e',
+  'Almanya': '#111111', 'İngiltere': '#1b3a8c', 'Hollanda': '#ec6608', 'Portekiz': '#0a7d3b',
+  'Belçika': '#c8102e', 'İtalya': '#1b6ca8', 'Hırvatistan': '#c8102e', 'Uruguay': '#3aa1d8',
+  'Meksika': '#0a7d3b', 'Amerika Birleşik Devletleri': '#1b3a8c', 'Kanada': '#d52b1e',
+  'Japonya': '#bc002d', 'Kore Cumhuriyeti': '#0047a0', 'Avustralya': '#0a7d3b',
+  'Fas': '#c1272d', 'Senegal': '#00853f', 'Fildişi Sahili': '#ff8200', 'Gana': '#006b3f',
+  'Tunus': '#e70013', 'Mısır': '#c8102e', 'Nijerya': '#008751', 'Cezayir': '#006233',
+  'Türkiye': '#e30a17', 'İsviçre': '#d52b1e', 'İsveç': '#fecb00', 'Norveç': '#ba0c2f',
+  'Danimarka': '#c8102e', 'Polonya': '#dc143c', 'İran': '#239f40', 'Suudi Arabistan': '#006c35',
+  'Katar': '#8a1538', 'Ekvador': '#ffd100', 'Kolombiya': '#fcd116', 'Paraguay': '#d52b1e',
+  'Güney Afrika': '#007a4d', 'Yeni Zelanda': '#1b3a8c', 'İskoçya': '#0065bf',
+  'Yeşil Burun Adaları': '#003893', 'Haiti': '#00209f', 'Curaçao': '#002b7f',
+  'Bosna Hersek': '#002395', 'Çek Cumhuriyeti': '#11457e', 'Irak': '#007a3d',
+  'Panama': '#005293', 'Jamaika': '#009b3a', 'Özbekistan': '#1eb53a', 'Ürdün': '#007a3d',
+  'Yeni Kaledonya': '#ed1c24',
+};
+
+function hashHue(s) {
+  let h = 0;
+  for (let i = 0; i < (s || '').length; i++) h = (h * 31 + s.charCodeAt(i)) % 360;
+  return h;
+}
+
+export const teamColor = (name) => {
+  if (!name) return '#64748b';
+  if (TEAM_COLOR[name]) return TEAM_COLOR[name];
+  return `hsl(${hashHue(name)}, 55%, 42%)`;
+};

@@ -3,7 +3,7 @@ import { useStore } from '../lib/store.jsx';
 import { GROUP_MATCHES } from '../data/tournament.js';
 import { scoreUser, SCORING } from '../lib/scoring.js';
 import { Dot, Flag, Avatar, CountUp } from '../components/ui.jsx';
-import { shortName } from '../data/flags.js';
+import { shortName, teamColor } from '../data/flags.js';
 
 const TR_MON = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
 const todayStr = () => { const n = new Date(); return `${TR_MON[n.getMonth()]} ${n.getDate()}, ${n.getFullYear()}`; };
@@ -139,6 +139,13 @@ export default function Home({ setPage }) {
 }
 
 const CHANGELOG = [
+  {
+    v: '2.0', date: 'Haziran 2026', items: [
+      'Kişi sayfasından kendi puan kartını paylaşma (paylaş ikonu, 9:16 görsel).',
+      'Yatay kaydırmalı tam eleme ağacı: tahmin + gerçek sonuç bir arada ("Ağaç" sekmesi).',
+      'Maç ve podyum kartlarında takım bayrak rengiyle kimlik vurgusu.',
+    ],
+  },
   {
     v: '1.9', date: 'Haziran 2026', items: [
       'Avatarlar her zaman isim-soyisim baş harfi (foto kullanılmıyor).',
@@ -400,7 +407,8 @@ function DayBrowser({ lists, getPrediction, actual, myPred }) {
             const d = open ? distribution(m.no, lists, getPrediction) : null;
             return (
               <div key={m.no}>
-                <button className="w-full px-4 py-2.5 text-left" onClick={() => setOpenNo(open ? null : m.no)}>
+                <button className="w-full px-4 py-2.5 text-left" onClick={() => setOpenNo(open ? null : m.no)}
+                  style={{ backgroundImage: `linear-gradient(90deg, ${teamColor(m.home)}14, transparent 26%, transparent 74%, ${teamColor(m.away)}14)` }}>
                   <div className="text-[11px] text-ink/45 mb-1 flex items-center gap-2">
                     <span>{m.no}. maç · {m.group} Grubu · {m.time}</span>
                     {(() => {

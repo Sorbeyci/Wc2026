@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useStore } from '../lib/store.jsx';
 import { scoreUser, SCORING } from '../lib/scoring.js';
 import { GROUP_MATCHES, GROUP_NAMES } from '../data/tournament.js';
 import { resolveBracket, bestThirds } from '../data/bracket.js';
 import { exportPredictionXlsx } from '../lib/excel.js';
-import { Flag, Dot, Segmented, CountUp } from '../components/ui.jsx';
+import { Flag, Dot, Avatar, Segmented, CountUp } from '../components/ui.jsx';
 import Standings from '../components/Standings.jsx';
-import { shortName } from '../data/flags.js';
+import BracketTree from '../components/BracketTree.jsx';
+import { shortName, teamColor } from '../data/flags.js';
+import { sharePerson } from '../lib/shareCard.js';
 import FullStats from '../components/FullStats.jsx';
 
 const KO_VIEW = [
@@ -22,6 +24,7 @@ const SUB = [
   { id: 'standings', label: 'Puan Durumu' },
   { id: 'stats', label: 'İstatistik' },
   { id: 'picks', label: 'Tahminler' },
+  { id: 'tree', label: 'Ağaç' },
 ];
 
 export default function ListDetail({ listId, onBack, onEdit }) {
@@ -41,16 +44,33 @@ export default function ListDetail({ listId, onBack, onEdit }) {
   const mine = canEditList(list);
   const owned = isMyList(list);
 
+  const rank = useMemo(() => {
+    const totals = lists.map((l) => ({ id: l.id, total: scoreUser(getPrediction(l.id), actual).total }))
+      .sort((a, b) => b.total - a.total);
+    return totals.findIndex((t) => t.id === listId) + 1;
+  }, [lists, actual, listId]);
+
+  const onShare = () => sharePerson({
+    list, total: result.total, breakdown: result.breakdown,
+    champion: result.bracket?.pred?.champion || '', topScorer: pred.topScorer || '',
+  }, { rank });
+
   return (
     <div className="space-y-4">
       <button className="text-sm font-semibold text-pitch" onClick={onBack}>← Listeler</button>
 
       <div className="card p-4 flex items-center gap-3">
-        <Dot color={list.color} />
+        <Avatar name={list.ownerName || list.name} color={list.color} size={44} />
         <div className="flex-1 min-w-0">
           <p className="font-display text-2xl text-ink leading-tight truncate">{list.name}</p>
-          <p className="text-xs text-ink/45 truncate">{list.ownerName}{owned ? ' · senin listen' : ''}</p>
+          <p className="text-xs text-ink/45 truncate">{list.ownerName}{owned ? ' · senin listen' : ''} · {rank}. sıra</p>
         </div>
+        <button onClick={onShare} title="Paylaş"
+          className="h-10 w-10 shrink-0 grid place-items-center rounded-full bg-black/5 text-ink/70 active:scale-95 transition" aria-label="Paylaş">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7" /><polyline points="16 6 12 2 8 6" /><line x1="12" y1="2" x2="12" y2="15" />
+          </svg>
+        </button>
         <div className="text-right">
           <div className="font-display text-3xl text-pitch leading-none"><CountUp value={result.total} /></div>
           <div className="text-[10px] uppercase tracking-wide text-ink/45">puan</div>
@@ -70,6 +90,7 @@ export default function ListDetail({ listId, onBack, onEdit }) {
         {sub === 'standings' && <Standings scores={pred.groupMatches} />}
         {sub === 'stats' && <FullStats result={result} />}
         {sub === 'picks' && <Picks pred={pred} actual={actual} />}
+        {sub === 'tree' && <BracketTree pred={pred} actual={actual} />}
       </div>
     </div>
   );
@@ -119,7 +140,8 @@ export function Picks({ pred, actual }) {
                 const s = pred.groupMatches?.[m.no] || {};
                 const pts = grpPts(s, actual?.groupMatches?.[m.no]);
                 return (
-                  <div key={m.no} className="flex items-center gap-2 px-3 py-2 text-sm">
+                  <div key={m.no} className="flex items-center gap-2 px-3 py-2 text-sm"
+                    style={{ backgroundImage: `linear-gradient(90deg, ${teamColor(m.home)}12, transparent 24%, transparent 76%, ${teamColor(m.away)}12)` }}>
                     <div className="w-10 shrink-0" />
                     <div className="flex-1 min-w-0 flex items-center justify-end gap-1.5">
                       <span className="truncate">{shortName(m.home)}</span>
@@ -171,7 +193,8 @@ export function Picks({ pred, actual }) {
                 const aw = bA.matches?.[m.no]?.winner;
                 const advHit = aw && m.winner === aw && advanceOf(m.no) > 0;
                 return (
-                  <div key={m.no} className="flex items-center gap-2 px-3 py-2 text-sm">
+                  <div key={m.no} className="flex items-center gap-2 px-3 py-2 text-sm"
+                    style={{ backgroundImage: `linear-gradient(90deg, ${teamColor(m.home)}12, transparent 24%, transparent 76%, ${teamColor(m.away)}12)` }}>
                     <div className="w-12 shrink-0" />
                     <div className="flex-1 min-w-0 flex items-center justify-end gap-1.5">
                       <span className={`truncate ${m.winner === m.home ? 'font-bold text-pitch-dark' : ''}`}>{shortName(m.home)}</span>
@@ -221,7 +244,7 @@ export function Picks({ pred, actual }) {
 function PickRow({ label, team }) {
   if (!team) return null;
   return (
-    <div className="flex items-center justify-between px-4 py-2 text-sm">
+    <div className="flex items-center justify-between px-4 py-2 text-sm" style={{ boxShadow: `inset 3px 0 0 ${teamColor(team)}` }}>
       <span className="text-ink/60">{label}</span>
       <span className="flex items-center gap-1.5 font-semibold"><Flag team={team} size={16} />{shortName(team)}</span>
     </div>

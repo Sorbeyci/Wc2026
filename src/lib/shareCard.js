@@ -106,3 +106,93 @@ export async function shareLeaderboard(rows, opts = {}) {
   a.href = url; a.download = file.name; a.click();
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
+
+// ---- personal score card (person-specific page share) ---------------------
+export function drawPersonCard(row, { rank } = {}) {
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  const color = row.list?.color || '#0a8754';
+
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#0c1f17');
+  g.addColorStop(1, '#06140e');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
+  // brand
+  ctx.fillStyle = '#19c37d';
+  ctx.font = '700 42px system-ui, sans-serif';
+  ctx.fillText('kupayikimalir.com', 70, 110);
+  ctx.fillStyle = 'rgba(255,255,255,.5)';
+  ctx.font = '600 28px system-ui, sans-serif';
+  ctx.fillText('FIFA DÜNYA KUPASI 2026', 70, 152);
+
+  // avatar
+  const cx = W / 2, ay = 360, ar = 130;
+  ctx.beginPath(); ctx.arc(cx, ay, ar, 0, Math.PI * 2); ctx.fillStyle = color; ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
+  ctx.font = '800 110px system-ui, sans-serif';
+  ctx.fillText(initials(row.list?.ownerName || row.list?.name), cx, ay + 38);
+
+  // name + rank
+  ctx.fillStyle = '#fff'; ctx.font = '800 64px system-ui, sans-serif';
+  ctx.fillText(row.list?.name || '', cx, 590);
+  if (rank) {
+    ctx.fillStyle = '#f4c64a'; ctx.font = '700 40px system-ui, sans-serif';
+    ctx.fillText(`${rank}. sıra`, cx, 650);
+  }
+
+  // big total
+  ctx.fillStyle = '#19c37d'; ctx.font = '900 220px system-ui, sans-serif';
+  ctx.fillText(String(row.total ?? 0), cx, 900);
+  ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.font = '600 36px system-ui, sans-serif';
+  ctx.fillText('TOPLAM PUAN', cx, 960);
+
+  // breakdown
+  const b = row.breakdown || {};
+  const lines = [
+    ['Maç skorları', b.groupMatches], ['Grup sıralaması', b.groupTables],
+    ['En iyi 3.\'ler', b.thirds], ['Eleme', b.knockout], ['Final & kupa', b.finals],
+  ];
+  let y = 1080;
+  ctx.textAlign = 'left';
+  lines.forEach(([label, val]) => {
+    ctx.fillStyle = 'rgba(255,255,255,.06)';
+    roundRect(ctx, 70, y, W - 140, 96, 22); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.font = '600 40px system-ui, sans-serif';
+    ctx.fillText(label, 110, y + 62);
+    ctx.textAlign = 'right'; ctx.fillStyle = '#19c37d'; ctx.font = '800 48px system-ui, sans-serif';
+    ctx.fillText(String(val ?? 0), W - 110, y + 62);
+    ctx.textAlign = 'left';
+    y += 116;
+  });
+
+  // champion pick
+  if (row.champion) {
+    ctx.fillStyle = 'rgba(244,198,74,.14)';
+    roundRect(ctx, 70, y, W - 140, 110, 22); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.font = '600 40px system-ui, sans-serif';
+    ctx.fillText('🏆 Şampiyon tahmini', 110, y + 70);
+    ctx.textAlign = 'right'; ctx.fillStyle = '#f4c64a'; ctx.font = '800 44px system-ui, sans-serif';
+    ctx.fillText(row.champion, W - 110, y + 70);
+    ctx.textAlign = 'left';
+  }
+  return canvas;
+}
+
+export async function sharePerson(row, opts = {}) {
+  const canvas = drawPersonCard(row, opts);
+  const blob = await new Promise((res) => canvas.toBlob(res, 'image/png'));
+  if (!blob) return;
+  const file = new File([blob], 'kupayikimalir-puanim.png', { type: 'image/png' });
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: row.list?.name || 'Puanım' });
+      return;
+    }
+  } catch (e) { /* fall through */ }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = file.name; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
