@@ -47,17 +47,30 @@ function groupHits(pred, actual) {
   }
   return hits;
 }
+const KO_ROUND_RANGES = [[73, 88], [89, 96], [97, 100], [101, 102], [103, 103], [104, 104]];
 const koRoundLabel = (no) => (no <= 88 ? 'S32' : no <= 96 ? 'S16' : no <= 100 ? 'ÇF' : no <= 102 ? 'YF' : no === 103 ? '3.' : 'F');
 
-// Knockout matchups where BOTH teams of the pairing were predicted right (10p each).
+// Knockout matchups where the pairing (two teams) is right — ignoring home/away
+// and ignoring which slot they land in within that round (10p each).
 function matchupHitsOf(P, A) {
   const hits = [];
-  for (let no = 73; no <= 104; no++) {
-    const p = P?.matches?.[no], a = A?.matches?.[no];
-    if (!p?.home || !p?.away || !a?.home || !a?.away) continue;
-    const set = new Set([a.home, a.away]);
-    if (p.home !== p.away && set.has(p.home) && set.has(p.away)) {
-      hits.push({ key: 'm' + no, no, home: a.home, away: a.away, pts: SCORING.knockout.matchup });
+  const canon = (x, y) => [x, y].sort().join('|');
+  for (const [from, to] of KO_ROUND_RANGES) {
+    const actualPairs = new Map();
+    for (let no = from; no <= to; no++) {
+      const a = A?.matches?.[no];
+      if (a?.home && a?.away) actualPairs.set(canon(a.home, a.away), { no, home: a.home, away: a.away });
+    }
+    const seen = new Set();
+    for (let no = from; no <= to; no++) {
+      const p = P?.matches?.[no];
+      if (!p?.home || !p?.away || p.home === p.away) continue;
+      const key = canon(p.home, p.away);
+      if (actualPairs.has(key) && !seen.has(key)) {
+        seen.add(key);
+        const ap = actualPairs.get(key);
+        hits.push({ key: 'm' + ap.no, no: ap.no, home: ap.home, away: ap.away, pts: SCORING.knockout.matchup });
+      }
     }
   }
   return hits;

@@ -194,13 +194,21 @@ export function scoreBracketKnockout(P, A, predKo = {}, actualKo = {}) {
       if (aw && P.matches[no]?.winner === aw) { advancePts += SCORING.knockout.advance[id]; counts[id]++; }
     }
   }
-  // correct-matchup points: both teams of the pairing right, every round (73–104)
+  // correct-matchup points: the two teams of a pairing are right — regardless of
+  // home/away order AND regardless of which slot they land in within that round.
+  const canon = (x, y) => [x, y].sort().join('|');
   for (const [from, to] of KO_ALL) {
+    const actualPairs = new Set();
     for (let no = from; no <= to; no++) {
-      const a = A.matches[no], p = P.matches[no];
-      if (!a?.home || !a?.away || !p?.home || !p?.away) continue;
-      const set = new Set([a.home, a.away]);
-      if (p.home !== p.away && set.has(p.home) && set.has(p.away)) { matchupPts += SCORING.knockout.matchup; matchupHits++; }
+      const a = A.matches[no];
+      if (a?.home && a?.away) actualPairs.add(canon(a.home, a.away));
+    }
+    const seen = new Set();
+    for (let no = from; no <= to; no++) {
+      const p = P.matches[no];
+      if (!p?.home || !p?.away || p.home === p.away) continue;
+      const key = canon(p.home, p.away);
+      if (actualPairs.has(key) && !seen.has(key)) { seen.add(key); matchupPts += SCORING.knockout.matchup; matchupHits++; }
     }
   }
   // scoreline points: every knockout match (73–104)
