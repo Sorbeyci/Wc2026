@@ -18,6 +18,22 @@ const VIEWS = [
   { id: 'liste', label: 'Liste' },
   { id: 'tablo', label: 'Tablo' },
 ];
+const SORTS = [
+  { id: 'total', label: 'Puan' },
+  { id: 'ko', label: 'Eleme' },
+  { id: 'group', label: 'Grup' },
+  { id: 'exact', label: 'Tam skor' },
+  { id: 'thirds', label: "3.'ler" },
+];
+const sortVal = (r, id) => {
+  const b = r.breakdown || {}, s = r.stats || {};
+  if (id === 'ko') return b.knockout || 0;
+  if (id === 'group') return (b.groupMatches || 0) + (b.groupTables || 0);
+  if (id === 'exact') return (s.exact || 0) + (s.koExact || 0);
+  if (id === 'thirds') return b.thirds || 0;
+  return r.total || 0;
+};
+const sortLabel = (id) => SORTS.find((s) => s.id === id)?.label || 'Puan';
 
 const MON = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
 const dkeyOf = (d) => { const m = (d || '').match(/^(\S+)\s+(\d+),\s*(\d+)$/); return m ? (+m[3]) * 10000 + (MON.indexOf(m[1]) + 1) * 100 + (+m[2]) : 0; };
@@ -130,6 +146,9 @@ export default function Board({ onOpenList }) {
   const [sub, setSub] = useState('board');
   const [view, setView] = useState('detay');
   const [proj, setProj] = useState(false);
+  const [sortKey, setSortKey] = useState('total');
+  const [onlyOnline, setOnlyOnline] = useState(false);
+  const [query, setQuery] = useState('');
 
   const rows = useMemo(() => {
     const cur = lists
@@ -148,6 +167,15 @@ export default function Board({ onOpenList }) {
     }
     return cur.map((r, i) => ({ ...r, rank: i + 1, delta: prevRank[r.list.id] ? prevRank[r.list.id] - (i + 1) : 0 }));
   }, [lists, actual, proj]);
+
+  const q = query.trim().toLowerCase();
+  const displayRows = useMemo(() => {
+    let a = rows.slice();
+    if (onlyOnline) a = a.filter((r) => isOnline?.(r.list));
+    if (q) a = a.filter((r) => (r.list.name || '').toLowerCase().includes(q) || (r.list.ownerName || '').toLowerCase().includes(q));
+    if (sortKey !== 'total') a = a.slice().sort((x, y) => sortVal(y, sortKey) - sortVal(x, sortKey));
+    return a;
+  }, [rows, onlyOnline, q, sortKey, isOnline]);
 
   return (
     <div className="space-y-5">
@@ -194,9 +222,40 @@ export default function Board({ onOpenList }) {
               ve eşleşmeler kesinleşince değişebilir — resmî sıralama bu değildir.
             </div>
           )}
-          {view === 'detay' && <Leaderboard rows={rows} onOpenList={onOpenList} isOnline={isOnline} actual={actual} proj={proj} />}
-          {view === 'liste' && <CompactList rows={rows} onOpenList={onOpenList} isOnline={isOnline} />}
-          {view === 'tablo' && <GridView rows={rows} onOpenList={onOpenList} isOnline={isOnline} />}
+
+          <div className="space-y-2">
+            <div className="flex gap-1.5 overflow-x-auto -mx-1 px-1 pb-0.5">
+              {SORTS.map((s) => (
+                <button key={s.id} onClick={() => setSortKey(s.id)}
+                  className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition ${sortKey === s.id ? 'bg-ink text-white' : 'bg-black/5 text-ink/60'}`}>
+                  {s.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="İsim ara…"
+                className="flex-1 rounded-lg bg-black/5 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pitch/30" />
+              <button onClick={() => setOnlyOnline((v) => !v)}
+                className={`shrink-0 rounded-lg px-3 py-2 text-xs font-semibold transition ${onlyOnline ? 'bg-pitch text-white' : 'bg-black/5 text-ink/60'}`}>
+                ● Online
+              </button>
+            </div>
+            {sortKey !== 'total' && (
+              <p className="text-[11px] text-ink/45 px-1">
+                "{sortLabel(sortKey)}" puanına göre sıralandı{onlyOnline ? ' · sadece online' : ''}{q ? ` · "${query}"` : ''}.
+              </p>
+            )}
+          </div>
+
+          {displayRows.length === 0 ? (
+            <p className="text-sm text-ink/45 text-center py-6">Eşleşen kişi yok.</p>
+          ) : view === 'detay' ? (
+            <Leaderboard rows={displayRows} onOpenList={onOpenList} isOnline={isOnline} actual={actual} proj={proj} metric={sortKey} />
+          ) : view === 'liste' ? (
+            <CompactList rows={displayRows} onOpenList={onOpenList} isOnline={isOnline} metric={sortKey} />
+          ) : (
+            <GridView rows={displayRows} onOpenList={onOpenList} isOnline={isOnline} metric={sortKey} />
+          )}
         </div>
       ) : (
         <Stats rows={rows} />
@@ -343,12 +402,13 @@ function H2HFull({ r }) {
   );
 }
 
-function CompactList({ rows, onOpenList, isOnline }) {
+function CompactList({ rows, onOpenList, isOnline, metric }) {
   const flipRef = useFlip();
+  const isTotal = !metric || metric === 'total';
   return (
     <div className="card divide-y divide-black/5" ref={flipRef}>
       {rows.map((r, i) => {
-        const leader = i === 0 && r.total > 0;
+        const leader = i === 0 && r.total > 0 && isTotal;
         return (
           <button key={r.list.id} data-flip-id={r.list.id} onClick={() => onOpenList(r.list.id)}
             className="w-full flex items-center gap-3 px-4 py-2.5 text-left active:bg-black/[0.02] bg-[var(--surface)]">
@@ -359,7 +419,7 @@ function CompactList({ rows, onOpenList, isOnline }) {
               {isOnline?.(r.list) && <span className="ml-1.5 inline-block h-2 w-2 rounded-full bg-pitch align-middle" />}
             </span>
             <Delta d={r.delta} />
-            <span className="font-display text-lg text-ink tabular-nums"><CountUp value={r.total} /></span>
+            <span className="font-display text-lg text-ink tabular-nums"><CountUp value={sortVal(r, metric || 'total')} /></span>
           </button>
         );
       })}
@@ -367,11 +427,12 @@ function CompactList({ rows, onOpenList, isOnline }) {
   );
 }
 
-function GridView({ rows, onOpenList, isOnline }) {
+function GridView({ rows, onOpenList, isOnline, metric }) {
+  const isTotal = !metric || metric === 'total';
   return (
     <div className="grid grid-cols-2 gap-2">
       {rows.map((r, i) => {
-        const leader = i === 0 && r.total > 0;
+        const leader = i === 0 && r.total > 0 && isTotal;
         return (
           <button key={r.list.id} onClick={() => onOpenList(r.list.id)}
             className={`card p-3 text-left active:scale-[.99] transition ${leader ? 'ring-2 ring-gold' : ''}`}>
@@ -381,8 +442,8 @@ function GridView({ rows, onOpenList, isOnline }) {
               {isOnline?.(r.list) && <span className="h-2 w-2 rounded-full bg-pitch" />}
             </div>
             <p className="mt-1 font-semibold text-sm leading-tight truncate">{r.list.name}</p>
-            <p className="font-display text-3xl text-ink leading-none mt-1"><CountUp value={r.total} /></p>
-            <p className="mt-1 text-[11px] text-ink/45 truncate">🏆 {r.champion || '—'}</p>
+            <p className="font-display text-3xl text-ink leading-none mt-1"><CountUp value={sortVal(r, metric || 'total')} /></p>
+            <p className="mt-1 text-[11px] text-ink/45 truncate">{isTotal ? `🏆 ${r.champion || '—'}` : sortLabel(metric)}</p>
           </button>
         );
       })}
@@ -390,7 +451,7 @@ function GridView({ rows, onOpenList, isOnline }) {
   );
 }
 
-function Leaderboard({ rows, onOpenList, isOnline, actual, proj }) {
+function Leaderboard({ rows, onOpenList, isOnline, actual, proj, metric }) {
   const flipRef = useFlip();
   return (
     <div className="space-y-2" ref={flipRef}>
@@ -399,16 +460,17 @@ function Leaderboard({ rows, onOpenList, isOnline, actual, proj }) {
       </p>
       {rows.map((r, i) => (
         <div key={r.list.id} data-flip-id={r.list.id}>
-          <LbRow r={r} i={i} onOpenList={onOpenList} online={isOnline?.(r.list)} actual={actual} proj={proj} />
+          <LbRow r={r} i={i} onOpenList={onOpenList} online={isOnline?.(r.list)} actual={actual} proj={proj} metric={metric} />
         </div>
       ))}
     </div>
   );
 }
 
-function LbRow({ r, i, onOpenList, online, actual, proj }) {
+function LbRow({ r, i, onOpenList, online, actual, proj, metric }) {
   const [cat, setCat] = useState(null);
-  const leader = i === 0 && r.total > 0;
+  const isTotal = !metric || metric === 'total';
+  const leader = i === 0 && r.total > 0 && isTotal;
   const cats = [
     { id: 'gm', label: 'Maçlar', value: r.breakdown.groupMatches },
     { id: 'gt', label: 'Gruplar', value: r.breakdown.groupTables },
@@ -429,7 +491,10 @@ function LbRow({ r, i, onOpenList, online, actual, proj }) {
           </p>
           <p className="text-xs text-ink/45 truncate flex items-center gap-1.5">{r.list.ownerName}<Delta d={r.delta} /></p>
         </div>
-        <span className="font-display text-2xl text-ink"><CountUp value={r.total} /></span>
+        <div className="text-right leading-none">
+          <span className="font-display text-2xl text-ink"><CountUp value={sortVal(r, metric || 'total')} /></span>
+          {!isTotal && <div className="text-[9px] uppercase tracking-wide text-ink/40 mt-0.5">{sortLabel(metric)}</div>}
+        </div>
         <span className="text-ink/25">›</span>
       </button>
 

@@ -46,6 +46,7 @@ export default function Home({ setPage }) {
   const myList = lists.find((l) => isMyList(l));
   const myPred = myList ? getPrediction(myList.id) : null;
   const [progMode, setProgMode] = useState('pct');
+  const funSeed = useMemo(() => `${Date.now()}:${user?.uid || 'anon'}`, [user?.uid]);
 
   return (
     <div className="space-y-4">
@@ -86,7 +87,7 @@ export default function Home({ setPage }) {
       <MyScore rows={rows} isMyList={isMyList} setPage={setPage} onCreate={() => setPage('lists')} />
       <DayBrowser lists={lists} getPrediction={getPrediction} actual={actual} myPred={myPred} />
       <RecentResults actual={actual} />
-      <FunStats lists={lists} getPrediction={getPrediction} actual={actual} />
+      <FunStats lists={lists} getPrediction={getPrediction} actual={actual} seed={funSeed} />
 
       <div className="card p-4">
         <div className="flex items-center justify-between">
@@ -144,6 +145,13 @@ export default function Home({ setPage }) {
 }
 
 const CHANGELOG = [
+  {
+    v: '2.1', date: 'Haziran 2026', items: [
+      'Sıralamada kategoriye göre sıralama (Eleme/Grup/Tam skor/3.\'ler), online filtre ve isim arama.',
+      'Enteresan istatistikler 3 madde ve her oturumda (giriş/çıkış) değişiyor.',
+      'İlerleme sayacına dokununca yüzde ↔ kesir.',
+    ],
+  },
   {
     v: '2.0', date: 'Haziran 2026', items: [
       'Kişi sayfasından kendi puan kartını paylaşma (paylaş ikonu, 9:16 görsel).',
@@ -531,11 +539,23 @@ function funStats(lists, getPrediction, actual) {
   const exactRec = recs.filter((r) => r.exact > 0).sort((a, b) => a.exact - b.exact)[0];
   if (exactRec) out.push({ icon: '🔮', text: `${shortName(exactRec.m.home)}–${shortName(exactRec.m.away)} tam skorunu (${exactRec.ah}-${exactRec.aa}) ${exactRec.exact} kişi bildi.` });
 
-  return out.slice(0, 4);
+  return out;
 }
 
-function FunStats({ lists, getPrediction, actual }) {
-  const facts = useMemo(() => funStats(lists, getPrediction, actual), [lists, actual]);
+function hashStr(s) { let h = 0; for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0; return h >>> 0; }
+function seededShuffle(arr, seed) {
+  const a = arr.slice();
+  let s = hashStr(String(seed)) || 1;
+  const rnd = () => { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+
+function FunStats({ lists, getPrediction, actual, seed }) {
+  const facts = useMemo(() => {
+    const all = funStats(lists, getPrediction, actual);
+    return seededShuffle(all, seed).slice(0, 3);
+  }, [lists, actual, seed]);
   if (facts.length === 0) return null;
   return (
     <div className="card p-4">
