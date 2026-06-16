@@ -57,14 +57,17 @@ export default function Home({ setPage }) {
         <div className="absolute right-6 bottom-4 text-6xl opacity-10 font-display">26</div>
         <div className="flex items-center justify-between gap-2">
           <p className="font-display text-lg text-pitch leading-none">kupayikimalir.com</p>
-          {adminEligible && (
-            <button onClick={() => setAdminMode(!adminMode)} className="flex items-center gap-1.5 shrink-0" aria-label="Admin modu">
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-white/60">Admin</span>
-              <span className={`relative h-5 w-9 rounded-full transition ${adminMode ? 'bg-pitch' : 'bg-white/20'}`}>
-                <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${adminMode ? 'left-[18px]' : 'left-0.5'}`} />
-              </span>
-            </button>
-          )}
+          <div className="flex flex-col items-end gap-2 shrink-0">
+            {adminEligible && (
+              <button onClick={() => setAdminMode(!adminMode)} className="flex items-center gap-1.5" aria-label="Admin modu">
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-white/60">Admin</span>
+                <span className={`relative h-5 w-9 rounded-full transition ${adminMode ? 'bg-pitch' : 'bg-white/20'}`}>
+                  <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${adminMode ? 'left-[18px]' : 'left-0.5'}`} />
+                </span>
+              </button>
+            )}
+            <HeroTheme theme={theme} setTheme={setTheme} />
+          </div>
         </div>
         <p className="label text-white/60 mt-2">FIFA Dünya Kupası 2026</p>
         <h1 className="font-display text-4xl leading-none mt-1">Tahmin<br />Oyunu</h1>
@@ -319,6 +322,25 @@ function MyMini({ label, v }) {
     <div className="rounded-lg bg-black/[0.03] py-1.5">
       <div className="font-display text-lg text-ink leading-none">{v}</div>
       <div className="text-[10px] uppercase tracking-wide text-ink/45 mt-0.5">{label}</div>
+    </div>
+  );
+}
+
+function HeroTheme({ theme, setTheme }) {
+  const I = {
+    system: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" /><path d="M8 21h8M12 17v4" /></svg>,
+    light: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>,
+    dark: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" /></svg>,
+  };
+  const opts = [['system', 'Sistem'], ['light', 'Açık'], ['dark', 'Koyu']];
+  return (
+    <div className="flex rounded-full bg-white/10 p-0.5">
+      {opts.map(([id, label]) => (
+        <button key={id} onClick={() => setTheme(id)} title={label} aria-label={label}
+          className={`h-7 w-7 grid place-items-center rounded-full transition ${theme === id ? 'bg-white text-ink' : 'text-white/60'}`}>
+          {I[id]}
+        </button>
+      ))}
     </div>
   );
 }
