@@ -4,7 +4,7 @@ import { scoreUser, SCORING, allGroupsComplete, groupOrder, hasOrder } from '../
 import { GROUP_MATCHES, GROUP_NAMES } from '../data/tournament.js';
 import { bestThirds } from '../data/bracket.js';
 import { shortName } from '../data/flags.js';
-import { SectionTitle, Dot, Empty, Avatar, Flag, CountUp, Segmented } from '../components/ui.jsx';
+import { SectionTitle, Dot, Empty, Avatar, Flag, CountUp, Segmented, BrandHeader } from '../components/ui.jsx';
 import { shareLeaderboard } from '../lib/shareCard.js';
 import FullStats from '../components/FullStats.jsx';
 
@@ -149,6 +149,7 @@ export default function Board({ onOpenList }) {
   const [sortKey, setSortKey] = useState('total');
   const [onlyOnline, setOnlyOnline] = useState(false);
   const [query, setQuery] = useState('');
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const rows = useMemo(() => {
     const cur = lists
@@ -179,6 +180,7 @@ export default function Board({ onOpenList }) {
 
   return (
     <div className="space-y-5">
+      <BrandHeader />
       <SectionTitle title="Sıralama" />
 
       {onlineCount > 0 && (
@@ -213,7 +215,10 @@ export default function Board({ onOpenList }) {
             {proj ? 'Geçici puanlar AÇIK — kapatmak için dokun' : '⚡ Geçici puanları göster (canlı projeksiyon)'}
           </button>
           <div className="flex items-center justify-between gap-2">
-            <p className="text-xs text-ink/45">Görünüm</p>
+            <button onClick={() => setFiltersOpen((v) => !v)} title="Sırala / filtrele" aria-label="Sırala ve filtrele"
+              className={`h-9 w-9 grid place-items-center rounded-lg transition ${filtersOpen || sortKey !== 'total' || onlyOnline || query ? 'bg-ink text-white' : 'bg-black/5 text-ink/60'}`}>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="6" x2="20" y2="6" /><line x1="7" y1="12" x2="17" y2="12" /><line x1="10" y1="18" x2="14" y2="18" /></svg>
+            </button>
             <Segmented items={VIEWS} value={view} onChange={setView} className="flex-1 max-w-[240px]" />
           </div>
           {proj && (
@@ -223,29 +228,31 @@ export default function Board({ onOpenList }) {
             </div>
           )}
 
-          <div className="space-y-2">
-            <div className="flex gap-1.5 overflow-x-auto -mx-1 px-1 pb-0.5">
-              {SORTS.map((s) => (
-                <button key={s.id} onClick={() => setSortKey(s.id)}
-                  className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition ${sortKey === s.id ? 'bg-ink text-white' : 'bg-black/5 text-ink/60'}`}>
-                  {s.label}
+          {filtersOpen && (
+            <div className="space-y-2 fade-in">
+              <div className="flex gap-1.5 overflow-x-auto -mx-1 px-1 pb-0.5">
+                {SORTS.map((s) => (
+                  <button key={s.id} onClick={() => setSortKey(s.id)}
+                    className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition ${sortKey === s.id ? 'bg-ink text-white' : 'bg-black/5 text-ink/60'}`}>
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="İsim ara…"
+                  className="flex-1 rounded-lg bg-black/5 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pitch/30" />
+                <button onClick={() => setOnlyOnline((v) => !v)}
+                  className={`shrink-0 rounded-lg px-3 py-2 text-xs font-semibold transition ${onlyOnline ? 'bg-pitch text-white' : 'bg-black/5 text-ink/60'}`}>
+                  ● Online
                 </button>
-              ))}
+              </div>
             </div>
-            <div className="flex gap-2">
-              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="İsim ara…"
-                className="flex-1 rounded-lg bg-black/5 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pitch/30" />
-              <button onClick={() => setOnlyOnline((v) => !v)}
-                className={`shrink-0 rounded-lg px-3 py-2 text-xs font-semibold transition ${onlyOnline ? 'bg-pitch text-white' : 'bg-black/5 text-ink/60'}`}>
-                ● Online
-              </button>
-            </div>
-            {sortKey !== 'total' && (
-              <p className="text-[11px] text-ink/45 px-1">
-                "{sortLabel(sortKey)}" puanına göre sıralandı{onlyOnline ? ' · sadece online' : ''}{q ? ` · "${query}"` : ''}.
-              </p>
-            )}
-          </div>
+          )}
+          {sortKey !== 'total' && (
+            <p className="text-[11px] text-ink/45 px-1">
+              "{sortLabel(sortKey)}" puanına göre sıralandı{onlyOnline ? ' · sadece online' : ''}{q ? ` · "${query}"` : ''}.
+            </p>
+          )}
 
           {displayRows.length === 0 ? (
             <p className="text-sm text-ink/45 text-center py-6">Eşleşen kişi yok.</p>

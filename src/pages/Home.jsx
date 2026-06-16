@@ -47,6 +47,8 @@ export default function Home({ setPage }) {
   const myPred = myList ? getPrediction(myList.id) : null;
   const [progMode, setProgMode] = useState('pct');
   const funSeed = useMemo(() => `${Date.now()}:${user?.uid || 'anon'}`, [user?.uid]);
+  const [scoringOpen, setScoringOpen] = useState(() => { try { return localStorage.getItem('wc_scoring_help_open') !== '0'; } catch { return true; } });
+  const toggleScoring = () => setScoringOpen((o) => { const n = !o; try { localStorage.setItem('wc_scoring_help_open', n ? '1' : '0'); } catch (e) {} return n; });
 
   return (
     <div className="space-y-4">
@@ -110,31 +112,24 @@ export default function Home({ setPage }) {
         )}
       </div>
 
-      <div className="card p-4">
-        <p className="font-display text-xl">Puanlama nasıl işler</p>
-        <ul className="mt-2 space-y-1.5 text-sm text-ink/70">
-          <Rule t="Tam skor" v={`${SCORING.match.exact} puan`} />
-          <Rule t="Sadece doğru sonuç" v={`${SCORING.match.result} puan`} />
-          <Rule t="Üst tura çıkan takım (her takım)" v={`${SCORING.groupTable.qualified} puan`} />
-          <Rule t="Doğru grup sırası (her takım)" v={`${SCORING.groupTable.position} puan`} />
-          <Rule t="Üst tura çıkan 3. takım (8 takım, otomatik)" v={`${SCORING.thirdPlace.advance} puan`} />
-          <Rule t="Son 32 / Son 16 doğru kazanan" v={`${SCORING.knockout.advance.R32} / ${SCORING.knockout.advance.R16} puan`} />
-          <Rule t="Çeyrek / Yarı final doğru kazanan" v={`${SCORING.knockout.advance.QF} / ${SCORING.knockout.advance.SF} puan`} />
-          <Rule t="Şampiyon / İkinci" v={`${SCORING.finals.champion} / ${SCORING.finals.runnerUp} puan`} />
-          <Rule t="Gol kralı" v={`${SCORING.finals.topScorer} puan`} />
-        </ul>
-      </div>
-
-      <div className="card p-3 flex items-center justify-between">
-        <span className="text-sm font-semibold text-ink/70">Tema</span>
-        <div className="flex rounded-lg bg-black/5 p-0.5">
-          {[['system', 'Sistem'], ['light', 'Açık'], ['dark', 'Koyu']].map(([id, lbl]) => (
-            <button key={id} onClick={() => setTheme(id)}
-              className={`rounded-md px-3 py-1 text-xs font-semibold transition ${theme === id ? 'bg-white shadow-sm text-ink' : 'text-ink/55'}`}>
-              {lbl}
-            </button>
-          ))}
-        </div>
+      <div className="card overflow-hidden">
+        <button onClick={toggleScoring} className="w-full flex items-center justify-between gap-2 px-4 py-3">
+          <span className="font-display text-xl">Puanlama nasıl işler</span>
+          <span className={`text-ink/40 transition ${scoringOpen ? 'rotate-180' : ''}`}>▾</span>
+        </button>
+        {scoringOpen && (
+          <ul className="px-4 pb-4 space-y-1.5 text-sm text-ink/70 fade-in">
+            <Rule t="Tam skor" v={`${SCORING.match.exact} puan`} />
+            <Rule t="Sadece doğru sonuç" v={`${SCORING.match.result} puan`} />
+            <Rule t="Üst tura çıkan takım (her takım)" v={`${SCORING.groupTable.qualified} puan`} />
+            <Rule t="Doğru grup sırası (her takım)" v={`${SCORING.groupTable.position} puan`} />
+            <Rule t="Üst tura çıkan 3. takım (8 takım, otomatik)" v={`${SCORING.thirdPlace.advance} puan`} />
+            <Rule t="Son 32 / Son 16 doğru kazanan" v={`${SCORING.knockout.advance.R32} / ${SCORING.knockout.advance.R16} puan`} />
+            <Rule t="Çeyrek / Yarı final doğru kazanan" v={`${SCORING.knockout.advance.QF} / ${SCORING.knockout.advance.SF} puan`} />
+            <Rule t="Şampiyon / İkinci" v={`${SCORING.finals.champion} / ${SCORING.finals.runnerUp} puan`} />
+            <Rule t="Gol kralı" v={`${SCORING.finals.topScorer} puan`} />
+          </ul>
+        )}
       </div>
 
       <button className="w-full btn-ghost" onClick={logout}>Çıkış yap</button>
@@ -145,6 +140,16 @@ export default function Home({ setPage }) {
 }
 
 const CHANGELOG = [
+  {
+    v: '2.2', date: 'Haziran 2026', items: [
+      'Tema (Sistem/Açık/Koyu) sağ üst köşede ikon olarak.',
+      'Listeler/Tahminler/Sıralama sayfalarına küçük marka başlığı.',
+      'Sıralama filtre/sırala çubuğu artık ikonla açılır (varsayılan kapalı).',
+      'Yeni liste oluştur: sistem kilitliyse kapalı, açıksa açık (katlanır).',
+      'Puanlama nasıl işler katlanır ve kapalı tercihi hatırlanır.',
+      'Admin: grup seçici tek satır, Kişiler iki satırlık dar tasarım, Kayıtlar renk kodlu.',
+    ],
+  },
   {
     v: '2.1', date: 'Haziran 2026', items: [
       'Sıralamada kategoriye göre sıralama (Eleme/Grup/Tam skor/3.\'ler), online filtre ve isim arama.',

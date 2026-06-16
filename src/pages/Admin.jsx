@@ -70,15 +70,13 @@ function AdminResults({ store }) {
   const matches = GROUP_MATCHES.filter((m) => m.group === g);
   return (
     <div className="space-y-3">
-      <div className="-mx-4 px-4 overflow-x-auto">
-        <div className="flex gap-1.5 w-max">
-          {GROUP_NAMES.map((x) => (
-            <button key={x} onClick={() => setG(x)}
-              className={`w-9 h-9 rounded-lg font-display text-lg ${g === x ? 'bg-pitch text-white' : 'bg-white border border-black/10 text-ink'}`}>
-              {x}
-            </button>
-          ))}
-        </div>
+      <div className="grid grid-cols-12 gap-1">
+        {GROUP_NAMES.map((x) => (
+          <button key={x} onClick={() => setG(x)}
+            className={`aspect-square rounded-md font-display text-base flex items-center justify-center ${g === x ? 'bg-pitch text-white' : 'bg-white border border-black/10 text-ink'}`}>
+            {x}
+          </button>
+        ))}
       </div>
       <div className="card divide-y divide-black/5">
         {matches.map((m) => {
@@ -346,26 +344,25 @@ function ListAdminRow({ l, onSave, onDelete }) {
   const [name, setName] = useState(l.name || '');
   const [email, setEmail] = useState(l.ownerEmail || '');
   const dirty = name.trim() !== (l.name || '') || email.trim() !== (l.ownerEmail || '');
+  const inp = 'w-full rounded-lg bg-black/5 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-pitch/30';
   return (
-    <div className="card p-3 space-y-2">
+    <div className="card p-2.5">
       <div className="flex items-center gap-2">
         <Dot color={l.color} />
-        <span className="text-xs text-ink/45 truncate">
-          {l.imported ? 'İçe aktarıldı' : 'Kullanıcı'}{l.ownerName ? ` · ${l.ownerName}` : ''}
-        </span>
+        <input className={inp} value={name} placeholder="Ad" onChange={(e) => setName(e.target.value)} />
+        <button title="Kaydet" disabled={!dirty} onClick={() => onSave({ name, ownerEmail: email })}
+          className={`h-8 w-8 shrink-0 grid place-items-center rounded-lg ${dirty ? 'bg-pitch text-white' : 'bg-black/5 text-ink/30'}`}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+        </button>
+        <button title="Sil" onClick={onDelete}
+          className="h-8 w-8 shrink-0 grid place-items-center rounded-lg bg-white border border-red-300 text-red-600">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" /></svg>
+        </button>
       </div>
-      {l.ownerEmail && <div className="text-xs font-medium text-pitch-dark break-all">{l.ownerEmail}</div>}
-      <div>
-        <label className="label">Ad</label>
-        <input className="field mt-1" value={name} onChange={(e) => setName(e.target.value)} />
-      </div>
-      <div>
-        <label className="label">Atanan e-posta</label>
-        <input className="field mt-1" value={email} placeholder="ornek@eposta.com" onChange={(e) => setEmail(e.target.value)} />
-      </div>
-      <div className="flex gap-2 pt-0.5">
-        <button className="btn btn-primary" disabled={!dirty} onClick={() => onSave({ name, ownerEmail: email })}>Kaydet</button>
-        <button className="btn bg-white border border-red-300 text-red-600 hover:bg-red-50" onClick={onDelete}>Sil</button>
+      <div className="flex items-center gap-2 mt-1.5 pl-[18px]">
+        <span className="text-[11px] text-ink/40 shrink-0">@</span>
+        <input className={inp} value={email} placeholder="atanan e-posta" onChange={(e) => setEmail(e.target.value)} />
+        <span className="text-[10px] text-ink/40 shrink-0 w-16 text-right truncate">{l.imported ? 'içe akt.' : 'kullanıcı'}</span>
       </div>
     </div>
   );
@@ -386,18 +383,31 @@ function AdminLogs({ store }) {
         <div className="card p-6 text-center text-ink/50">Henüz kayıt yok.</div>
       ) : (
         <div className="card divide-y divide-black/5 overflow-hidden">
-          {logs.map((l) => (
-            <div key={l.id} className="px-4 py-2.5">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-sm font-semibold text-ink">{l.action}</span>
-                <span className="text-[11px] text-ink/40 shrink-0">{fmt(l.ts)}</span>
+          {logs.map((l) => {
+            const col = logColor(l.action || '');
+            return (
+              <div key={l.id} className="px-4 py-2.5" style={{ boxShadow: `inset 4px 0 0 ${col}` }}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-2 text-sm font-semibold" style={{ color: col }}>
+                    <span className="inline-block h-2 w-2 rounded-full shrink-0" style={{ background: col }} />
+                    {l.action}
+                  </span>
+                  <span className="text-[11px] text-ink/40 shrink-0">{fmt(l.ts)}</span>
+                </div>
+                {l.detail && <div className="text-xs text-ink/55 pl-4">{l.detail}</div>}
+                <div className="text-[11px] text-ink/35 pl-4">{l.email}</div>
               </div>
-              {l.detail && <div className="text-xs text-ink/55">{l.detail}</div>}
-              <div className="text-[11px] text-ink/35">{l.email}</div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
   );
+}
+
+const LOG_PALETTE = ['#0a8754', '#2563eb', '#d97706', '#dc2626', '#7c3aed', '#0891b2', '#db2777', '#65a30d'];
+function logColor(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
+  return LOG_PALETTE[Math.abs(h) % LOG_PALETTE.length];
 }

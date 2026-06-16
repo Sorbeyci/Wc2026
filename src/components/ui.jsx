@@ -163,3 +163,13 @@ export function Segmented({ items, value, onChange, className = '' }) {
 export function Skeleton({ className = '' }) {
   return <div className={`skeleton rounded-lg ${className}`} />;
 }
+
+// Small brand header shown atop secondary pages (Lists / Predict / Board).
+export function BrandHeader() {
+  return (
+    <div className="text-center pb-1">
+      <p className="font-display text-xl leading-none text-ink">kupayikimalir.com</p>
+      <p className="text-[10px] uppercase tracking-[0.18em] text-ink/45 mt-1">FIFA Dünya Kupası 2026</p>
+    </div>
+  );
+}

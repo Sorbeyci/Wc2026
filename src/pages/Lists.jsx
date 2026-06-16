@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useStore } from '../lib/store.jsx';
-import { SectionTitle, Dot, Empty, Avatar } from '../components/ui.jsx';
+import { SectionTitle, Dot, Empty, Avatar, BrandHeader } from '../components/ui.jsx';
 import ListDetail from './ListDetail.jsx';
 
 export default function Lists({ viewListId, setViewListId, onEdit }) {
-  const { lists, myLists, isAdmin, user, canCreateList, createList, deleteList, canDeleteList, isMyList, isOnline, requestDeleteList } = useStore();
+  const { lists, myLists, isAdmin, user, canCreateList, createList, deleteList, canDeleteList, isMyList, isOnline, requestDeleteList, locked } = useStore();
   const [name, setName] = useState('');
   const [requested, setRequested] = useState(() => new Set());
+  const [createOpen, setCreateOpen] = useState(!locked);
 
   if (viewListId) {
     return <ListDetail listId={viewListId} onBack={() => setViewListId(null)} onEdit={onEdit} />;
@@ -20,23 +21,33 @@ export default function Lists({ viewListId, setViewListId, onEdit }) {
 
   return (
     <div className="space-y-4">
+      <BrandHeader />
       <SectionTitle title="Listeler" />
 
-      <div className="card p-4">
-        <label className="label">Yeni liste oluştur</label>
-        <div className="mt-2 flex gap-2">
-          <input className="field" placeholder={isAdmin ? 'Liste adı (örn. Mahmut)' : 'Listenin adı'}
-            value={name} disabled={!canCreateList}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && submit()} />
-          <button className="btn-primary shrink-0" onClick={submit} disabled={!canCreateList}>Oluştur</button>
-        </div>
-        {isAdmin ? (
-          <p className="mt-2 text-xs text-pitch-dark">Yönetici olarak birden fazla liste oluşturabilirsin.</p>
-        ) : myLists.length >= 1 ? (
-          <p className="mt-2 text-xs text-ink/50">Her oyuncu 1 liste oluşturabilir. Zaten bir listen var.</p>
-        ) : (
-          <p className="mt-2 text-xs text-ink/50">İlk maç başlamadan önce tahminlerini gir.</p>
+      <div className="card overflow-hidden">
+        <button onClick={() => setCreateOpen((v) => !v)} className="w-full flex items-center justify-between gap-2 px-4 py-3">
+          <span className="label">Yeni liste oluştur{locked ? ' (kilitli)' : ''}</span>
+          <span className={`text-ink/40 transition ${createOpen ? 'rotate-180' : ''}`}>▾</span>
+        </button>
+        {createOpen && (
+          <div className="px-4 pb-4 fade-in">
+            <div className="flex gap-2">
+              <input className="field" placeholder={isAdmin ? 'Liste adı (örn. Mahmut)' : 'Listenin adı'}
+                value={name} disabled={!canCreateList}
+                onChange={(e) => setName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && submit()} />
+              <button className="btn-primary shrink-0" onClick={submit} disabled={!canCreateList}>Oluştur</button>
+            </div>
+            {locked && !isAdmin ? (
+              <p className="mt-2 text-xs text-ink/50">Sistem kilitli — yeni liste oluşturulamaz.</p>
+            ) : isAdmin ? (
+              <p className="mt-2 text-xs text-pitch-dark">Yönetici olarak birden fazla liste oluşturabilirsin.</p>
+            ) : myLists.length >= 1 ? (
+              <p className="mt-2 text-xs text-ink/50">Her oyuncu 1 liste oluşturabilir. Zaten bir listen var.</p>
+            ) : (
+              <p className="mt-2 text-xs text-ink/50">İlk maç başlamadan önce tahminlerini gir.</p>
+            )}
+          </div>
         )}
       </div>
 

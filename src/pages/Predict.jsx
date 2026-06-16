@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useStore } from '../lib/store.jsx';
 import ListPicker from '../components/ListPicker.jsx';
 import Standings from '../components/Standings.jsx';
-import { SectionTitle } from '../components/ui.jsx';
+import { SectionTitle, BrandHeader } from '../components/ui.jsx';
 import GroupMatches from './GroupMatches.jsx';
 import GroupRankings from './GroupRankings.jsx';
 import Knockout from './Knockout.jsx';
@@ -25,6 +25,7 @@ export default function Predict({ goLists, initialListId }) {
 
   return (
     <div className="space-y-4">
+      <BrandHeader />
       <SectionTitle title="Tahminler" />
 
       {locked && (
