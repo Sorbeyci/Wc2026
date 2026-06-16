@@ -53,9 +53,9 @@ export default function Home({ setPage }) {
   return (
     <div className="space-y-4">
       <div className="relative overflow-hidden rounded-2xl bg-ink text-white p-5">
-        <div className="absolute -right-8 -top-8 w-40 h-40 rounded-full bg-pitch/30 blur-2xl" />
-        <div className="absolute right-6 bottom-4 text-6xl opacity-10 font-display">26</div>
-        <div className="flex items-center justify-between gap-2">
+        <div className="pointer-events-none absolute -right-8 -top-8 w-40 h-40 rounded-full bg-pitch/30 blur-2xl" />
+        <div className="pointer-events-none absolute right-6 bottom-4 text-6xl opacity-10 font-display">26</div>
+        <div className="relative z-10 flex items-center justify-between gap-2">
           <p className="font-display text-lg text-pitch leading-none">kupayikimalir.com</p>
           <div className="flex flex-col items-end gap-2 shrink-0">
             {adminEligible && (
