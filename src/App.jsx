@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useStore } from './lib/store.jsx';
 import { firebaseReady } from './lib/firebase.js';
 import Nav from './components/Nav.jsx';
@@ -53,8 +54,9 @@ function ThemeToggle() {
     dark: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" /></svg>,
   };
   const opts = [['system', 'Sistem'], ['light', 'Açık'], ['dark', 'Koyu']];
-  return (
-    <div className="fixed top-2 right-2 z-50 flex rounded-full bg-ink/85 backdrop-blur p-0.5 shadow-lg border border-white/10">
+  const node = (
+    <div className="flex rounded-full bg-ink/85 backdrop-blur p-0.5 shadow-lg border border-white/10"
+      style={{ position: 'fixed', top: 'max(8px, env(safe-area-inset-top))', right: 'max(8px, env(safe-area-inset-right))', zIndex: 60 }}>
       {opts.map(([id, label]) => (
         <button key={id} onClick={() => setTheme(id)} title={label} aria-label={label}
           className={`h-8 w-8 grid place-items-center rounded-full transition ${theme === id ? 'bg-white text-ink' : 'text-white/65'}`}>
@@ -63,6 +65,7 @@ function ThemeToggle() {
       ))}
     </div>
   );
+  return typeof document !== 'undefined' ? createPortal(node, document.body) : node;
 }
 
 function Splash() {
