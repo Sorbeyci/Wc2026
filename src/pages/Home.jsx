@@ -145,6 +145,11 @@ export default function Home({ setPage }) {
 
 const CHANGELOG = [
   {
+    v: '2.4', date: 'Haziran 2026', items: [
+      'Enteresan istatistikler: geniş havuzdan her sayfa yenilemede rastgele 3 madde gösterilir.',
+    ],
+  },
+  {
     v: '2.3', date: 'Haziran 2026', items: [
       'Enteresan istatistikler artık sürekli kendi kendine değişiyor (6 sn\'de bir döner, çok daha geniş bilgi havuzu).',
     ],
@@ -627,38 +632,17 @@ function seededShuffle(arr, seed) {
 }
 
 function FunStats({ lists, getPrediction, actual, seed }) {
-  const pool = useMemo(() => {
-    const all = [...funStats(lists, getPrediction, actual), ...predStats(lists, getPrediction)];
-    return seededShuffle(dedupe(all), seed);
+  const facts = useMemo(() => {
+    const all = dedupe([...funStats(lists, getPrediction, actual), ...predStats(lists, getPrediction)]);
+    return seededShuffle(all, seed).slice(0, 3);
   }, [lists, actual, seed]);
 
-  const [page, setPage] = useState(0);
-  const pages = Math.max(1, Math.ceil(pool.length / 3));
-  useEffect(() => { setPage(0); }, [pool]);
-  useEffect(() => {
-    if (pool.length <= 3) return;
-    const iv = setInterval(() => setPage((p) => (p + 1) % pages), 6000);
-    return () => clearInterval(iv);
-  }, [pool, pages]);
-
-  if (pool.length === 0) return null;
-  const shown = pool.slice(page * 3, page * 3 + 3);
-  while (shown.length < 3 && pool.length > shown.length) shown.push(pool[shown.length]);
-
+  if (facts.length === 0) return null;
   return (
     <div className="card p-4">
-      <div className="flex items-center justify-between">
-        <p className="font-display text-xl">Enteresan istatistikler</p>
-        {pages > 1 && (
-          <div className="flex items-center gap-1.5">
-            {Array.from({ length: pages }).map((_, i) => (
-              <span key={i} className={`h-1.5 rounded-full transition-all ${i === page ? 'w-4 bg-pitch' : 'w-1.5 bg-black/15'}`} />
-            ))}
-          </div>
-        )}
-      </div>
-      <ul key={page} className="mt-2 space-y-2 text-sm text-ink/75 fade-in">
-        {shown.map((f, i) => (
+      <p className="font-display text-xl">Enteresan istatistikler</p>
+      <ul className="mt-2 space-y-2 text-sm text-ink/75">
+        {facts.map((f, i) => (
           <li key={i} className="flex gap-2"><span className="shrink-0">{f.icon}</span><span>{f.text}</span></li>
         ))}
       </ul>
