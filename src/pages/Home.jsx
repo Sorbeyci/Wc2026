@@ -2,6 +2,7 @@ import { useMemo, useState, useEffect } from 'react';
 import { useStore } from '../lib/store.jsx';
 import { GROUP_MATCHES } from '../data/tournament.js';
 import { scoreUser, SCORING } from '../lib/scoring.js';
+import { resolveBracket } from '../data/bracket.js';
 import { Dot, Flag, Avatar, CountUp } from '../components/ui.jsx';
 import { shortName, teamColor } from '../data/flags.js';
 
@@ -143,6 +144,11 @@ export default function Home({ setPage }) {
 }
 
 const CHANGELOG = [
+  {
+    v: '2.3', date: 'Haziran 2026', items: [
+      'Enteresan istatistikler artık sürekli kendi kendine değişiyor (6 sn\'de bir döner, çok daha geniş bilgi havuzu).',
+    ],
+  },
   {
     v: '2.2', date: 'Haziran 2026', items: [
       'Tema (Sistem/Açık/Koyu) sağ üst köşede ikon olarak.',
@@ -557,16 +563,58 @@ function funStats(lists, getPrediction, actual) {
   }
   if (herd && (!allWrong || herd.r.m.no !== allWrong.m.no)) out.push({ icon: '🙈', text: `${herd.c} kişi "${herd.lbl}" dedi ama ${shortName(herd.r.m.home)}–${shortName(herd.r.m.away)} ${herd.r.ah}-${herd.r.aa} bitti.` });
 
-  const bestCorrect = recs.slice().sort((a, b) => b.correct - a.correct)[0];
-  if (bestCorrect && bestCorrect.correct > 0) {
-    const lbl = bestCorrect.O === 'H' ? `${shortName(bestCorrect.m.home)} kazanır` : bestCorrect.O === 'A' ? `${shortName(bestCorrect.m.away)} kazanır` : 'beraberlik';
-    out.push({ icon: '🎯', text: `${bestCorrect.correct} kişi ${shortName(bestCorrect.m.home)}–${shortName(bestCorrect.m.away)} için "${lbl}" dedi ve haklı çıktı.` });
+  for (const r of recs) {
+    if (r.exact > 0) out.push({ icon: '🔮', text: `${shortName(r.m.home)}–${shortName(r.m.away)} tam skorunu (${r.ah}-${r.aa}) ${r.exact} kişi bildi.` });
+  }
+  for (const r of recs.slice().sort((a, b) => b.correct - a.correct)) {
+    if (r.correct > 0) {
+      const lbl = r.O === 'H' ? `${shortName(r.m.home)} kazanır` : r.O === 'A' ? `${shortName(r.m.away)} kazanır` : 'beraberlik';
+      out.push({ icon: '🎯', text: `${shortName(r.m.home)}–${shortName(r.m.away)}: ${r.correct}/${r.tot} kişi "${lbl}" deyip haklı çıktı.` });
+    }
+  }
+  for (const r of recs) {
+    if (r.tot >= 3 && r.correct > 0 && r.correct <= Math.max(1, Math.floor(r.tot * 0.25))) {
+      out.push({ icon: '🤯', text: `Sürpriz! ${shortName(r.m.home)}–${shortName(r.m.away)} sonucunu ${r.tot} kişiden yalnızca ${r.correct}'i bildi.` });
+    }
   }
 
-  const exactRec = recs.filter((r) => r.exact > 0).sort((a, b) => a.exact - b.exact)[0];
-  if (exactRec) out.push({ icon: '🔮', text: `${shortName(exactRec.m.home)}–${shortName(exactRec.m.away)} tam skorunu (${exactRec.ah}-${exactRec.aa}) ${exactRec.exact} kişi bildi.` });
+  return dedupe(out);
+}
 
-  return out;
+function predStats(lists, getPrediction) {
+  const out = [];
+  if (lists.length === 0) return out;
+  const champ = {}, scorer = {};
+  let totalPreds = 0, bold = null;
+  for (const l of lists) {
+    const p = getPrediction(l.id);
+    try { const b = resolveBracket(p, p.ko || {}); if (b.champion) champ[b.champion] = (champ[b.champion] || 0) + 1; } catch (e) {}
+    if (p.topScorer) scorer[p.topScorer] = (scorer[p.topScorer] || 0) + 1;
+    const g = p.groupMatches || {};
+    for (const no in g) {
+      const s = g[no]; if (!hasScore(s)) continue; totalPreds++;
+      const tg = (+s.home) + (+s.away);
+      if (!isNaN(tg) && (!bold || tg > bold.tg)) { const mm = GROUP_MATCHES.find((x) => String(x.no) === String(no)); if (mm) bold = { tg, s, mm, name: l.name }; }
+    }
+  }
+  const champE = Object.entries(champ).sort((a, b) => b[1] - a[1]);
+  if (champE.length) {
+    out.push({ icon: '🏆', text: `En popüler şampiyon tahmini: ${shortName(champE[0][0])} (${champE[0][1]} kişi).` });
+    if (champE.length > 1) out.push({ icon: '🌍', text: `Şampiyon için ${champE.length} farklı takım tahmin edildi.` });
+    const lone = champE.filter(([, c]) => c === 1).map(([t]) => t);
+    if (lone.length) out.push({ icon: '🦄', text: `${shortName(lone[lone.length - 1])} takımını şampiyon gören tek bir kişi var.` });
+  }
+  const scE = Object.entries(scorer).sort((a, b) => b[1] - a[1]);
+  if (scE.length) out.push({ icon: '⚽', text: `Gol kralı için en çok tahmin edilen isim: ${scE[0][0]} (${scE[0][1]} kişi).` });
+  if (totalPreds) out.push({ icon: '📊', text: `Şu ana kadar toplam ${totalPreds} maç tahmini girildi.` });
+  if (bold && bold.tg >= 5) out.push({ icon: '🎆', text: `En iddialı skor: ${bold.name}, ${shortName(bold.mm.home)}–${shortName(bold.mm.away)} için ${bold.s.home}-${bold.s.away} yazmış.` });
+  if (lists.length >= 2) out.push({ icon: '👥', text: `Yarışta ${lists.length} katılımcı var.` });
+  return dedupe(out);
+}
+
+function dedupe(arr) {
+  const seen = new Set();
+  return arr.filter((f) => (seen.has(f.text) ? false : seen.add(f.text)));
 }
 
 function hashStr(s) { let h = 0; for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0; return h >>> 0; }
@@ -579,16 +627,38 @@ function seededShuffle(arr, seed) {
 }
 
 function FunStats({ lists, getPrediction, actual, seed }) {
-  const facts = useMemo(() => {
-    const all = funStats(lists, getPrediction, actual);
-    return seededShuffle(all, seed).slice(0, 3);
+  const pool = useMemo(() => {
+    const all = [...funStats(lists, getPrediction, actual), ...predStats(lists, getPrediction)];
+    return seededShuffle(dedupe(all), seed);
   }, [lists, actual, seed]);
-  if (facts.length === 0) return null;
+
+  const [page, setPage] = useState(0);
+  const pages = Math.max(1, Math.ceil(pool.length / 3));
+  useEffect(() => { setPage(0); }, [pool]);
+  useEffect(() => {
+    if (pool.length <= 3) return;
+    const iv = setInterval(() => setPage((p) => (p + 1) % pages), 6000);
+    return () => clearInterval(iv);
+  }, [pool, pages]);
+
+  if (pool.length === 0) return null;
+  const shown = pool.slice(page * 3, page * 3 + 3);
+  while (shown.length < 3 && pool.length > shown.length) shown.push(pool[shown.length]);
+
   return (
     <div className="card p-4">
-      <p className="font-display text-xl">Enteresan istatistikler</p>
-      <ul className="mt-2 space-y-2 text-sm text-ink/75">
-        {facts.map((f, i) => (
+      <div className="flex items-center justify-between">
+        <p className="font-display text-xl">Enteresan istatistikler</p>
+        {pages > 1 && (
+          <div className="flex items-center gap-1.5">
+            {Array.from({ length: pages }).map((_, i) => (
+              <span key={i} className={`h-1.5 rounded-full transition-all ${i === page ? 'w-4 bg-pitch' : 'w-1.5 bg-black/15'}`} />
+            ))}
+          </div>
+        )}
+      </div>
+      <ul key={page} className="mt-2 space-y-2 text-sm text-ink/75 fade-in">
+        {shown.map((f, i) => (
           <li key={i} className="flex gap-2"><span className="shrink-0">{f.icon}</span><span>{f.text}</span></li>
         ))}
       </ul>
