@@ -3,6 +3,7 @@ import { useStore } from '../lib/store.jsx';
 import { GROUP_MATCHES } from '../data/tournament.js';
 import { scoreUser, SCORING } from '../lib/scoring.js';
 import { resolveBracket } from '../data/bracket.js';
+import { mapLiveFixtures } from '../lib/importScores.js';
 import { Dot, Flag, Avatar, CountUp } from '../components/ui.jsx';
 import { shortName, teamColor } from '../data/flags.js';
 
@@ -64,6 +65,21 @@ export default function Home({ setPage }) {
   }, []);
   const scorers = apiScorers;
 
+  const [liveScores, setLiveScores] = useState({});
+  useEffect(() => {
+    let alive = true;
+    const url = (import.meta.env && import.meta.env.VITE_SCORES_URL) || '/api/scores';
+    const load = () => {
+      fetch(url)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => { if (alive && d) setLiveScores(mapLiveFixtures(d.fixtures || d || [])); })
+        .catch(() => {});
+    };
+    load();
+    const iv = setInterval(load, 60000); // her dakika tazele
+    return () => { alive = false; clearInterval(iv); };
+  }, []);
+
   return (
     <div className="space-y-4">
       <div className="relative overflow-hidden rounded-2xl bg-ink text-white p-5">
@@ -110,7 +126,7 @@ export default function Home({ setPage }) {
       </div>
 
       <MyScore rows={rows} isMyList={isMyList} setPage={setPage} onCreate={() => setPage('lists')} />
-      <DayBrowser lists={lists} getPrediction={getPrediction} actual={actual} myPred={myPred} />
+      <DayBrowser lists={lists} getPrediction={getPrediction} actual={actual} myPred={myPred} liveScores={liveScores} />
       <RecentResults actual={actual} />
       <FunStats lists={lists} getPrediction={getPrediction} actual={actual} seed={funSeed} />
 
@@ -195,6 +211,11 @@ export default function Home({ setPage }) {
 }
 
 const CHANGELOG = [
+  {
+    v: '3.0', date: 'Haziran 2026', items: [
+      'Maç skorları canlı: ana sayfadaki maç listesi aynı API’den anlık skoru ve dakikayı gösterir (her dakika tazelenir).',
+    ],
+  },
   {
     v: '2.9', date: 'Haziran 2026', items: [
       'Gol krallığı kartı "Puanlama nasıl işler"in üstünde, katlanır (kapalıyken sadece 1. golcü).',
@@ -491,7 +512,7 @@ function liveBadge(m, now) {
   return null;
 }
 
-function DayBrowser({ lists, getPrediction, actual, myPred }) {
+function DayBrowser({ lists, getPrediction, actual, myPred, liveScores }) {
   const [off, setOff] = useState(0);
   const [openNo, setOpenNo] = useState(null);
   const [showMine, setShowMine] = useState(false);
@@ -536,6 +557,9 @@ function DayBrowser({ lists, getPrediction, actual, myPred }) {
             const a = actual.groupMatches?.[m.no];
             const mine = myPred?.groupMatches?.[m.no];
             const mineHas = mine && mine.home !== '' && mine.home != null && mine.away !== '' && mine.away != null;
+            const live = liveScores?.[m.no];
+            const isLive = !!live && (live.status === 'IN_PLAY' || live.status === 'PAUSED');
+            const apiFinished = !!live && live.status === 'FINISHED';
             const d = open ? distribution(m.no, lists, getPrediction) : null;
             return (
               <div key={m.no}>
@@ -544,10 +568,15 @@ function DayBrowser({ lists, getPrediction, actual, myPred }) {
                   <div className="text-[11px] text-ink/45 mb-1 flex items-center gap-2">
                     <span>{m.no}. maç · {m.group} Grubu · {m.time}</span>
                     {(() => {
+                      if (isLive) return (
+                        <span className="blink inline-flex items-center gap-1 rounded-full bg-red-600 text-white px-1.5 py-0.5 text-[10px] font-bold">
+                          <span className="inline-block h-1.5 w-1.5 rounded-full bg-white" />{live.minute ? `${live.minute}'` : 'CANLI'}
+                        </span>
+                      );
                       const lb = liveBadge(m, now);
                       if (!lb) return null;
                       return lb.type === 'live'
-                        ? <span className="blink inline-flex items-center gap-1 rounded-full bg-red-600 text-white px-1.5 py-0.5 text-[10px] font-bold"><span className="inline-block h-1.5 w-1.5 rounded-full bg-white" />CANLI</span>
+                        ? <span className="inline-flex items-center gap-1 rounded-full bg-black/10 text-ink/60 px-1.5 py-0.5 text-[10px] font-bold">⏱ başladı</span>
                         : <span className="inline-flex items-center gap-1 rounded-full bg-gold/20 text-gold-dark px-1.5 py-0.5 text-[10px] font-bold">⏱ {lb.text}</span>;
                     })()}
                   </div>
@@ -556,8 +585,11 @@ function DayBrowser({ lists, getPrediction, actual, myPred }) {
                       <span className="truncate text-sm font-semibold">{shortName(m.home)}</span>
                       <Flag team={m.home} size={18} className="shrink-0" />
                     </div>
-                    <span className="shrink-0 w-12 text-center font-display tabular-nums text-ink/70">
-                      {hasScore(a) ? `${a.home}-${a.away}` : 'vs'}
+                    <span className={`shrink-0 w-12 text-center font-display tabular-nums ${isLive ? 'text-red-600 font-bold' : 'text-ink/70'}`}>
+                      {isLive ? `${live.hs}-${live.as}`
+                        : hasScore(a) ? `${a.home}-${a.away}`
+                        : apiFinished ? `${live.hs}-${live.as}`
+                        : 'vs'}
                     </span>
                     <div className="flex-1 min-w-0 flex items-center gap-1.5">
                       <Flag team={m.away} size={18} className="shrink-0" />
