@@ -109,7 +109,7 @@ Tam skor ve doğru sonuç toplanmaz — tam skor 5 puandır, o kadar.
 
 Tüm puan değerleri tek yerde: `src/lib/scoring.js` içindeki `SCORING`. Son 16 için
 orijinal istekte ayrı bir sayı verilmediğinden Son 32 ile aynı (20) ayarlandı;
-`SCORING.knockout.advance.R16` ile değiştirebilirsin.
+`SCORING.knockout.advance.R16` ile değiştirebilirsin....
 
 ---
 
