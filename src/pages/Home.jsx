@@ -151,6 +151,11 @@ export default function Home({ setPage }) {
 
 const CHANGELOG = [
   {
+    v: '2.6', date: 'Haziran 2026', items: [
+      'Başarımlar katlanır (varsayılan kapalı, meraklandıran başlık); rozete dokununca nasıl kazanıldığı yazar.',
+    ],
+  },
+  {
     v: '2.5', date: 'Haziran 2026', items: [
       'Karşılaştır: detaylı istatistikler artık kategori kategori yan yana (H2H).',
       'Kişiye basınca zengin özet: öne çıkan sayılar, en güçlü kategori, başarımlar vitrini.',

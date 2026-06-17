@@ -64,6 +64,7 @@ export default function ListDetail({ listId, onBack, onEdit }) {
 
   const achs = useMemo(() => achievements(result, { rank, bestDay }), [result, rank, bestDay]);
   const earnedCount = achs.filter((a) => a.earned).length;
+  const [achOpen, setAchOpen] = useState(false);
 
   const highlights = useMemo(() => {
     const b = result.breakdown || {};
@@ -117,14 +118,30 @@ export default function ListDetail({ listId, onBack, onEdit }) {
         </div>
       </div>
 
-      <div className="card p-4">
-        <div className="flex items-center justify-between mb-2">
-          <p className="font-display text-lg">Başarımlar</p>
-          <span className="chip bg-gold/20 text-gold-dark">{earnedCount}/{achs.length}</span>
-        </div>
-        <div className="grid grid-cols-3 gap-2">
-          {achs.map((a) => <Badge key={a.id} a={a} />)}
-        </div>
+      <div className="card overflow-hidden">
+        <button onClick={() => setAchOpen((v) => !v)} className="w-full flex items-center gap-3 px-4 py-3 text-left">
+          <span className="text-2xl">🏅</span>
+          <div className="flex-1 min-w-0">
+            <p className="font-display text-lg leading-none">Başarımlar</p>
+            <p className="text-[11px] text-ink/45 mt-0.5">
+              {earnedCount > 0 ? `${earnedCount}/${achs.length} rozet açıldı — gerisini keşfet` : `${achs.length} rozet seni bekliyor — keşfet`}
+            </p>
+          </div>
+          <div className="flex -space-x-1 mr-1">
+            {achs.slice(0, 4).map((a) => (
+              <span key={a.id} className="h-6 w-6 grid place-items-center rounded-full bg-black/5 text-sm" style={a.earned ? undefined : { filter: 'grayscale(1)', opacity: 0.5 }}>{a.icon}</span>
+            ))}
+          </div>
+          <span className={`shrink-0 grid place-items-center h-7 w-7 rounded-full bg-gold/20 text-gold-dark transition ${achOpen ? 'rotate-180' : 'animate-pulse'}`}>▾</span>
+        </button>
+        {achOpen && (
+          <div className="px-4 pb-4 fade-in">
+            <div className="grid grid-cols-3 gap-2">
+              {achs.map((a) => <Badge key={a.id} a={a} />)}
+            </div>
+            <p className="text-[11px] text-ink/40 text-center mt-2">Bir rozete dokun: nasıl kazanılır?</p>
+          </div>
+        )}
       </div>
 
       {mine && (
@@ -301,12 +318,18 @@ function Mini({ label, v }) {
 }
 
 function Badge({ a }) {
+  const [show, setShow] = useState(false);
   return (
-    <div className={`rounded-xl border p-2 text-center ${a.earned ? 'border-gold/40 bg-gold/10' : 'border-black/5 bg-black/[0.02] opacity-55'}`}>
+    <button onClick={() => setShow((s) => !s)} title={`${a.title} — ${a.desc}`}
+      className={`rounded-xl border p-2 text-center transition active:scale-95 ${a.earned ? 'border-gold/40 bg-gold/10' : 'border-black/5 bg-black/[0.02] opacity-60'}`}>
       <div className="text-2xl leading-none" style={a.earned ? undefined : { filter: 'grayscale(1)' }}>{a.icon}</div>
       <div className="text-[11px] font-bold mt-1 leading-tight">{a.title}</div>
-      <div className="text-[9px] text-ink/45 leading-tight mt-0.5">{a.earned ? 'kazanıldı ✓' : (a.progress || a.desc)}</div>
-    </div>
+      <div className="text-[9px] leading-tight mt-0.5 min-h-[22px] flex items-center justify-center">
+        {show
+          ? <span className="text-ink/60">{a.desc}</span>
+          : <span className="text-ink/45">{a.earned ? 'kazanıldı ✓' : (a.progress || 'kilitli')}</span>}
+      </div>
+    </button>
   );
 }
 
