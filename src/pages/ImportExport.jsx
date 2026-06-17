@@ -1,6 +1,9 @@
 import { useState, useMemo } from 'react';
 import { downloadTemplateXlsx, exportPredictionXlsx, parsePredictionFile } from '../lib/excel.js';
-import { normalizeScorePayload } from '../lib/importScores.js';
+import { normalizeScorePayload, mapFixturesToScores } from '../lib/importScores.js';
+import { GROUP_MATCHES } from '../data/tournament.js';
+
+const NO_TO_MATCH = (() => { const o = {}; for (const m of GROUP_MATCHES) o[m.no] = m; return o; })();
 
 export default function ImportExport({ store }) {
   const { lists, getPrediction, importList, applyFetchedScores } = store;
@@ -11,6 +14,7 @@ export default function ImportExport({ store }) {
   const [msg, setMsg] = useState(null);
   const [exportId, setExportId] = useState(lists[0]?.id || '');
   const [fetchInfo, setFetchInfo] = useState(null);
+  const [preview, setPreview] = useState(null);
 
   const knownEmails = useMemo(() => [...new Set(lists.map((l) => l.ownerEmail).filter(Boolean))], [lists]);
 
@@ -47,23 +51,45 @@ export default function ImportExport({ store }) {
     exportPredictionXlsx(l.name || l.ownerName || 'tahmin', getPrediction(l.id));
   }
 
-  async function autoFetch() {
-    setBusy(true); setFetchInfo(null);
+  // Step 1: fetch + filter to FINISHED only + map. Does NOT write anything yet.
+  async function previewFetch() {
+    setBusy(true); setFetchInfo(null); setPreview(null);
     try {
       const url = import.meta.env.VITE_SCORES_URL || '/api/scores';
       const r = await fetch(url);
       const data = await r.json().catch(() => ({}));
-      if (!r.ok) {
-        setFetchInfo({ type: 'err', text: data?.error || `HTTP ${r.status}` });
+      if (!r.ok) { setFetchInfo({ type: 'err', text: data?.error || `HTTP ${r.status}` }); setBusy(false); return; }
+
+      const rawFixtures = Array.isArray(data) ? data : (data?.fixtures || null);
+      let norm, liveSkipped = 0, total = 0;
+      if (rawFixtures) {
+        total = rawFixtures.length;
+        const st = (f) => String(f.status || '').toUpperCase();
+        const finished = rawFixtures.filter((f) => st(f) === 'FINISHED');
+        liveSkipped = rawFixtures.filter((f) => ['IN_PLAY', 'PAUSED'].includes(st(f))).length;
+        norm = mapFixturesToScores(finished); // sadece bitmiş maçlar
       } else {
-        const norm = normalizeScorePayload(data);
-        applyFetchedScores({ groupMatches: norm.groupMatches, ko: norm.ko });
-        setFetchInfo({ type: 'ok', matched: norm.matched, unmatched: norm.unmatched || [] });
+        // Önceden eşlenmiş kaynak (n8n {groupMatches}) — bitmiş varsayılır.
+        norm = normalizeScorePayload(data);
       }
+      const entries = Object.entries(norm.groupMatches || {})
+        .map(([no, sc]) => ({ no: Number(no), sc, m: NO_TO_MATCH[no] }))
+        .sort((a, b) => a.no - b.no);
+      setPreview({ entries, matched: norm.matched ?? entries.length, unmatched: norm.unmatched || [], liveSkipped, total });
     } catch (err) {
       setFetchInfo({ type: 'err', text: err?.message || 'İstek hatası' });
     }
     setBusy(false);
+  }
+
+  // Step 2: admin confirms → write to actual (scoring).
+  function applyPreview() {
+    if (!preview) return;
+    const groupMatches = {};
+    for (const e of preview.entries) groupMatches[e.no] = e.sc;
+    applyFetchedScores({ groupMatches, ko: {} });
+    setFetchInfo({ type: 'ok', matched: preview.entries.length, unmatched: preview.unmatched, liveSkipped: preview.liveSkipped });
+    setPreview(null);
   }
 
   return (
@@ -136,19 +162,66 @@ export default function ImportExport({ store }) {
         )}
       </div>
 
-      {/* AUTO-FETCH */}
+      {/* AUTO-FETCH (biten maçlar) */}
       <div className="card p-4 space-y-3">
-        <div className="font-display text-xl">Skorları otomatik çek</div>
+        <div className="font-display text-xl">Biten maçları içe aktar</div>
         <p className="text-sm text-ink/60">
-          Gerçek maç sonuçlarını kaynak servisten çekip <b>Sonuçlar</b>'a yazar (grup maçları takım
-          eşleşmesiyle otomatik). Kaynak: <code>/api/scores</code> veya <code>VITE_SCORES_URL</code>.
+          Kaynaktan gerçek skorları çeker; <b>yalnızca bitmiş (FINISHED)</b> maçları <b>Sonuçlar</b>'a
+          yazar. Devam eden (canlı) maçlar yazılmaz. Önce önizler, sen onaylayınca uygular.
+          Kaynak: <code>/api/scores</code> veya <code>VITE_SCORES_URL</code>.
         </p>
-        <button className="btn btn-primary" disabled={busy} onClick={autoFetch}>
-          {busy ? 'Çekiliyor…' : 'Skorları çek ve uygula'}
-        </button>
+        {!preview && (
+          <button className="btn btn-primary" disabled={busy} onClick={previewFetch}>
+            {busy ? 'Çekiliyor…' : 'Biten maçları çek (önizle)'}
+          </button>
+        )}
+
+        {preview && (
+          <div className="rounded-xl border border-pitch/30 bg-pitch/[0.04] p-3 space-y-2">
+            <div className="text-sm font-semibold text-pitch-dark">
+              {preview.entries.length} bitmiş maç yazılacak
+              {preview.liveSkipped > 0 && <span className="text-ink/50 font-normal"> · {preview.liveSkipped} canlı maç atlandı</span>}
+            </div>
+            {preview.entries.length > 0 ? (
+              <ul className="text-sm divide-y divide-black/5 max-h-64 overflow-auto">
+                {preview.entries.map((e) => (
+                  <li key={e.no} className="py-1.5 flex items-center gap-2">
+                    <span className="text-ink/40 w-8">#{e.no}</span>
+                    <span className="flex-1 text-right">{e.m?.home || '—'}</span>
+                    <span className="font-bold tabular-nums">{e.sc.home}-{e.sc.away}</span>
+                    <span className="flex-1">{e.m?.away || '—'}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-ink/55">Yazılacak bitmiş maç yok (kaynakta FINISHED maç bulunamadı).</p>
+            )}
+            {preview.unmatched.length > 0 && (
+              <div className="text-[12px] text-ink/55">
+                Eşleşmeyen {preview.unmatched.length} maç:
+                <ul className="mt-1 list-disc pl-5">
+                  {preview.unmatched.slice(0, 6).map((u, i) => (
+                    <li key={i}>{u.homeTeam} – {u.awayTeam} <span className="text-ink/40">({u.reason})</span></li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <div className="flex flex-wrap gap-2 pt-1">
+              <button className="btn btn-primary" disabled={preview.entries.length === 0} onClick={applyPreview}>
+                Onayla ve Sonuçlar'a yaz
+              </button>
+              <button className="btn btn-ghost" onClick={() => setPreview(null)}>Vazgeç</button>
+            </div>
+            <p className="text-[11px] text-ink/45">
+              Not: Bu skorlar puanlamayı etkiler. Var olan bir sonucun üstüne yazarsa en güncel skor geçerli olur.
+            </p>
+          </div>
+        )}
+
         {fetchInfo && fetchInfo.type === 'ok' && (
           <div className="text-sm">
             <span className="text-pitch-dark font-semibold">{fetchInfo.matched} maç güncellendi.</span>
+            {fetchInfo.liveSkipped > 0 && <span className="text-ink/50"> · {fetchInfo.liveSkipped} canlı atlandı</span>}
             {fetchInfo.unmatched.length > 0 && (
               <div className="mt-1 text-ink/55">
                 Eşleşmeyen {fetchInfo.unmatched.length} maç:

@@ -212,6 +212,11 @@ export default function Home({ setPage }) {
 
 const CHANGELOG = [
   {
+    v: '3.1', date: 'Haziran 2026', items: [
+      'Admin: "Biten maçları içe aktar" — API’den yalnızca FINISHED maçları önizleyip onayla, Sonuçlar’a yazar (canlı maçlar yazılmaz).',
+    ],
+  },
+  {
     v: '3.0', date: 'Haziran 2026', items: [
       'Maç skorları canlı: ana sayfadaki maç listesi aynı API’den anlık skoru ve dakikayı gösterir (her dakika tazelenir).',
     ],
