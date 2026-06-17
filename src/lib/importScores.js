@@ -32,6 +32,24 @@ export function mapFixturesToScores(fixtures = []) {
   return { groupMatches, matched, unmatched };
 }
 
+// Maps fixtures (with status) to live/finished scores per match no, keeping the
+// status so the UI can flag in-play games. { [no]: { hs, as, status } }
+export function mapLiveFixtures(fixtures = []) {
+  const out = {};
+  for (const f of fixtures) {
+    const status = f.status || '';
+    const hs = f.homeScore, as = f.awayScore;
+    if (hs == null || as == null) continue;
+    const ht = resolveTeam(f.homeTeam), at = resolveTeam(f.awayTeam);
+    if (!ht || !at) continue;
+    const m = PAIR_INDEX[pairKey(ht, at)];
+    if (!m) continue;
+    const oriented = (m.home === ht && m.away === at) ? { hs, as } : { hs: as, as: hs };
+    out[m.no] = { hs: oriented.hs, as: oriented.as, status, minute: f.minute ?? null };
+  }
+  return out;
+}
+
 // Accepts either a pre-mapped payload ({ groupMatches, ko }) or raw fixtures.
 export function normalizeScorePayload(data) {
   if (data && data.groupMatches && typeof data.groupMatches === 'object') {
