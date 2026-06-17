@@ -28,7 +28,7 @@ function tournamentStatus() {
 }
 
 export default function Home({ setPage }) {
-  const { lists, actual, getPrediction, user, isAdmin, adminEligible, adminMode, setAdminMode, logout, isMyList, theme, setTheme, onlineCount, liveScorer } = useStore();
+  const { lists, actual, getPrediction, user, isAdmin, adminEligible, adminMode, setAdminMode, logout, isMyList, theme, setTheme, onlineCount } = useStore();
 
   const rows = useMemo(() => {
     return lists
@@ -52,6 +52,7 @@ export default function Home({ setPage }) {
   const toggleScoring = () => setScoringOpen((o) => { const n = !o; try { localStorage.setItem('wc_scoring_help_open', n ? '1' : '0'); } catch (e) {} return n; });
 
   const [apiScorers, setApiScorers] = useState([]);
+  const [scorersOpen, setScorersOpen] = useState(false);
   useEffect(() => {
     let alive = true;
     const url = (import.meta.env && import.meta.env.VITE_TOPSCORERS_URL) || '/api/topscorers';
@@ -61,9 +62,7 @@ export default function Home({ setPage }) {
       .catch(() => {});
     return () => { alive = false; };
   }, []);
-  const scorers = apiScorers.length
-    ? apiScorers
-    : (liveScorer?.name ? [{ name: liveScorer.name, team: liveScorer.team, goals: liveScorer.goals }] : []);
+  const scorers = apiScorers;
 
   return (
     <div className="space-y-4">
@@ -99,30 +98,6 @@ export default function Home({ setPage }) {
           <button className="btn bg-red-600 text-white hover:bg-red-700 shadow-sm" onClick={() => setPage('board')}>Sıralama →</button>
         </div>
       </div>
-
-      {scorers.length > 0 && (
-        <div className="card p-4">
-          <div className="flex items-center justify-between mb-1">
-            <p className="font-display text-lg">⚽ Dünya Kupası gol krallığı</p>
-            {apiScorers.length > 0 && <span className="text-[10px] text-pitch-dark font-semibold flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-pitch animate-pulse" />canlı</span>}
-          </div>
-          {scorers.map((s, i) => (
-            <div key={i} className="flex items-center gap-3 py-1.5 border-t border-black/5 first:border-0">
-              <span className="w-6 text-center font-display text-lg" style={{ color: ['#caa12a', '#9aa3ad', '#b9742f'][i] || '#9aa3ad' }}>{i + 1}</span>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-ink truncate">{s.name}</p>
-                {s.team && <p className="text-[11px] text-ink/45 truncate">{s.team}</p>}
-              </div>
-              {s.goals > 0 && (
-                <div className="text-right leading-none">
-                  <span className="font-display text-xl text-ink">{s.goals}</span>
-                  <span className="text-[10px] text-ink/45 ml-1">gol</span>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
 
       <div className="grid grid-cols-3 gap-3">
         <Tile value={lists.length} label="Katılımcı" onClick={() => setPage('lists')} />
@@ -160,6 +135,38 @@ export default function Home({ setPage }) {
         )}
       </div>
 
+      {scorers.length > 0 && (
+        <div className="card overflow-hidden">
+          <button onClick={() => setScorersOpen((v) => !v)} className="w-full flex items-center justify-between gap-2 px-4 pt-3 pb-1">
+            <p className="font-display text-lg">⚽ Dünya Kupası gol krallığı</p>
+            <div className="flex items-center gap-2">
+              {apiScorers.length > 0 && <span className="text-[10px] text-pitch-dark font-semibold flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-pitch animate-pulse" />canlı</span>}
+              {scorers.length > 1 && <span className={`text-ink/40 transition ${scorersOpen ? 'rotate-180' : ''}`}>▾</span>}
+            </div>
+          </button>
+          <div className="px-4 pb-3">
+            {(scorersOpen ? scorers : scorers.slice(0, 1)).map((s, i) => (
+              <div key={i} className="flex items-center gap-3 py-1.5 border-t border-black/5 first:border-0">
+                <span className="w-6 text-center font-display text-lg" style={{ color: ['#caa12a', '#9aa3ad', '#b9742f'][i] || '#9aa3ad' }}>{i + 1}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-ink truncate">{s.name}</p>
+                  {s.team && <p className="text-[11px] text-ink/45 truncate">{s.team}</p>}
+                </div>
+                {s.goals > 0 && (
+                  <div className="text-right leading-none">
+                    <span className="font-display text-xl text-ink">{s.goals}</span>
+                    <span className="text-[10px] text-ink/45 ml-1">gol</span>
+                  </div>
+                )}
+              </div>
+            ))}
+            {!scorersOpen && scorers.length > 1 && (
+              <p className="text-[11px] text-ink/40 pt-1.5 pl-9">+{scorers.length - 1} golcü daha · görmek için dokun</p>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="card overflow-hidden">
         <button onClick={toggleScoring} className="w-full flex items-center justify-between gap-2 px-4 py-3">
           <span className="font-display text-xl">Puanlama nasıl işler</span>
@@ -188,6 +195,12 @@ export default function Home({ setPage }) {
 }
 
 const CHANGELOG = [
+  {
+    v: '2.9', date: 'Haziran 2026', items: [
+      'Gol krallığı kartı "Puanlama nasıl işler"in üstünde, katlanır (kapalıyken sadece 1. golcü).',
+      'Eski elle gol kralı girişi (Ayarlar) kaldırıldı; veri tamamen canlı API’den.',
+    ],
+  },
   {
     v: '2.8', date: 'Haziran 2026', items: [
       'Gol krallığı artık ücretsiz canlı API’den çekiliyor (ilk 3 golcü); API yoksa admin girişi yedek.',

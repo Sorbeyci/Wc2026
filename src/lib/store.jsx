@@ -311,13 +311,6 @@ export function StoreProvider({ children }) {
       logAction('Puanlama güncellendi', '');
       return reportSave(setDoc(doc(db, 'config', 'settings'), { scoring: cfg, updatedAt: serverTimestamp() }, { merge: true }));
     },
-    liveScorer: settings.liveScorer || null,
-    setLiveScorer: (info) => {
-      if (!isAdmin) return;
-      const clean = info && info.name ? { name: String(info.name).trim(), goals: Number(info.goals) || 0, team: (info.team || '').trim() } : null;
-      logAction('Gol kralı güncellendi', clean ? `${clean.name} (${clean.goals})` : 'temizlendi');
-      return reportSave(setDoc(doc(db, 'config', 'settings'), { liveScorer: clean, updatedAt: serverTimestamp() }, { merge: true }));
-    },
     setLocked: (val) => {
       logAction('Kilit', val ? 'açıldı (kilitli)' : 'kaldırıldı');
       return reportSave(setDoc(doc(db, 'config', 'settings'), { locked: !!val, updatedAt: serverTimestamp() }, { merge: true }));
