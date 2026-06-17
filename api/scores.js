@@ -26,9 +26,10 @@ export default async function handler(req, res) {
       awayScore: m.score?.fullTime?.away ?? null,
       status: m.status,
       stage: m.stage,
+      minute: m.minute ?? null,
       utcDate: m.utcDate,
     }));
-    res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
+    res.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate=60');
     res.status(200).json({ fixtures, source: 'football-data.org', count: fixtures.length });
   } catch (e) {
     res.status(502).json({ error: 'İstek başarısız: ' + (e?.message || 'bilinmeyen') });
