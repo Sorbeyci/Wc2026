@@ -31,12 +31,12 @@ export default function App() {
       <main className="mx-auto max-w-lg px-4 pt-6 pb-24">
         {safePage === 'home' && <Home setPage={go} />}
         {safePage === 'lists' && (
-          <Lists viewListId={viewListId} setViewListId={setViewListId} onEdit={editList} />
+          <Lists viewListId={viewListId} setViewListId={setViewListId} onEdit={editList} goHome={() => go('home')} />
         )}
         {safePage === 'predict' && (
-          <Predict initialListId={editListId} goLists={() => go('lists')} />
+          <Predict initialListId={editListId} goLists={() => go('lists')} goHome={() => go('home')} />
         )}
-        {safePage === 'board' && <Board onOpenList={openList} />}
+        {safePage === 'board' && <Board onOpenList={openList} goHome={() => go('home')} />}
         {safePage === 'admin' && isAdmin && <Admin />}
       </main>
       <Nav page={safePage} setPage={go} isAdmin={isAdmin} />

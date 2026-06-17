@@ -3,7 +3,7 @@ import { useStore } from '../lib/store.jsx';
 import { SectionTitle, Dot, Empty, Avatar, BrandHeader } from '../components/ui.jsx';
 import ListDetail from './ListDetail.jsx';
 
-export default function Lists({ viewListId, setViewListId, onEdit }) {
+export default function Lists({ viewListId, setViewListId, onEdit, goHome }) {
   const { lists, myLists, isAdmin, user, canCreateList, createList, deleteList, canDeleteList, isMyList, isOnline, requestDeleteList, locked } = useStore();
   const [name, setName] = useState('');
   const [requested, setRequested] = useState(() => new Set());
@@ -21,7 +21,7 @@ export default function Lists({ viewListId, setViewListId, onEdit }) {
 
   return (
     <div className="space-y-4">
-      <BrandHeader />
+      <BrandHeader onClick={goHome} />
       <SectionTitle title="Listeler" />
 
       <div className="card overflow-hidden">

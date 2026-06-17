@@ -9,6 +9,7 @@ import Standings from '../components/Standings.jsx';
 import BracketTree from '../components/BracketTree.jsx';
 import { shortName, teamColor } from '../data/flags.js';
 import { sharePerson } from '../lib/shareCard.js';
+import { achievements } from '../lib/achievements.js';
 import FullStats from '../components/FullStats.jsx';
 
 const KO_VIEW = [
@@ -50,6 +51,29 @@ export default function ListDetail({ listId, onBack, onEdit }) {
     return totals.findIndex((t) => t.id === listId) + 1;
   }, [lists, actual, listId]);
 
+  const bestDay = useMemo(() => {
+    const byDate = {};
+    for (const m of GROUP_MATCHES) {
+      const pts = grpPts(pred.groupMatches?.[m.no], actual?.groupMatches?.[m.no]);
+      if (pts == null) continue;
+      byDate[m.date] = (byDate[m.date] || 0) + pts;
+    }
+    const vals = Object.values(byDate);
+    return vals.length ? Math.max(...vals) : 0;
+  }, [pred, actual]);
+
+  const achs = useMemo(() => achievements(result, { rank, bestDay }), [result, rank, bestDay]);
+  const earnedCount = achs.filter((a) => a.earned).length;
+
+  const highlights = useMemo(() => {
+    const b = result.breakdown || {};
+    const cats = [
+      ['Maç skorları', b.groupMatches], ['Grup sıralaması', b.groupTables],
+      ["En iyi 3.'ler", b.thirds], ['Eleme', b.knockout], ['Final & kupa', b.finals],
+    ].filter(([, v]) => (v || 0) > 0).sort((x, y) => y[1] - x[1]);
+    return { best: cats[0] || null };
+  }, [result]);
+
   const onShare = () => sharePerson({
     list, total: result.total, breakdown: result.breakdown,
     champion: result.bracket?.pred?.champion || '', topScorer: pred.topScorer || '',
@@ -74,6 +98,32 @@ export default function ListDetail({ listId, onBack, onEdit }) {
         <div className="text-right">
           <div className="font-display text-3xl text-pitch leading-none"><CountUp value={result.total} /></div>
           <div className="text-[10px] uppercase tracking-wide text-ink/45">puan</div>
+        </div>
+      </div>
+
+      <div className="card p-4 space-y-3">
+        <div className="grid grid-cols-4 gap-2 text-center">
+          <Mini label="Tam skor" v={result.stats.exact} />
+          <Mini label="Doğru sonuç" v={result.stats.correctResult} />
+          <Mini label="Eşleşme" v={result.stats.koMatchupHits} />
+          <Mini label="Doğru 3." v={result.stats.thirdsCorrect} />
+        </div>
+        {highlights.best && (
+          <p className="text-xs text-ink/55 text-center">En güçlü kategori: <b className="text-pitch-dark">{highlights.best[0]}</b> · {highlights.best[1]} puan</p>
+        )}
+        <div className="flex items-center justify-center gap-5 text-sm">
+          <span className="flex items-center gap-1">🏆 {result.bracket?.pred?.champion ? shortName(result.bracket.pred.champion) : '—'}</span>
+          <span className="flex items-center gap-1">⚽ {pred.topScorer || '—'}</span>
+        </div>
+      </div>
+
+      <div className="card p-4">
+        <div className="flex items-center justify-between mb-2">
+          <p className="font-display text-lg">Başarımlar</p>
+          <span className="chip bg-gold/20 text-gold-dark">{earnedCount}/{achs.length}</span>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {achs.map((a) => <Badge key={a.id} a={a} />)}
         </div>
       </div>
 
@@ -237,6 +287,25 @@ export function Picks({ pred, actual }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function Mini({ label, v }) {
+  return (
+    <div className="rounded-lg bg-black/[0.03] py-2">
+      <div className="font-display text-xl text-ink leading-none">{v || 0}</div>
+      <div className="text-[10px] text-ink/45 mt-0.5">{label}</div>
+    </div>
+  );
+}
+
+function Badge({ a }) {
+  return (
+    <div className={`rounded-xl border p-2 text-center ${a.earned ? 'border-gold/40 bg-gold/10' : 'border-black/5 bg-black/[0.02] opacity-55'}`}>
+      <div className="text-2xl leading-none" style={a.earned ? undefined : { filter: 'grayscale(1)' }}>{a.icon}</div>
+      <div className="text-[11px] font-bold mt-1 leading-tight">{a.title}</div>
+      <div className="text-[9px] text-ink/45 leading-tight mt-0.5">{a.earned ? 'kazanıldı ✓' : (a.progress || a.desc)}</div>
     </div>
   );
 }

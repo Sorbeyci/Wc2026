@@ -165,11 +165,12 @@ export function Skeleton({ className = '' }) {
 }
 
 // Small brand header shown atop secondary pages (Lists / Predict / Board).
-export function BrandHeader() {
+export function BrandHeader({ onClick }) {
   return (
-    <div className="text-center pb-1">
+    <button onClick={onClick} disabled={!onClick}
+      className={`w-full text-center pb-1 ${onClick ? 'active:scale-[.99] transition' : ''}`}>
       <p className="font-display text-xl leading-none text-ink">kupayikimalir.com</p>
       <p className="text-[10px] uppercase tracking-[0.18em] text-ink/45 mt-1">FIFA Dünya Kupası 2026</p>
-    </div>
+    </button>
   );
 }

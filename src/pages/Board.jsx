@@ -141,7 +141,7 @@ function useFlip() {
   return ref;
 }
 
-export default function Board({ onOpenList }) {
+export default function Board({ onOpenList, goHome }) {
   const { lists, actual, getPrediction, isOnline, onlineCount } = useStore();
   const [sub, setSub] = useState('board');
   const [view, setView] = useState('detay');
@@ -180,7 +180,7 @@ export default function Board({ onOpenList }) {
 
   return (
     <div className="space-y-5">
-      <BrandHeader />
+      <BrandHeader onClick={goHome} />
       <SectionTitle title="Sıralama" />
 
       {onlineCount > 0 && (
@@ -308,15 +308,6 @@ function Podium({ rows, onOpenList }) {
   );
 }
 
-const H2H_DETAIL = [
-  ['Grup tam skor', 'exact'], ['Grup doğru sonuç', 'correctResult'],
-  ['Üst tura çıkan', 'correctQualified'], ['Doğru grup sırası', 'correctPositions'],
-  ['Doğru 3. takım', 'thirdsCorrect'],
-  ['Doğru eşleşme', 'koMatchupHits'], ['Eleme tam skor', 'koExact'], ['Eleme doğru sonuç', 'koResult'],
-  ['Son 32 kazanan', 'koR32'], ['Son 16 kazanan', 'koR16'], ['Çeyrek kazanan', 'koQF'], ['Yarı kazanan', 'koSF'],
-  ['Final isabet', 'finalsHits'],
-];
-
 function H2H({ rows }) {
   const [a, setA] = useState(rows[0]?.list.id || '');
   const [b, setB] = useState(rows[1]?.list.id || rows[0]?.list.id || '');
@@ -367,44 +358,48 @@ function H2H({ rows }) {
               </div>
             );
           })}
-          <div className="rounded-xl bg-black/[0.02] border border-black/5 p-2">
-            <div className="text-[11px] font-bold uppercase tracking-wide text-ink/45 mb-1 text-center">Detaylı istatistik</div>
-            {H2H_DETAIL.map(([label, k]) => {
-              const av = ra.stats?.[k] || 0, bv = rb.stats?.[k] || 0;
-              if (!av && !bv) return null;
-              return (
-                <div key={k} className="flex items-center gap-2 py-0.5 text-xs">
-                  <span className={`w-8 text-right font-semibold tabular-nums ${av > bv ? 'text-pitch' : av < bv ? 'text-ink/40' : 'text-ink/60'}`}>{av}</span>
-                  <span className="flex-1 text-center text-ink/50 truncate">{label}</span>
-                  <span className={`w-8 text-left font-semibold tabular-nums ${bv > av ? 'text-pitch' : bv < av ? 'text-ink/40' : 'text-ink/60'}`}>{bv}</span>
-                </div>
-              );
-            })}
-          </div>
-
           <div className="grid grid-cols-2 gap-2 pt-1 text-xs">
             <div className="rounded-lg bg-black/[0.03] p-2">🏆 {ra.champion || '—'}<br />⚽ {ra.topScorer || '—'}</div>
             <div className="rounded-lg bg-black/[0.03] p-2 text-right">{rb.champion || '—'} 🏆<br />{rb.topScorer || '—'} ⚽</div>
           </div>
         </div>
       )}
-      {ra && <H2HFull r={ra} />}
-      {rb && rb.list.id !== ra?.list.id && <H2HFull r={rb} />}
+      {ra && rb && <H2HDetail ra={ra} rb={rb} />}
     </div>
   );
 }
 
-function H2HFull({ r }) {
-  const [open, setOpen] = useState(false);
+const H2H_SECTIONS = [
+  { title: 'Grup maçları', pts: 'groupMatchPoints', rows: [['Tam skor', 'exact'], ['Doğru sonuç', 'correctResult'], ['Puanlanan maç', 'playedScored']] },
+  { title: 'Grup sıralamaları', pts: 'groupTablePoints', rows: [['Üst tura çıkan', 'correctQualified'], ['Doğru sıra', 'correctPositions'], ['Tamamlanan grup', 'groupsFinal']] },
+  { title: "En iyi 3.'ler", pts: 'thirdsPoints', rows: [['Doğru 3. takım', 'thirdsCorrect']] },
+  { title: 'Eleme turu', pts: 'knockoutPoints', rows: [['Doğru eşleşme', 'koMatchupHits'], ['Tam skor', 'koExact'], ['Doğru sonuç', 'koResult'], ['Son 32 kazanan', 'koR32'], ['Son 16 kazanan', 'koR16'], ['Çeyrek kazanan', 'koQF'], ['Yarı kazanan', 'koSF'], ['Sonuçlanan maç', 'koScored']] },
+  { title: 'Final & podyum', pts: 'finalsPoints', rows: [['Doğru tahmin (/5)', 'finalsHits']] },
+];
+
+function CmpRow({ label, a, b, strong }) {
   return (
-    <div className="card overflow-hidden">
-      <button className="w-full flex items-center gap-2 px-4 py-3" onClick={() => setOpen((o) => !o)}>
-        <Dot color={r.list.color} />
-        <span className="flex-1 text-left font-semibold truncate">{r.list.name} · detaylı istatistik</span>
-        <span className="font-display text-lg">{r.total}</span>
-        <span className={`transition ${open ? 'rotate-180' : ''}`}>▾</span>
-      </button>
-      {open && <div className="border-t border-black/5 p-3 bg-black/[0.015]"><FullStats result={r} /></div>}
+    <div className="flex items-center gap-2 py-0.5">
+      <span className={`w-10 text-right tabular-nums ${strong ? 'font-bold' : 'font-semibold'} ${a > b ? 'text-pitch' : a < b ? 'text-ink/35' : 'text-ink/60'}`}>{a}</span>
+      <span className={`flex-1 text-center truncate ${strong ? 'text-ink/70 font-semibold' : 'text-ink/50'}`}>{label}</span>
+      <span className={`w-10 text-left tabular-nums ${strong ? 'font-bold' : 'font-semibold'} ${b > a ? 'text-pitch' : b < a ? 'text-ink/35' : 'text-ink/60'}`}>{b}</span>
+    </div>
+  );
+}
+
+function H2HDetail({ ra, rb }) {
+  const sa = ra.stats || {}, sb = rb.stats || {};
+  return (
+    <div className="space-y-2">
+      <div className="text-[11px] font-bold uppercase tracking-wide text-ink/45 text-center pt-1">Kategori kategori karşılaştırma</div>
+      {H2H_SECTIONS.map((sec) => (
+        <div key={sec.title} className="card p-3 text-xs">
+          <div className="mb-1 pb-1.5 border-b border-black/5">
+            <CmpRow label={sec.title.toUpperCase()} a={sa[sec.pts] || 0} b={sb[sec.pts] || 0} strong />
+          </div>
+          {sec.rows.map(([label, k]) => <CmpRow key={k} label={label} a={sa[k] || 0} b={sb[k] || 0} />)}
+        </div>
+      ))}
     </div>
   );
 }

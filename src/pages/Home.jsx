@@ -28,7 +28,7 @@ function tournamentStatus() {
 }
 
 export default function Home({ setPage }) {
-  const { lists, actual, getPrediction, user, isAdmin, adminEligible, adminMode, setAdminMode, logout, isMyList, theme, setTheme } = useStore();
+  const { lists, actual, getPrediction, user, isAdmin, adminEligible, adminMode, setAdminMode, logout, isMyList, theme, setTheme, onlineCount } = useStore();
 
   const rows = useMemo(() => {
     return lists
@@ -73,6 +73,12 @@ export default function Home({ setPage }) {
         <p className="label text-white/60 mt-2">FIFA Dünya Kupası 2026</p>
         <h1 className="font-display text-4xl leading-none mt-1">Tahmin<br />Oyunu</h1>
         <p className="mt-2 text-xs font-semibold text-gold">{tournamentStatus()}</p>
+        {onlineCount > 0 && (
+          <p className="mt-1 text-xs font-semibold text-white/80 flex items-center gap-1.5">
+            <span className="inline-block h-2 w-2 rounded-full bg-pitch animate-pulse" />
+            {onlineCount} kişi çevrimiçi
+          </p>
+        )}
         <p className="mt-2 text-sm text-white/70">Merhaba {user?.displayName?.split(' ')[0] || 'oyuncu'}{isAdmin ? ' · yönetici' : ''}.</p>
         <div className="mt-4 flex gap-2">
           <button className="btn-primary" onClick={() => setPage('predict')}>Tahmin yap</button>
@@ -144,6 +150,15 @@ export default function Home({ setPage }) {
 }
 
 const CHANGELOG = [
+  {
+    v: '2.5', date: 'Haziran 2026', items: [
+      'Karşılaştır: detaylı istatistikler artık kategori kategori yan yana (H2H).',
+      'Kişiye basınca zengin özet: öne çıkan sayılar, en güçlü kategori, başarımlar vitrini.',
+      'Başarımlar (rozetler) sistemi: tam skor serileri, eleme ustalığı, +gün, lider vb.',
+      'Üstteki marka başlığına basınca ana sayfaya dönüş.',
+      'Turnuva durumunun altında çevrimiçi kişi sayısı (varsa).',
+    ],
+  },
   {
     v: '2.4', date: 'Haziran 2026', items: [
       'Enteresan istatistikler: geniş havuzdan her sayfa yenilemede rastgele 3 madde gösterilir.',

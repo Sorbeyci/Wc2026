@@ -14,7 +14,7 @@ const SUB = [
   { id: 'knockout', label: 'Eleme' },
 ];
 
-export default function Predict({ goLists, initialListId }) {
+export default function Predict({ goLists, initialListId, goHome }) {
   const { lists, isAdmin, user, locked, getPrediction } = useStore();
   const [sub, setSub] = useState('matches');
 
@@ -25,7 +25,7 @@ export default function Predict({ goLists, initialListId }) {
 
   return (
     <div className="space-y-4">
-      <BrandHeader />
+      <BrandHeader onClick={goHome} />
       <SectionTitle title="Tahminler" />
 
       {locked && (
