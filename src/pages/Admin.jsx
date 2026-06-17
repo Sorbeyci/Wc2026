@@ -241,11 +241,38 @@ function ScoringEditor({ store }) {
   );
 }
 
+function LiveScorerEditor({ store }) {
+  const { liveScorer, setLiveScorer } = store;
+  const [name, setName] = useState(liveScorer?.name || '');
+  const [goals, setGoals] = useState(liveScorer?.goals ?? '');
+  const [team, setTeam] = useState(liveScorer?.team || '');
+  const [saved, setSaved] = useState(false);
+  const flash = () => { setSaved(true); setTimeout(() => setSaved(false), 1500); };
+  return (
+    <div className="card p-4 space-y-2">
+      <p className="font-display text-lg text-ink">Dünya Kupası gol kralı (ana sayfa)</p>
+      <p className="text-xs text-ink/55">Ana sayfada gösterilir. Boş bırakıp kaydedince gizlenir. (n8n bu alanı otomatik de yazabilir.)</p>
+      <div className="flex gap-2">
+        <input className="field flex-1" placeholder="Oyuncu adı" value={name} onChange={(e) => setName(e.target.value)} />
+        <input className="field w-20" type="number" placeholder="Gol" value={goals} onChange={(e) => setGoals(e.target.value)} />
+      </div>
+      <input className="field" placeholder="Takım (opsiyonel)" value={team} onChange={(e) => setTeam(e.target.value)} />
+      <div className="flex gap-2 pt-1">
+        <button className="btn btn-primary" onClick={() => { store.setLiveScorer({ name, goals, team }); flash(); }}>
+          {saved ? 'Kaydedildi ✓' : 'Kaydet'}
+        </button>
+        <button className="btn bg-white border border-black/10" onClick={() => { setName(''); setGoals(''); setTeam(''); store.setLiveScorer(null); flash(); }}>Gizle</button>
+      </div>
+    </div>
+  );
+}
+
 function AdminSettings({ store }) {
   const { locked, setLocked, resetAllLists, resetActual, lists } = store;
   return (
     <div className="space-y-3">
       <ScoringEditor store={store} />
+      <LiveScorerEditor store={store} />
 
       <div className="card p-4">
         <div className="flex items-center justify-between">

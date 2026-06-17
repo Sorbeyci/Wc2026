@@ -28,7 +28,7 @@ function tournamentStatus() {
 }
 
 export default function Home({ setPage }) {
-  const { lists, actual, getPrediction, user, isAdmin, adminEligible, adminMode, setAdminMode, logout, isMyList, theme, setTheme, onlineCount } = useStore();
+  const { lists, actual, getPrediction, user, isAdmin, adminEligible, adminMode, setAdminMode, logout, isMyList, theme, setTheme, onlineCount, liveScorer } = useStore();
 
   const rows = useMemo(() => {
     return lists
@@ -85,6 +85,22 @@ export default function Home({ setPage }) {
           <button className="btn bg-red-600 text-white hover:bg-red-700 shadow-sm" onClick={() => setPage('board')}>Sıralama →</button>
         </div>
       </div>
+
+      {liveScorer?.name && (
+        <div className="card p-3 flex items-center gap-3">
+          <span className="text-3xl">⚽</span>
+          <div className="flex-1 min-w-0">
+            <p className="label text-gold-dark">Dünya Kupası gol kralı</p>
+            <p className="font-semibold text-ink truncate mt-0.5">{liveScorer.name}{liveScorer.team ? ` · ${liveScorer.team}` : ''}</p>
+          </div>
+          {liveScorer.goals > 0 && (
+            <div className="text-right">
+              <div className="font-display text-2xl text-ink leading-none">{liveScorer.goals}</div>
+              <div className="text-[10px] uppercase tracking-wide text-ink/45">gol</div>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-3 gap-3">
         <Tile value={lists.length} label="Katılımcı" onClick={() => setPage('lists')} />
@@ -150,6 +166,11 @@ export default function Home({ setPage }) {
 }
 
 const CHANGELOG = [
+  {
+    v: '2.7', date: 'Haziran 2026', items: [
+      'Ana sayfada Dünya Kupası gol kralı kartı (admin girer; n8n ile otomatik de beslenebilir).',
+    ],
+  },
   {
     v: '2.6', date: 'Haziran 2026', items: [
       'Başarımlar katlanır (varsayılan kapalı, meraklandıran başlık); rozete dokununca nasıl kazanıldığı yazar.',
