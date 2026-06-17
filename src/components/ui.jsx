@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { TEAMS } from '../data/tournament.js';
 import { flagUrl, flagEmoji } from '../data/flags.js';
 
-// Country flag image (flagcdn). Falls back to nothing if the team has no code.
+// Country flag image (flagcdnn). Falls back to nothing if the team has no code.
 export function Flag({ team, size = 20, className = '' }) {
   const url = flagUrl(team, 40);
   if (!url) return null;
