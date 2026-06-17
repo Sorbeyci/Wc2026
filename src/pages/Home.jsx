@@ -51,6 +51,20 @@ export default function Home({ setPage }) {
   const [scoringOpen, setScoringOpen] = useState(() => { try { return localStorage.getItem('wc_scoring_help_open') !== '0'; } catch { return true; } });
   const toggleScoring = () => setScoringOpen((o) => { const n = !o; try { localStorage.setItem('wc_scoring_help_open', n ? '1' : '0'); } catch (e) {} return n; });
 
+  const [apiScorers, setApiScorers] = useState([]);
+  useEffect(() => {
+    let alive = true;
+    const url = (import.meta.env && import.meta.env.VITE_TOPSCORERS_URL) || '/api/topscorers';
+    fetch(url)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (alive && d && Array.isArray(d.scorers)) setApiScorers(d.scorers.filter((s) => s && s.name).slice(0, 3)); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
+  const scorers = apiScorers.length
+    ? apiScorers
+    : (liveScorer?.name ? [{ name: liveScorer.name, team: liveScorer.team, goals: liveScorer.goals }] : []);
+
   return (
     <div className="space-y-4">
       <div className="relative overflow-hidden rounded-2xl bg-ink text-white p-5">
@@ -86,19 +100,27 @@ export default function Home({ setPage }) {
         </div>
       </div>
 
-      {liveScorer?.name && (
-        <div className="card p-3 flex items-center gap-3">
-          <span className="text-3xl">⚽</span>
-          <div className="flex-1 min-w-0">
-            <p className="label text-gold-dark">Dünya Kupası gol kralı</p>
-            <p className="font-semibold text-ink truncate mt-0.5">{liveScorer.name}{liveScorer.team ? ` · ${liveScorer.team}` : ''}</p>
+      {scorers.length > 0 && (
+        <div className="card p-4">
+          <div className="flex items-center justify-between mb-1">
+            <p className="font-display text-lg">⚽ Dünya Kupası gol krallığı</p>
+            {apiScorers.length > 0 && <span className="text-[10px] text-pitch-dark font-semibold flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-pitch animate-pulse" />canlı</span>}
           </div>
-          {liveScorer.goals > 0 && (
-            <div className="text-right">
-              <div className="font-display text-2xl text-ink leading-none">{liveScorer.goals}</div>
-              <div className="text-[10px] uppercase tracking-wide text-ink/45">gol</div>
+          {scorers.map((s, i) => (
+            <div key={i} className="flex items-center gap-3 py-1.5 border-t border-black/5 first:border-0">
+              <span className="w-6 text-center font-display text-lg" style={{ color: ['#caa12a', '#9aa3ad', '#b9742f'][i] || '#9aa3ad' }}>{i + 1}</span>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-ink truncate">{s.name}</p>
+                {s.team && <p className="text-[11px] text-ink/45 truncate">{s.team}</p>}
+              </div>
+              {s.goals > 0 && (
+                <div className="text-right leading-none">
+                  <span className="font-display text-xl text-ink">{s.goals}</span>
+                  <span className="text-[10px] text-ink/45 ml-1">gol</span>
+                </div>
+              )}
             </div>
-          )}
+          ))}
         </div>
       )}
 
@@ -166,6 +188,11 @@ export default function Home({ setPage }) {
 }
 
 const CHANGELOG = [
+  {
+    v: '2.8', date: 'Haziran 2026', items: [
+      'Gol krallığı artık ücretsiz canlı API’den çekiliyor (ilk 3 golcü); API yoksa admin girişi yedek.',
+    ],
+  },
   {
     v: '2.7', date: 'Haziran 2026', items: [
       'Ana sayfada Dünya Kupası gol kralı kartı (admin girer; n8n ile otomatik de beslenebilir).',
