@@ -311,6 +311,18 @@ export function StoreProvider({ children }) {
       logAction('Puanlama güncellendi', '');
       return reportSave(setDoc(doc(db, 'config', 'settings'), { scoring: cfg, updatedAt: serverTimestamp() }, { merge: true }));
     },
+    ad: settings.ad || null,
+    setAd: (info) => {
+      if (!isAdmin) return;
+      const clean = info ? {
+        enabled: !!info.enabled,
+        text: (info.text || '').trim(),
+        imageUrl: (info.imageUrl || '').trim(),
+        linkUrl: (info.linkUrl || '').trim(),
+      } : null;
+      logAction('Reklam güncellendi', clean && clean.enabled ? 'açık' : 'kapalı');
+      return reportSave(setDoc(doc(db, 'config', 'settings'), { ad: clean, updatedAt: serverTimestamp() }, { merge: true }));
+    },
     setLocked: (val) => {
       logAction('Kilit', val ? 'açıldı (kilitli)' : 'kaldırıldı');
       return reportSave(setDoc(doc(db, 'config', 'settings'), { locked: !!val, updatedAt: serverTimestamp() }, { merge: true }));

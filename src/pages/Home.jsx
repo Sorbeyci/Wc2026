@@ -28,8 +28,8 @@ function tournamentStatus() {
   return `Turnuvanın ${dayNo}. günü · finale ${left} gün kaldı`;
 }
 
-export default function Home({ setPage }) {
-  const { lists, actual, getPrediction, user, isAdmin, adminEligible, adminMode, setAdminMode, logout, isMyList, theme, setTheme, onlineCount } = useStore();
+export default function Home({ setPage, goAdminImport }) {
+  const { lists, actual, getPrediction, user, isAdmin, adminEligible, adminMode, setAdminMode, logout, isMyList, theme, setTheme, onlineCount, ad } = useStore();
 
   const rows = useMemo(() => {
     return lists
@@ -76,7 +76,7 @@ export default function Home({ setPage }) {
         .catch(() => {});
     };
     load();
-    const iv = setInterval(load, 60000); // her dakika tazele
+    const iv = setInterval(load, 30000); // her 30 sn tazele (canlı)
     return () => { alive = false; clearInterval(iv); };
   }, []);
 
@@ -126,6 +126,7 @@ export default function Home({ setPage }) {
       </div>
 
       <MyScore rows={rows} isMyList={isMyList} setPage={setPage} onCreate={() => setPage('lists')} />
+      <AdSlot ad={ad} />
       <DayBrowser lists={lists} getPrediction={getPrediction} actual={actual} myPred={myPred} liveScores={liveScores} />
       <RecentResults actual={actual} />
       <FunStats lists={lists} getPrediction={getPrediction} actual={actual} seed={funSeed} />
@@ -203,6 +204,17 @@ export default function Home({ setPage }) {
         )}
       </div>
 
+      {isAdmin && goAdminImport && (
+        <button onClick={goAdminImport}
+          className="w-full flex items-center justify-between gap-2 rounded-xl border border-pitch/30 bg-pitch/[0.06] px-4 py-3 text-left">
+          <span className="flex items-center gap-2">
+            <span className="text-lg">⬇️</span>
+            <span className="font-semibold text-pitch-dark">Biten maçları içe aktar</span>
+          </span>
+          <span className="text-pitch-dark">→</span>
+        </button>
+      )}
+
       <button className="w-full btn-ghost" onClick={logout}>Çıkış yap</button>
 
       <Footer />
@@ -211,6 +223,17 @@ export default function Home({ setPage }) {
 }
 
 const CHANGELOG = [
+  {
+    v: '3.3', date: 'Haziran 2026', items: [
+      'Ana sayfada admin kontrollü reklam alanı (Senin puanın ile Maçlar arasında).',
+      'Ana sayfa altına admin için "Biten maçları içe aktar" kısayolu.',
+    ],
+  },
+  {
+    v: '3.2', date: 'Haziran 2026', items: [
+      'Canlı skor takım eşleşmesi düzeltildi (Bosna Hersek, Yeşil Burun) ve canlı yenileme 30 sn’ye indirildi.',
+    ],
+  },
   {
     v: '3.1', date: 'Haziran 2026', items: [
       'Admin: "Biten maçları içe aktar" — API’den yalnızca FINISHED maçları önizleyip onayla, Sonuçlar’a yazar (canlı maçlar yazılmaz).',
@@ -393,6 +416,28 @@ function Footer() {
       )}
     </div>
   );
+}
+
+function AdSlot({ ad }) {
+  if (!ad || !ad.enabled || (!ad.text && !ad.imageUrl)) return null;
+  const inner = (
+    <div className="card overflow-hidden">
+      {ad.imageUrl && (
+        <img src={ad.imageUrl} alt={ad.text || 'reklam'} className="w-full max-h-44 object-cover" loading="lazy" />
+      )}
+      {ad.text && (
+        <div className="px-4 py-3 flex items-center justify-between gap-2">
+          <span className="text-sm font-medium text-ink">{ad.text}</span>
+          {ad.linkUrl && <span className="text-xs text-pitch-dark shrink-0">→</span>}
+        </div>
+      )}
+      <span className="block px-4 pb-1.5 -mt-1 text-[9px] uppercase tracking-wide text-ink/30">reklam</span>
+    </div>
+  );
+  if (ad.linkUrl) {
+    return <a href={ad.linkUrl} target="_blank" rel="noopener noreferrer sponsored" className="block">{inner}</a>;
+  }
+  return inner;
 }
 
 function MyScore({ rows, isMyList, setPage }) {

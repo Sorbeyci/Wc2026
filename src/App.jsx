@@ -15,6 +15,7 @@ export default function App() {
   const [page, setPage] = useState('home');
   const [viewListId, setViewListId] = useState(null); // open in Lists detail
   const [editListId, setEditListId] = useState(null); // preselect in Predict
+  const [adminSub, setAdminSub] = useState('results'); // initial Admin tab
 
   if (!firebaseReady) return <ConfigNotice />;
   if (authLoading) return <Splash />;
@@ -24,12 +25,13 @@ export default function App() {
 
   const openList = (id) => { setViewListId(id); setPage('lists'); };
   const editList = (id) => { setEditListId(id); setViewListId(null); setPage('predict'); };
-  const go = (p) => { setViewListId(null); setPage(p); };
+  const go = (p) => { setViewListId(null); if (p !== 'admin') setAdminSub('results'); setPage(p); };
+  const goAdminImport = () => { setViewListId(null); setAdminSub('transfer'); setPage('admin'); };
 
   return (
     <div className="min-h-full text-ink">
       <main className="mx-auto max-w-lg px-4 pt-6 pb-24">
-        {safePage === 'home' && <Home setPage={go} />}
+        {safePage === 'home' && <Home setPage={go} goAdminImport={goAdminImport} />}
         {safePage === 'lists' && (
           <Lists viewListId={viewListId} setViewListId={setViewListId} onEdit={editList} goHome={() => go('home')} />
         )}
@@ -37,7 +39,7 @@ export default function App() {
           <Predict initialListId={editListId} goLists={() => go('lists')} goHome={() => go('home')} />
         )}
         {safePage === 'board' && <Board onOpenList={openList} goHome={() => go('home')} />}
-        {safePage === 'admin' && isAdmin && <Admin />}
+        {safePage === 'admin' && isAdmin && <Admin initialSub={adminSub} />}
       </main>
       <Nav page={safePage} setPage={go} isAdmin={isAdmin} />
     </div>

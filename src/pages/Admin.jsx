@@ -21,9 +21,9 @@ const SUB = [
 
 const confirmTwice = (m1, m2) => window.confirm(m1) && window.confirm(m2);
 
-export default function Admin() {
+export default function Admin({ initialSub = 'results' }) {
   const store = useStore();
-  const [sub, setSub] = useState('results');
+  const [sub, setSub] = useState(initialSub);
 
   return (
     <div className="space-y-4">
@@ -241,11 +241,47 @@ function ScoringEditor({ store }) {
   );
 }
 
+function AdEditor({ store }) {
+  const { ad, setAd } = store;
+  const [enabled, setEnabled] = useState(ad?.enabled ?? false);
+  const [text, setText] = useState(ad?.text || '');
+  const [imageUrl, setImageUrl] = useState(ad?.imageUrl || '');
+  const [linkUrl, setLinkUrl] = useState(ad?.linkUrl || '');
+  const [saved, setSaved] = useState(false);
+  const save = () => { store.setAd({ enabled, text, imageUrl, linkUrl }); setSaved(true); setTimeout(() => setSaved(false), 1500); };
+  return (
+    <div className="card p-4 space-y-2">
+      <div className="flex items-center justify-between">
+        <p className="font-display text-lg text-ink">Reklam alanı (ana sayfa)</p>
+        <button onClick={() => setEnabled((v) => !v)} className="flex items-center gap-2 text-sm">
+          <span className={`relative h-5 w-9 rounded-full transition ${enabled ? 'bg-pitch' : 'bg-black/15'}`}>
+            <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${enabled ? 'left-[18px]' : 'left-0.5'}`} />
+          </span>
+          {enabled ? 'Açık' : 'Kapalı'}
+        </button>
+      </div>
+      <p className="text-xs text-ink/55">"Senin puanın" ile "Maçlar" arasında görünür. Metin ve/veya görsel girebilirsin; bağlantı verirsen tıklanır.</p>
+      <input className="field" placeholder="Reklam metni (ör. Sponsor: …)" value={text} onChange={(e) => setText(e.target.value)} />
+      <input className="field" placeholder="Görsel URL (https://…)" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} />
+      <input className="field" placeholder="Bağlantı URL (opsiyonel)" value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} />
+      {(text || imageUrl) && (
+        <div className="rounded-xl border border-black/10 overflow-hidden">
+          <div className="text-[10px] uppercase tracking-wide text-ink/40 px-3 pt-2">önizleme</div>
+          {imageUrl && <img src={imageUrl} alt="" className="w-full max-h-40 object-cover" />}
+          {text && <div className="px-3 py-2 text-sm">{text}</div>}
+        </div>
+      )}
+      <button className="btn btn-primary" onClick={save}>{saved ? 'Kaydedildi ✓' : 'Kaydet'}</button>
+    </div>
+  );
+}
+
 function AdminSettings({ store }) {
   const { locked, setLocked, resetAllLists, resetActual, lists } = store;
   return (
     <div className="space-y-3">
       <ScoringEditor store={store} />
+      <AdEditor store={store} />
 
       <div className="card p-4">
         <div className="flex items-center justify-between">
