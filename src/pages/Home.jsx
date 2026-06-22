@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { useStore } from '../lib/store.jsx';
 import { GROUP_MATCHES } from '../data/tournament.js';
 import { scoreUser, SCORING } from '../lib/scoring.js';
@@ -30,7 +30,7 @@ function tournamentStatus() {
 }
 
 export default function Home({ setPage, goAdminImport }) {
-  const { lists, actual, getPrediction, user, isAdmin, adminEligible, adminMode, setAdminMode, logout, isMyList, theme, setTheme, onlineCount, ad } = useStore();
+  const { lists, actual, getPrediction, user, isAdmin, adminEligible, adminMode, setAdminMode, logout, isMyList, theme, setTheme, onlineCount, ad, quizLeaders, recordQuizWin } = useStore();
 
   const rows = useMemo(() => {
     return lists
@@ -65,6 +65,19 @@ export default function Home({ setPage, goAdminImport }) {
     return () => { alive = false; };
   }, []);
   const scorers = apiScorers;
+
+  // --- Günlük quiz / reklam durumu ---
+  const quizBase = `wc_dq_${user?.uid || 'anon'}`;
+  const today = localDay();
+  const [qPlayed, setQPlayed] = useState(() => lsGet(`${quizBase}_played`));
+  const [qWon, setQWon] = useState(() => lsGet(`${quizBase}_won`));
+  const [quizOpen, setQuizOpen] = useState(false);
+  const wonToday = qWon === today;
+  const playedToday = qPlayed === today;
+  const onQuizDone = async (passed) => {
+    setQPlayed(today); lsSet(`${quizBase}_played`, today);
+    if (passed) { setQWon(today); lsSet(`${quizBase}_won`, today); try { await recordQuizWin(); } catch (e) {} }
+  };
 
   const [liveScores, setLiveScores] = useState({});
   useEffect(() => {
@@ -127,7 +140,8 @@ export default function Home({ setPage, goAdminImport }) {
       </div>
 
       <MyScore rows={rows} isMyList={isMyList} setPage={setPage} onCreate={() => setPage('lists')} />
-      <AdZone ad={ad} uid={user?.uid} />
+      <AdZone ad={ad} wonToday={wonToday} onRemove={() => setQuizOpen(true)} />
+      {quizOpen && <QuizModal base={quizBase} playedToday={playedToday} onClose={() => setQuizOpen(false)} onDone={onQuizDone} onStart={() => { setQPlayed(today); lsSet(`${quizBase}_played`, today); }} />}
       <DayBrowser lists={lists} getPrediction={getPrediction} actual={actual} myPred={myPred} liveScores={liveScores} />
       <RecentResults actual={actual} />
       <FunStats lists={lists} getPrediction={getPrediction} actual={actual} seed={funSeed} />
@@ -185,6 +199,8 @@ export default function Home({ setPage, goAdminImport }) {
         </div>
       )}
 
+      <QuizLeaders leaders={quizLeaders} user={user} playedToday={playedToday} wonToday={wonToday} onPlay={() => setQuizOpen(true)} />
+
       <div className="card overflow-hidden">
         <button onClick={toggleScoring} className="w-full flex items-center justify-between gap-2 px-4 py-3">
           <span className="font-display text-xl">Puanlama nasıl işler</span>
@@ -224,6 +240,12 @@ export default function Home({ setPage, goAdminImport }) {
 }
 
 const CHANGELOG = [
+  {
+    v: '3.5', date: 'Haziran 2026', items: [
+      'Günlük quiz: 300 soruluk genel kültür bankası, 5 dk süre, ilerleme çubuğu, kazanınca o gün reklamsız.',
+      'Sonraki quiz için geri sayım ve "En çok quiz kazanan" liderlik tablosu.',
+    ],
+  },
   {
     v: '3.4', date: 'Haziran 2026', items: [
       'Reklamları kaldır: 10 soruluk Dünya Kupası bilgi yarışması (50 soruluk banka); 8/10 ile reklamlar kalkar, günde 1 deneme, sonra göster/gizle seçeneği.',
@@ -443,9 +465,17 @@ function AdCard({ ad }) {
   return inner;
 }
 
-const qToday = () => new Date().toISOString().slice(0, 10);
 const lsGet = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
 const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+const localDay = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
+const msToMidnight = () => { const n = new Date(); const m = new Date(n); m.setHours(24, 0, 0, 0); return m - n; };
+const fmtDur = (ms) => { const s = Math.max(0, Math.floor(ms / 1000)); const h = Math.floor(s / 3600), mn = Math.floor((s % 3600) / 60), se = s % 60; return `${h}sa ${mn}dk ${se}sn`; };
+
+function NextQuiz() {
+  const [ms, setMs] = useState(msToMidnight());
+  useEffect(() => { const iv = setInterval(() => setMs(msToMidnight()), 1000); return () => clearInterval(iv); }, []);
+  return <span className="tabular-nums">{fmtDur(ms)}</span>;
+}
 
 function pickQuiz() {
   const idx = [...QUIZ.keys()];
@@ -458,41 +488,67 @@ function pickQuiz() {
   });
 }
 
-function QuizModal({ base, onClose, onPass, onShow }) {
-  const today = qToday();
-  const blocked = lsGet(`${base}_last`) === today;
-  const [questions] = useState(() => (blocked ? [] : pickQuiz()));
+const QUIZ_SECONDS = 300; // 5 dakika
+
+function QuizModal({ base, playedToday, onClose, onDone, onStart }) {
+  const [blocked] = useState(playedToday); // açılıştaki durumu dondur (oyun ortası kaybolmasın)
+  const [questions] = useState(() => (playedToday ? [] : pickQuiz()));
   const [answers, setAnswers] = useState({});
   const [result, setResult] = useState(null);
-  const allAnswered = questions.length > 0 && questions.every((_, qi) => answers[qi] != null);
+  const [timeLeft, setTimeLeft] = useState(QUIZ_SECONDS);
+  const answeredCount = Object.keys(answers).length;
+  const allAnswered = questions.length > 0 && answeredCount === questions.length;
 
-  const submit = () => {
+  // Quiz açıldıysa günlük hak harcanır (soruları yeniden çekmeyi önler).
+  useEffect(() => { if (!blocked && onStart) onStart(); }, []);
+
+  const finish = () => {
     let score = 0;
     questions.forEach((qq, qi) => { if (qq.opts[answers[qi]]?.correct) score++; });
-    lsSet(`${base}_last`, today);
     const ok = score >= 8; // %75 -> 8/10
     setResult({ score, ok });
-    if (ok) onPass();
+    onDone(ok);
   };
+  const finishRef = useRef(finish); finishRef.current = finish;
+
+  // 5 dakikalık geri sayım — süre dolunca otomatik gönder.
+  useEffect(() => {
+    if (blocked || result) return;
+    if (timeLeft <= 0) { finishRef.current(); return; }
+    const iv = setInterval(() => setTimeLeft((t) => t - 1), 1000);
+    return () => clearInterval(iv);
+  }, [timeLeft, blocked, result]);
+
+  const mm = String(Math.floor(timeLeft / 60)).padStart(2, '0');
+  const ss = String(timeLeft % 60).padStart(2, '0');
+  const low = timeLeft <= 30;
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-3" onClick={onClose}>
-      <div className="card w-full max-w-md max-h-[86vh] overflow-auto p-4 space-y-3" onClick={(e) => e.stopPropagation()}>
+      <div className="card w-full max-w-md max-h-[88vh] overflow-auto p-4 space-y-3" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
-          <p className="font-display text-lg">Reklamları kaldır · Bilgi yarışması</p>
+          <p className="font-display text-lg">Günlük Quiz</p>
           <button onClick={onClose} className="text-ink/40 text-xl leading-none">×</button>
         </div>
 
         {blocked && !result && (
-          <div className="space-y-3">
-            <p className="text-sm text-ink/70">Bugünkü hakkını kullandın. Yarın tekrar deneyebilirsin. (Günde 1 deneme)</p>
+          <div className="space-y-3 text-center">
+            <p className="text-sm text-ink/70">Bugünkü hakkını kullandın. Yeni quiz için:</p>
+            <p className="font-display text-2xl"><NextQuiz /></p>
             <button className="btn btn-primary w-full" onClick={onClose}>Tamam</button>
           </div>
         )}
 
         {!blocked && !result && (
           <>
-            <p className="text-xs text-ink/55">10 sorudan en az 8'ini (%75) doğru bilirsen reklamlar kaldırılır. Günde 1 deneme hakkın var.</p>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-ink/55">{answeredCount}/{questions.length} yanıtlandı</span>
+              <span className={`font-display tabular-nums ${low ? 'text-red-600 blink' : 'text-ink'}`}>⏱ {mm}:{ss}</span>
+            </div>
+            <div className="h-1.5 rounded-full bg-black/10 overflow-hidden">
+              <div className="h-full bg-pitch transition-all" style={{ width: `${(answeredCount / questions.length) * 100}%` }} />
+            </div>
+            <p className="text-xs text-ink/55">10 sorudan en az 8'ini (%75) doğru bil, bugün için reklamları kapat. Süre: 5 dakika, günde 1 hak.</p>
             <ol className="space-y-3">
               {questions.map((qq, qi) => (
                 <li key={qi} className="space-y-1.5">
@@ -508,8 +564,8 @@ function QuizModal({ base, onClose, onPass, onShow }) {
                 </li>
               ))}
             </ol>
-            <button className="btn btn-primary w-full sticky bottom-0" disabled={!allAnswered} onClick={submit}>
-              {allAnswered ? 'Cevapları gönder' : 'Tüm soruları yanıtla'}
+            <button className="btn btn-primary w-full" disabled={!allAnswered} onClick={finish}>
+              {allAnswered ? 'Cevapları gönder' : `Tüm soruları yanıtla (${answeredCount}/${questions.length})`}
             </button>
           </>
         )}
@@ -519,18 +575,16 @@ function QuizModal({ base, onClose, onPass, onShow }) {
             <div className={`text-4xl font-display ${result.ok ? 'text-pitch-dark' : 'text-red-600'}`}>{result.score}/10</div>
             {result.ok ? (
               <>
-                <p className="text-sm text-ink/75">Tebrikler! Reklamlar kaldırıldı. İstersen yine de gösterebilirsin.</p>
-                <div className="flex gap-2">
-                  <button className="btn btn-primary flex-1" onClick={onClose}>Gizli kalsın</button>
-                  <button className="btn btn-ghost flex-1" onClick={() => { onShow(); onClose(); }}>Yine de göster</button>
-                </div>
+                <p className="text-base font-semibold text-pitch-dark">Tebrikler! 🎉</p>
+                <p className="text-sm text-ink/75">Bugün için reklam görmeyeceksin. Yarın yeni bir quiz seni bekliyor.</p>
               </>
             ) : (
               <>
-                <p className="text-sm text-ink/75">Yeterli değil (en az 8 gerekiyor). Yarın tekrar deneyebilirsin.</p>
-                <button className="btn btn-primary w-full" onClick={onClose}>Kapat</button>
+                <p className="text-sm text-ink/75">Yeterli değil (en az 8 gerekiyor). Yeni quiz için:</p>
+                <p className="font-display text-xl"><NextQuiz /></p>
               </>
             )}
+            <button className="btn btn-primary w-full" onClick={onClose}>Kapat</button>
           </div>
         )}
       </div>
@@ -538,38 +592,62 @@ function QuizModal({ base, onClose, onPass, onShow }) {
   );
 }
 
-function AdZone({ ad, uid }) {
-  const base = `wc_adq_${uid || 'anon'}`;
-  const [passed, setPassed] = useState(() => lsGet(`${base}_passed`) === '1');
-  const [pref, setPref] = useState(() => lsGet(`${base}_pref`) || 'hidden');
-  const [quizOpen, setQuizOpen] = useState(false);
-
+function AdZone({ ad, wonToday, onRemove }) {
   const hasAd = ad && ad.enabled && (ad.text || ad.imageUrl);
   if (!hasAd) return null;
-
-  const setPrefP = (p) => { setPref(p); lsSet(`${base}_pref`, p); };
-  const onPass = () => { setPassed(true); lsSet(`${base}_passed`, '1'); setPrefP('hidden'); };
-  const adHidden = passed && pref === 'hidden';
-
-  if (adHidden) {
+  if (wonToday) {
     return (
-      <div className="text-center -mt-1">
-        <button onClick={() => setPrefP('shown')} className="text-[11px] text-ink/40 hover:text-ink/60">Reklamlar gizli · Göster</button>
-        {quizOpen && <QuizModal base={base} onClose={() => setQuizOpen(false)} onPass={onPass} onShow={() => setPrefP('shown')} />}
+      <div className="rounded-xl border border-pitch/30 bg-pitch/[0.06] px-4 py-2.5 text-sm flex items-center justify-between gap-2">
+        <span className="text-pitch-dark font-semibold">🎉 Bugün reklamsızsın</span>
+        <span className="text-[11px] text-ink/50">Sonraki quiz: <NextQuiz /></span>
       </div>
     );
   }
-
   return (
     <div className="space-y-1">
       <AdCard ad={ad} />
       <div className="text-right">
-        <button onClick={() => { if (passed) setPrefP('hidden'); else setQuizOpen(true); }}
-          className="text-[11px] text-ink/45 hover:text-ink/70 underline underline-offset-2">
-          {passed ? 'Reklamları gizle' : 'Reklamları kaldır'}
+        <button onClick={onRemove} className="text-[11px] text-ink/45 hover:text-ink/70 underline underline-offset-2">
+          Reklamları kaldır (günlük quiz)
         </button>
       </div>
-      {quizOpen && <QuizModal base={base} onClose={() => setQuizOpen(false)} onPass={onPass} onShow={() => setPrefP('shown')} />}
+    </div>
+  );
+}
+
+function QuizLeaders({ leaders, user, playedToday, wonToday, onPlay }) {
+  const top = (leaders || []).filter((l) => (l.wins || 0) > 0).slice(0, 8);
+  const me = (leaders || []).find((l) => l.uid === user?.uid);
+  return (
+    <div className="card p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="font-display text-lg">🏆 En çok quiz kazanan</p>
+        {me && <span className="chip bg-gold/20 text-gold-dark">{me.wins} galibiyet</span>}
+      </div>
+      {top.length > 0 ? (
+        <ol className="space-y-1.5">
+          {top.map((l, i) => (
+            <li key={l.uid || i} className="flex items-center gap-3">
+              <span className="w-5 text-center font-display" style={{ color: ['#caa12a', '#9aa3ad', '#b9742f'][i] || '#bbb' }}>{i + 1}</span>
+              <Avatar name={l.name} size={28} />
+              <span className="flex-1 min-w-0 truncate text-sm font-medium">{l.name || 'Oyuncu'}</span>
+              <span className="font-display tabular-nums text-ink">{l.wins}</span>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className="text-sm text-ink/55">Henüz kazanan yok — ilk sen ol!</p>
+      )}
+      <div className="pt-1">
+        {!playedToday ? (
+          <button className="btn btn-primary w-full" onClick={onPlay}>Bugünün quizini çöz</button>
+        ) : (
+          <p className="text-center text-[12px] text-ink/55">
+            {wonToday ? '🎉 Bugünkü quizi kazandın · ' : 'Bugünkü hakkın bitti · '}
+            sonraki: <NextQuiz />
+          </p>
+        )}
+      </div>
     </div>
   );
 }

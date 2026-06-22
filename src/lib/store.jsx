@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   collection, doc, onSnapshot, setDoc, deleteDoc, serverTimestamp, writeBatch,
-  addDoc, query, orderBy, limit,
+  addDoc, query, orderBy, limit, getDoc,
 } from 'firebase/firestore';
 import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
 import { auth, db, googleProvider, isAdminEmail } from './firebase.js';
@@ -38,6 +38,7 @@ export function StoreProvider({ children }) {
   const [logs, setLogs] = useState([]);
   const [presence, setPresence] = useState([]);
   const [deleteRequests, setDeleteRequests] = useState([]);
+  const [quizLeaders, setQuizLeaders] = useState([]);
   const [, setTick] = useState(0);
   useEffect(() => { const iv = setInterval(() => setTick((t) => t + 1), 30000); return () => clearInterval(iv); }, []);
   const [adminMode, setAdminModeState] = useState(() => {
@@ -83,6 +84,9 @@ export function StoreProvider({ children }) {
     const unsubPres = onSnapshot(collection(db, 'presence'),
       (snap) => setPresence(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), () => {});
     subs.push(unsubPres);
+    const unsubQuiz = onSnapshot(query(collection(db, 'quizWins'), orderBy('wins', 'desc'), limit(20)),
+      (snap) => setQuizLeaders(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), () => {});
+    subs.push(unsubQuiz);
     return () => subs.forEach((fn) => fn());
   }, [user]);
 
@@ -323,6 +327,29 @@ export function StoreProvider({ children }) {
       logAction('Reklam güncellendi', clean && clean.enabled ? 'açık' : 'kapalı');
       return reportSave(setDoc(doc(db, 'config', 'settings'), { ad: clean, updatedAt: serverTimestamp() }, { merge: true }));
     },
+    quizLeaders,
+    // Bir günlük quiz kazanımını kaydeder. Günde en fazla 1 kez sayılır (lastDate guard).
+    async recordQuizWin() {
+      if (!user) return { counted: false };
+      const today = new Date().toISOString().slice(0, 10);
+      const ref = doc(db, 'quizWins', user.uid);
+      try {
+        const snap = await getDoc(ref);
+        const prev = snap.exists() ? snap.data() : null;
+        if (prev?.lastDate === today) return { counted: false, wins: prev.wins || 0 };
+        const wins = (prev?.wins || 0) + 1;
+        await setDoc(ref, {
+          uid: user.uid,
+          name: user.displayName || 'Oyuncu',
+          photo: user.photoURL || '',
+          wins, lastDate: today, updatedAt: serverTimestamp(),
+        }, { merge: true });
+        return { counted: true, wins };
+      } catch (e) {
+        setLastError('Quiz kaydı yapılamadı: ' + (e.code || e.message));
+        return { counted: false };
+      }
+    },
     setLocked: (val) => {
       logAction('Kilit', val ? 'açıldı (kilitli)' : 'kaldırıldı');
       return reportSave(setDoc(doc(db, 'config', 'settings'), { locked: !!val, updatedAt: serverTimestamp() }, { merge: true }));
@@ -404,7 +431,7 @@ export function StoreProvider({ children }) {
         return a;
       });
     },
-  }), [user, isAdmin, adminEligible, adminMode, authLoading, lists, actual, settings, locked, lastError, drafts, actualDraft, logs, presence, deleteRequests, theme]);
+  }), [user, isAdmin, adminEligible, adminMode, authLoading, lists, actual, settings, locked, lastError, drafts, actualDraft, logs, presence, deleteRequests, quizLeaders, theme]);
 
   return <StoreCtx.Provider value={api}>{children}</StoreCtx.Provider>;
 }
