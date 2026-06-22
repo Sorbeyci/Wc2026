@@ -72,6 +72,7 @@ export default function Home({ setPage, goAdminImport }) {
   const [qPlayed, setQPlayed] = useState(() => lsGet(`${quizBase}_played`));
   const [qWon, setQWon] = useState(() => lsGet(`${quizBase}_won`));
   const [quizOpen, setQuizOpen] = useState(false);
+  const [showOnboard, setShowOnboard] = useState(() => !lsGet('wc_onboard_v1'));
   const wonToday = qWon === today;
   const playedToday = qPlayed === today;
   const onQuizDone = async (passed) => {
@@ -96,6 +97,7 @@ export default function Home({ setPage, goAdminImport }) {
 
   return (
     <div className="space-y-4">
+      {showOnboard && <OnboardingWizard onClose={() => { lsSet('wc_onboard_v1', '1'); setShowOnboard(false); }} />}
       <div className="relative overflow-hidden rounded-2xl bg-ink text-white p-5">
         <div className="pointer-events-none absolute -right-8 -top-8 w-40 h-40 rounded-full bg-pitch/30 blur-2xl" />
         <div className="pointer-events-none absolute right-6 bottom-4 text-6xl opacity-10 font-display">26</div>
@@ -111,6 +113,13 @@ export default function Home({ setPage, goAdminImport }) {
               </button>
             )}
             <HeroTheme theme={theme} setTheme={setTheme} />
+            {isAdmin && goAdminImport && (
+              <button onClick={goAdminImport} title="Biten maçları içe aktar" aria-label="Biten maçları içe aktar"
+                className="flex items-center gap-1 rounded-full bg-white/10 hover:bg-white/20 transition px-2 h-7 text-white/80">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12M7 11l5 5 5-5M4 21h16" /></svg>
+                <span className="text-[10px] font-semibold uppercase tracking-wide">İçe aktar</span>
+              </button>
+            )}
           </div>
         </div>
         <p className="label text-white/60 mt-2">FIFA Dünya Kupası 2026</p>
@@ -221,17 +230,6 @@ export default function Home({ setPage, goAdminImport }) {
         )}
       </div>
 
-      {isAdmin && goAdminImport && (
-        <button onClick={goAdminImport}
-          className="w-full flex items-center justify-between gap-2 rounded-xl border border-pitch/30 bg-pitch/[0.06] px-4 py-3 text-left">
-          <span className="flex items-center gap-2">
-            <span className="text-lg">⬇️</span>
-            <span className="font-semibold text-pitch-dark">Biten maçları içe aktar</span>
-          </span>
-          <span className="text-pitch-dark">→</span>
-        </button>
-      )}
-
       <button className="w-full btn-ghost" onClick={logout}>Çıkış yap</button>
 
       <Footer />
@@ -240,6 +238,13 @@ export default function Home({ setPage, goAdminImport }) {
 }
 
 const CHANGELOG = [
+  {
+    v: '3.6', date: 'Haziran 2026', items: [
+      'Yeni kullanıcılara tek seferlik tanıtım (onboarding) sihirbazı: reklam-quiz mantığı anlatılıyor.',
+      '“Biten maçları içe aktar” üstteki tema düğmesinin altına ikon olarak taşındı (admin).',
+      '“Reklamları kaldır” butonu daha canlı ve dikkat çekici hale getirildi.',
+    ],
+  },
   {
     v: '3.5', date: 'Haziran 2026', items: [
       'Günlük quiz: 300 soruluk genel kültür bankası, 5 dk süre, ilerleme çubuğu, kazanınca o gün reklamsız.',
@@ -604,12 +609,48 @@ function AdZone({ ad, wonToday, onRemove }) {
     );
   }
   return (
-    <div className="space-y-1">
+    <div className="space-y-2">
       <AdCard ad={ad} />
-      <div className="text-right">
-        <button onClick={onRemove} className="text-[11px] text-ink/45 hover:text-ink/70 underline underline-offset-2">
-          Reklamları kaldır (günlük quiz)
-        </button>
+      <button onClick={onRemove}
+        className="group relative w-full overflow-hidden rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-md transition active:scale-[0.99]"
+        style={{ background: 'linear-gradient(100deg,#1f9d55,#caa12a,#1f9d55)', backgroundSize: '200% 100%', animation: 'shimmer 3s linear infinite' }}>
+        <span className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition bg-white/10" />
+        <span className="relative flex items-center justify-center gap-2">
+          <span className="text-base animate-bounce">🎯</span>
+          <span>Reklamları kaldır</span>
+          <span className="rounded-full bg-white/25 px-2 py-0.5 text-[10px] uppercase tracking-wide">günlük quiz</span>
+        </span>
+      </button>
+    </div>
+  );
+}
+
+function OnboardingWizard({ onClose }) {
+  const steps = [
+    { emoji: '⚽', title: 'Hoş geldin!', body: 'kupayikimalir.com Dünya Kupası 2026 tahmin oyunu. Maç skorlarını tahmin et, puan topla, arkadaşlarınla sıralamada yarış.' },
+    { emoji: '🎯', title: 'Reklamları kaldır', body: 'Reklamın altındaki “Reklamları kaldır” butonuna bas, günlük quizi çöz. 10 Dünya Kupası sorusu, 5 dakika süre. En az 8 doğru (%75) yaparsan o gün hiç reklam görmezsin!' },
+    { emoji: '🏆', title: 'Günde 1 hak · Liderlik', body: 'Her gün 1 quiz hakkın var; kazanınca o gün reklamsız olursun. En çok quiz kazananlar “🏆 En çok quiz kazanan” tablosunda yarışır. Bol şans!' },
+  ];
+  const [i, setI] = useState(0);
+  const last = i === steps.length - 1;
+  const s = steps[i];
+  return (
+    <div className="fixed inset-0 z-[60] bg-black/55 flex items-end sm:items-center justify-center p-3" onClick={onClose}>
+      <div className="card w-full max-w-sm p-5 space-y-4 text-center" onClick={(e) => e.stopPropagation()}>
+        <div className="text-5xl">{s.emoji}</div>
+        <p className="font-display text-2xl">{s.title}</p>
+        <p className="text-sm text-ink/70 leading-relaxed">{s.body}</p>
+        <div className="flex justify-center gap-1.5 pt-1">
+          {steps.map((_, k) => (
+            <span key={k} className={`h-1.5 rounded-full transition-all ${k === i ? 'w-6 bg-pitch' : 'w-1.5 bg-black/15'}`} />
+          ))}
+        </div>
+        <div className="flex gap-2 pt-1">
+          {!last && <button className="btn btn-ghost flex-1" onClick={onClose}>Geç</button>}
+          <button className="btn btn-primary flex-1" onClick={() => (last ? onClose() : setI(i + 1))}>
+            {last ? 'Hadi başlayalım' : 'Devam'}
+          </button>
+        </div>
       </div>
     </div>
   );
