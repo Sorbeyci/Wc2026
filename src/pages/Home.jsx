@@ -239,6 +239,12 @@ export default function Home({ setPage, goAdminImport }) {
 
 const CHANGELOG = [
   {
+    v: '3.7', date: 'Haziran 2026', items: [
+      'Reklam kartındaki “reklam” etiketi köşeye düzgün yerleştirildi (kayma giderildi).',
+      'Maç detayında tam skoru bilenler kalın + 🔮 ile gösteriliyor (beraberlik dahil her grupta).',
+    ],
+  },
+  {
     v: '3.6', date: 'Haziran 2026', items: [
       'Yeni kullanıcılara tek seferlik tanıtım (onboarding) sihirbazı: reklam-quiz mantığı anlatılıyor.',
       '“Biten maçları içe aktar” üstteki tema düğmesinin altına ikon olarak taşındı (admin).',
@@ -453,9 +459,10 @@ function Footer() {
 
 function AdCard({ ad }) {
   const inner = (
-    <div className="card overflow-hidden">
+    <div className="card overflow-hidden relative">
+      <span className="absolute top-1.5 right-1.5 z-10 rounded bg-black/45 px-1.5 py-0.5 text-[9px] uppercase tracking-wide text-white/85 backdrop-blur-sm">reklam</span>
       {ad.imageUrl && (
-        <img src={ad.imageUrl} alt={ad.text || 'reklam'} className="w-full max-h-44 object-cover" loading="lazy" />
+        <img src={ad.imageUrl} alt={ad.text || 'reklam'} className="block w-full max-h-44 object-cover" loading="lazy" />
       )}
       {ad.text && (
         <div className="px-4 py-3 flex items-center justify-between gap-2">
@@ -463,7 +470,7 @@ function AdCard({ ad }) {
           {ad.linkUrl && <span className="text-xs text-pitch-dark shrink-0">→</span>}
         </div>
       )}
-      <span className="block px-4 pb-1.5 -mt-1 text-[9px] uppercase tracking-wide text-ink/30">reklam</span>
+      {!ad.imageUrl && !ad.text && <div className="px-4 py-6 text-center text-sm text-ink/40">Reklam alanı</div>}
     </div>
   );
   if (ad.linkUrl) return <a href={ad.linkUrl} target="_blank" rel="noopener noreferrer sponsored" className="block">{inner}</a>;
@@ -780,19 +787,24 @@ function Rule({ t, v }) {
 }
 
 // Prediction distribution for a group match across all lists.
-function distribution(no, lists, getPrediction) {
+function distribution(no, lists, getPrediction, act) {
   const who = { H: [], D: [], A: [] };
+  const aHas = hasScore(act);
+  const ah = aHas ? Number(act.home) : null, aa = aHas ? Number(act.away) : null;
+  let exactCount = 0;
   for (const l of lists) {
     const p = getPrediction(l.id).groupMatches?.[no];
     if (!hasScore(p)) continue;
     const hs = Number(p.home), as = Number(p.away);
     if (isNaN(hs) || isNaN(as)) continue;
     const o = hs > as ? 'H' : hs < as ? 'A' : 'D';
-    who[o].push(l.name);
+    const exact = aHas && hs === ah && as === aa;
+    if (exact) exactCount++;
+    who[o].push({ name: l.name, exact });
   }
   const tot = who.H.length + who.D.length + who.A.length;
   const pct = (n) => (tot ? Math.round((n / tot) * 100) : 0);
-  return { tot, who, ph: pct(who.H.length), pd: pct(who.D.length), pa: pct(who.A.length) };
+  return { tot, who, exactCount, hasActual: aHas, ah, aa, ph: pct(who.H.length), pd: pct(who.D.length), pa: pct(who.A.length) };
 }
 
 const dateForOffset = (off) => { const n = new Date(); n.setDate(n.getDate() + off); return `${TR_MON[n.getMonth()]} ${n.getDate()}, ${n.getFullYear()}`; };
@@ -863,7 +875,7 @@ function DayBrowser({ lists, getPrediction, actual, myPred, liveScores }) {
             const live = liveScores?.[m.no];
             const isLive = !!live && (live.status === 'IN_PLAY' || live.status === 'PAUSED');
             const apiFinished = !!live && live.status === 'FINISHED';
-            const d = open ? distribution(m.no, lists, getPrediction) : null;
+            const d = open ? distribution(m.no, lists, getPrediction, actual.groupMatches?.[m.no]) : null;
             return (
               <div key={m.no}>
                 <button className="w-full px-4 py-2.5 text-left" onClick={() => setOpenNo(open ? null : m.no)}
@@ -932,20 +944,37 @@ function DistBars({ m, d }) {
   ];
   return (
     <div className="space-y-2">
-      {rows.map((r, i) => (
-        <div key={i}>
-          <div className="flex items-center justify-between text-xs font-semibold">
-            <span>{r.label}</span>
-            <span className="tabular-nums">%{r.pct} · {r.names.length}</span>
-          </div>
-          <div className="mt-0.5 h-2 rounded-full bg-black/5 overflow-hidden">
-            <div className={`h-full ${r.color}`} style={{ width: `${r.pct}%` }} />
-          </div>
-          {r.names.length > 0 && (
-            <div className="mt-0.5 text-[11px] text-ink/50 leading-snug break-words">{r.names.join(', ')}</div>
-          )}
+      {d.hasActual && (
+        <div className="text-[11px] font-semibold text-pitch-dark">
+          {d.exactCount > 0
+            ? <>🔮 Tam skoru ({d.ah}-{d.aa}) {d.exactCount} kişi bildi · kalın yazılanlar</>
+            : <>Tam skoru ({d.ah}-{d.aa}) bilen olmadı.</>}
         </div>
-      ))}
+      )}
+      {rows.map((r, i) => {
+        const exactN = r.names.filter((n) => n.exact).length;
+        return (
+          <div key={i}>
+            <div className="flex items-center justify-between text-xs font-semibold">
+              <span>{r.label}{exactN > 0 && <span className="ml-1 text-pitch-dark">🔮{exactN}</span>}</span>
+              <span className="tabular-nums">%{r.pct} · {r.names.length}</span>
+            </div>
+            <div className="mt-0.5 h-2 rounded-full bg-black/5 overflow-hidden">
+              <div className={`h-full ${r.color}`} style={{ width: `${r.pct}%` }} />
+            </div>
+            {r.names.length > 0 && (
+              <div className="mt-0.5 text-[11px] text-ink/50 leading-snug break-words">
+                {r.names.map((n, j) => (
+                  <span key={j}>
+                    {j > 0 && ', '}
+                    <span className={n.exact ? 'font-bold text-pitch-dark' : ''}>{n.name}{n.exact && ' 🔮'}</span>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
