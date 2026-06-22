@@ -6,6 +6,7 @@ import { resolveBracket } from '../data/bracket.js';
 import { mapLiveFixtures } from '../lib/importScores.js';
 import { Dot, Flag, Avatar, CountUp } from '../components/ui.jsx';
 import { shortName, teamColor } from '../data/flags.js';
+import { QUIZ } from '../data/quiz.js';
 
 const TR_MON = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
 const todayStr = () => { const n = new Date(); return `${TR_MON[n.getMonth()]} ${n.getDate()}, ${n.getFullYear()}`; };
@@ -126,7 +127,7 @@ export default function Home({ setPage, goAdminImport }) {
       </div>
 
       <MyScore rows={rows} isMyList={isMyList} setPage={setPage} onCreate={() => setPage('lists')} />
-      <AdSlot ad={ad} />
+      <AdZone ad={ad} uid={user?.uid} />
       <DayBrowser lists={lists} getPrediction={getPrediction} actual={actual} myPred={myPred} liveScores={liveScores} />
       <RecentResults actual={actual} />
       <FunStats lists={lists} getPrediction={getPrediction} actual={actual} seed={funSeed} />
@@ -223,6 +224,11 @@ export default function Home({ setPage, goAdminImport }) {
 }
 
 const CHANGELOG = [
+  {
+    v: '3.4', date: 'Haziran 2026', items: [
+      'Reklamları kaldır: 10 soruluk Dünya Kupası bilgi yarışması (50 soruluk banka); 8/10 ile reklamlar kalkar, günde 1 deneme, sonra göster/gizle seçeneği.',
+    ],
+  },
   {
     v: '3.3', date: 'Haziran 2026', items: [
       'Ana sayfada admin kontrollü reklam alanı (Senin puanın ile Maçlar arasında).',
@@ -418,8 +424,7 @@ function Footer() {
   );
 }
 
-function AdSlot({ ad }) {
-  if (!ad || !ad.enabled || (!ad.text && !ad.imageUrl)) return null;
+function AdCard({ ad }) {
   const inner = (
     <div className="card overflow-hidden">
       {ad.imageUrl && (
@@ -434,10 +439,139 @@ function AdSlot({ ad }) {
       <span className="block px-4 pb-1.5 -mt-1 text-[9px] uppercase tracking-wide text-ink/30">reklam</span>
     </div>
   );
-  if (ad.linkUrl) {
-    return <a href={ad.linkUrl} target="_blank" rel="noopener noreferrer sponsored" className="block">{inner}</a>;
-  }
+  if (ad.linkUrl) return <a href={ad.linkUrl} target="_blank" rel="noopener noreferrer sponsored" className="block">{inner}</a>;
   return inner;
+}
+
+const qToday = () => new Date().toISOString().slice(0, 10);
+const lsGet = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+
+function pickQuiz() {
+  const idx = [...QUIZ.keys()];
+  for (let i = idx.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [idx[i], idx[j]] = [idx[j], idx[i]]; }
+  return idx.slice(0, 10).map((i) => {
+    const q = QUIZ[i];
+    const opts = q.options.map((t, oi) => ({ t, correct: oi === q.answer }));
+    for (let k = opts.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); [opts[k], opts[j]] = [opts[j], opts[k]]; }
+    return { q: q.q, opts };
+  });
+}
+
+function QuizModal({ base, onClose, onPass, onShow }) {
+  const today = qToday();
+  const blocked = lsGet(`${base}_last`) === today;
+  const [questions] = useState(() => (blocked ? [] : pickQuiz()));
+  const [answers, setAnswers] = useState({});
+  const [result, setResult] = useState(null);
+  const allAnswered = questions.length > 0 && questions.every((_, qi) => answers[qi] != null);
+
+  const submit = () => {
+    let score = 0;
+    questions.forEach((qq, qi) => { if (qq.opts[answers[qi]]?.correct) score++; });
+    lsSet(`${base}_last`, today);
+    const ok = score >= 8; // %75 -> 8/10
+    setResult({ score, ok });
+    if (ok) onPass();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-3" onClick={onClose}>
+      <div className="card w-full max-w-md max-h-[86vh] overflow-auto p-4 space-y-3" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <p className="font-display text-lg">Reklamları kaldır · Bilgi yarışması</p>
+          <button onClick={onClose} className="text-ink/40 text-xl leading-none">×</button>
+        </div>
+
+        {blocked && !result && (
+          <div className="space-y-3">
+            <p className="text-sm text-ink/70">Bugünkü hakkını kullandın. Yarın tekrar deneyebilirsin. (Günde 1 deneme)</p>
+            <button className="btn btn-primary w-full" onClick={onClose}>Tamam</button>
+          </div>
+        )}
+
+        {!blocked && !result && (
+          <>
+            <p className="text-xs text-ink/55">10 sorudan en az 8'ini (%75) doğru bilirsen reklamlar kaldırılır. Günde 1 deneme hakkın var.</p>
+            <ol className="space-y-3">
+              {questions.map((qq, qi) => (
+                <li key={qi} className="space-y-1.5">
+                  <p className="text-sm font-semibold">{qi + 1}. {qq.q}</p>
+                  <div className="grid grid-cols-1 gap-1.5">
+                    {qq.opts.map((o, oi) => (
+                      <button key={oi} onClick={() => setAnswers((a) => ({ ...a, [qi]: oi }))}
+                        className={`text-left text-sm rounded-lg border px-3 py-2 transition ${answers[qi] === oi ? 'border-pitch bg-pitch/10 font-semibold' : 'border-black/10 hover:bg-black/[0.03]'}`}>
+                        {o.t}
+                      </button>
+                    ))}
+                  </div>
+                </li>
+              ))}
+            </ol>
+            <button className="btn btn-primary w-full sticky bottom-0" disabled={!allAnswered} onClick={submit}>
+              {allAnswered ? 'Cevapları gönder' : 'Tüm soruları yanıtla'}
+            </button>
+          </>
+        )}
+
+        {result && (
+          <div className="space-y-3 text-center">
+            <div className={`text-4xl font-display ${result.ok ? 'text-pitch-dark' : 'text-red-600'}`}>{result.score}/10</div>
+            {result.ok ? (
+              <>
+                <p className="text-sm text-ink/75">Tebrikler! Reklamlar kaldırıldı. İstersen yine de gösterebilirsin.</p>
+                <div className="flex gap-2">
+                  <button className="btn btn-primary flex-1" onClick={onClose}>Gizli kalsın</button>
+                  <button className="btn btn-ghost flex-1" onClick={() => { onShow(); onClose(); }}>Yine de göster</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-ink/75">Yeterli değil (en az 8 gerekiyor). Yarın tekrar deneyebilirsin.</p>
+                <button className="btn btn-primary w-full" onClick={onClose}>Kapat</button>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AdZone({ ad, uid }) {
+  const base = `wc_adq_${uid || 'anon'}`;
+  const [passed, setPassed] = useState(() => lsGet(`${base}_passed`) === '1');
+  const [pref, setPref] = useState(() => lsGet(`${base}_pref`) || 'hidden');
+  const [quizOpen, setQuizOpen] = useState(false);
+
+  const hasAd = ad && ad.enabled && (ad.text || ad.imageUrl);
+  if (!hasAd) return null;
+
+  const setPrefP = (p) => { setPref(p); lsSet(`${base}_pref`, p); };
+  const onPass = () => { setPassed(true); lsSet(`${base}_passed`, '1'); setPrefP('hidden'); };
+  const adHidden = passed && pref === 'hidden';
+
+  if (adHidden) {
+    return (
+      <div className="text-center -mt-1">
+        <button onClick={() => setPrefP('shown')} className="text-[11px] text-ink/40 hover:text-ink/60">Reklamlar gizli · Göster</button>
+        {quizOpen && <QuizModal base={base} onClose={() => setQuizOpen(false)} onPass={onPass} onShow={() => setPrefP('shown')} />}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-1">
+      <AdCard ad={ad} />
+      <div className="text-right">
+        <button onClick={() => { if (passed) setPrefP('hidden'); else setQuizOpen(true); }}
+          className="text-[11px] text-ink/45 hover:text-ink/70 underline underline-offset-2">
+          {passed ? 'Reklamları gizle' : 'Reklamları kaldır'}
+        </button>
+      </div>
+      {quizOpen && <QuizModal base={base} onClose={() => setQuizOpen(false)} onPass={onPass} onShow={() => setPrefP('shown')} />}
+    </div>
+  );
 }
 
 function MyScore({ rows, isMyList, setPage }) {
