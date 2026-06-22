@@ -318,7 +318,7 @@ function pickQuiz() {
   });
 }
 
-const QUIZ_SECONDS = 300; // 5 dakika
+const QUIZ_SECONDS = 120; // 2 dakika
 
 function QuizModal({ base, playedToday, onClose, onDone, onStart }) {
   const [blocked] = useState(playedToday); // açılıştaki durumu dondur (oyun ortası kaybolmasın)
@@ -341,7 +341,7 @@ function QuizModal({ base, playedToday, onClose, onDone, onStart }) {
   };
   const finishRef = useRef(finish); finishRef.current = finish;
 
-  // 5 dakikalık geri sayım — süre dolunca otomatik gönder.
+  // 2 dakikalık geri sayım — süre dolunca otomatik gönder.
   useEffect(() => {
     if (blocked || result) return;
     if (timeLeft <= 0) { finishRef.current(); return; }
@@ -355,66 +355,82 @@ function QuizModal({ base, playedToday, onClose, onDone, onStart }) {
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-3" onClick={onClose}>
-      <div className="card w-full max-w-md max-h-[88vh] overflow-auto p-4 space-y-3" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between">
-          <p className="font-display text-lg">Günlük Quiz</p>
-          <button onClick={onClose} className="text-ink/40 text-xl leading-none">×</button>
+      <div className="card w-full max-w-md max-h-[88vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        {/* Sabit başlık: ilerleme çubuğu + dakika daima görünür */}
+        <div className="p-4 pb-3 border-b border-black/5">
+          <div className="flex items-center justify-between">
+            <p className="font-display text-lg">Günlük Quiz</p>
+            <button onClick={onClose} className="text-ink/40 text-xl leading-none">×</button>
+          </div>
+          {!blocked && !result && (
+            <div className="mt-2 space-y-1.5">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-ink/55">{answeredCount}/{questions.length} yanıtlandı</span>
+                <span className={`font-display tabular-nums ${low ? 'text-red-600 blink' : 'text-ink'}`}>⏱ {mm}:{ss}</span>
+              </div>
+              <div className="h-1.5 rounded-full bg-black/10 overflow-hidden">
+                <div className="h-full bg-pitch transition-all" style={{ width: `${(answeredCount / questions.length) * 100}%` }} />
+              </div>
+            </div>
+          )}
         </div>
 
-        {blocked && !result && (
-          <div className="space-y-3 text-center">
-            <p className="text-sm text-ink/70">Bugünkü hakkını kullandın. Yeni quiz için:</p>
-            <p className="font-display text-2xl"><NextQuiz /></p>
-            <button className="btn btn-primary w-full" onClick={onClose}>Tamam</button>
-          </div>
-        )}
+        {/* Kayan gövde */}
+        <div className="flex-1 overflow-auto p-4 space-y-3">
+          {blocked && !result && (
+            <div className="space-y-3 text-center">
+              <p className="text-sm text-ink/70">Bugünkü hakkını kullandın. Yeni quiz için:</p>
+              <p className="font-display text-2xl"><NextQuiz /></p>
+              <button className="btn btn-primary w-full" onClick={onClose}>Tamam</button>
+            </div>
+          )}
 
+          {!blocked && !result && (
+            <>
+              <p className="text-xs text-ink/55">10 sorudan en az 8'ini (%75) doğru bil, bugün için reklamları kapat. Süre: 2 dakika, günde 1 hak.</p>
+              <ol className="space-y-3">
+                {questions.map((qq, qi) => (
+                  <li key={qi} className="space-y-1.5">
+                    <p className="text-sm font-semibold">{qi + 1}. {qq.q}</p>
+                    <div className="grid grid-cols-1 gap-1.5">
+                      {qq.opts.map((o, oi) => (
+                        <button key={oi} onClick={() => setAnswers((a) => ({ ...a, [qi]: oi }))}
+                          className={`text-left text-sm rounded-lg border px-3 py-2 transition ${answers[qi] === oi ? 'border-pitch bg-pitch/10 font-semibold' : 'border-black/10 hover:bg-black/[0.03]'}`}>
+                          {o.t}
+                        </button>
+                      ))}
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </>
+          )}
+
+          {result && (
+            <div className="space-y-3 text-center">
+              <div className={`text-4xl font-display ${result.ok ? 'text-pitch-dark' : 'text-red-600'}`}>{result.score}/10</div>
+              {result.ok ? (
+                <>
+                  <p className="text-base font-semibold text-pitch-dark">Tebrikler! 🎉</p>
+                  <p className="text-sm text-ink/75">Bugün için reklam görmeyeceksin. Yarın yeni bir quiz seni bekliyor.</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-ink/75">Yeterli değil (en az 8 gerekiyor). Yeni quiz için:</p>
+                  <p className="font-display text-xl"><NextQuiz /></p>
+                </>
+              )}
+              <button className="btn btn-primary w-full" onClick={onClose}>Kapat</button>
+            </div>
+          )}
+        </div>
+
+        {/* Sabit alt: gönder butonu daima erişilebilir */}
         {!blocked && !result && (
-          <>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-ink/55">{answeredCount}/{questions.length} yanıtlandı</span>
-              <span className={`font-display tabular-nums ${low ? 'text-red-600 blink' : 'text-ink'}`}>⏱ {mm}:{ss}</span>
-            </div>
-            <div className="h-1.5 rounded-full bg-black/10 overflow-hidden">
-              <div className="h-full bg-pitch transition-all" style={{ width: `${(answeredCount / questions.length) * 100}%` }} />
-            </div>
-            <p className="text-xs text-ink/55">10 sorudan en az 8'ini (%75) doğru bil, bugün için reklamları kapat. Süre: 5 dakika, günde 1 hak.</p>
-            <ol className="space-y-3">
-              {questions.map((qq, qi) => (
-                <li key={qi} className="space-y-1.5">
-                  <p className="text-sm font-semibold">{qi + 1}. {qq.q}</p>
-                  <div className="grid grid-cols-1 gap-1.5">
-                    {qq.opts.map((o, oi) => (
-                      <button key={oi} onClick={() => setAnswers((a) => ({ ...a, [qi]: oi }))}
-                        className={`text-left text-sm rounded-lg border px-3 py-2 transition ${answers[qi] === oi ? 'border-pitch bg-pitch/10 font-semibold' : 'border-black/10 hover:bg-black/[0.03]'}`}>
-                        {o.t}
-                      </button>
-                    ))}
-                  </div>
-                </li>
-              ))}
-            </ol>
+          <div className="p-4 pt-3 border-t border-black/5">
             <button className="btn btn-primary w-full" disabled={!allAnswered} onClick={finish}>
               {allAnswered ? 'Cevapları gönder' : `Tüm soruları yanıtla (${answeredCount}/${questions.length})`}
             </button>
-          </>
-        )}
-
-        {result && (
-          <div className="space-y-3 text-center">
-            <div className={`text-4xl font-display ${result.ok ? 'text-pitch-dark' : 'text-red-600'}`}>{result.score}/10</div>
-            {result.ok ? (
-              <>
-                <p className="text-base font-semibold text-pitch-dark">Tebrikler! 🎉</p>
-                <p className="text-sm text-ink/75">Bugün için reklam görmeyeceksin. Yarın yeni bir quiz seni bekliyor.</p>
-              </>
-            ) : (
-              <>
-                <p className="text-sm text-ink/75">Yeterli değil (en az 8 gerekiyor). Yeni quiz için:</p>
-                <p className="font-display text-xl"><NextQuiz /></p>
-              </>
-            )}
-            <button className="btn btn-primary w-full" onClick={onClose}>Kapat</button>
           </div>
         )}
       </div>
@@ -453,7 +469,7 @@ function AdZone({ ad, wonToday, onRemove }) {
 function OnboardingWizard({ onClose }) {
   const steps = [
     { emoji: '⚽', title: 'Hoş geldin!', body: 'kupayikimalir.com Dünya Kupası 2026 tahmin oyunu. Maç skorlarını tahmin et, puan topla, arkadaşlarınla sıralamada yarış.' },
-    { emoji: '🎯', title: 'Reklamları kaldır', body: 'Reklamın altındaki “Reklamları kaldır” butonuna bas, günlük quizi çöz. 10 Dünya Kupası sorusu, 5 dakika süre. En az 8 doğru (%75) yaparsan o gün hiç reklam görmezsin!' },
+    { emoji: '🎯', title: 'Reklamları kaldır', body: 'Reklamın altındaki “Reklamları kaldır” butonuna bas, günlük quizi çöz. 10 Dünya Kupası sorusu, 2 dakika süre. En az 8 doğru (%75) yaparsan o gün hiç reklam görmezsin!' },
     { emoji: '🏆', title: 'Günde 1 hak · Liderlik', body: 'Her gün 1 quiz hakkın var; kazanınca o gün reklamsız olursun. En çok quiz kazananlar “🏆 En çok quiz kazanan” tablosunda yarışır. Bol şans!' },
   ];
   const [i, setI] = useState(0);

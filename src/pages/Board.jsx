@@ -185,6 +185,17 @@ export default function Board({ onOpenList, goHome }) {
     return a;
   }, [rows, onlyOnline, q, sortKey, isOnline]);
 
+  // Karşılaştır için resmi (projeksiyonsuz) ve resmi-olmayan (projeksiyon) satırlar.
+  const mkH2H = (projection) => lists
+    .map((l) => {
+      const pred = getPrediction(l.id);
+      const res = scoreUser(pred, actual, { projection });
+      return { list: l, ...res, pred, champion: res.bracket?.pred?.champion || null, topScorer: pred.topScorer || '' };
+    })
+    .sort((a, b) => b.total - a.total);
+  const h2hOfficial = useMemo(() => mkH2H(false), [lists, actual]);
+  const h2hProj = useMemo(() => mkH2H(true), [lists, actual]);
+
   return (
     <div className="space-y-5">
       <BrandHeader onClick={goHome} />
@@ -226,7 +237,7 @@ export default function Board({ onOpenList, goHome }) {
       {lists.length === 0 ? (
         <Empty title="Henüz liste yok">Tabloyu görmek için liste ve tahmin ekle.</Empty>
       ) : sub === 'h2h' ? (
-        <H2H rows={rows} />
+        <H2H rows={h2hOfficial} projRows={h2hProj} actual={actual} />
       ) : sub === 'board' ? (
         <div className="space-y-5">
           <Podium rows={rows} onOpenList={onOpenList} />
@@ -331,11 +342,13 @@ function Podium({ rows, onOpenList }) {
   );
 }
 
-function H2H({ rows }) {
+function H2H({ rows, projRows, actual }) {
+  const [unofficial, setUnofficial] = useState(false);
   const [a, setA] = useState(rows[0]?.list.id || '');
   const [b, setB] = useState(rows[1]?.list.id || rows[0]?.list.id || '');
-  const ra = rows.find((r) => r.list.id === a);
-  const rb = rows.find((r) => r.list.id === b);
+  const src = unofficial ? projRows : rows;
+  const ra = src.find((r) => r.list.id === a);
+  const rb = src.find((r) => r.list.id === b);
   const cats = [
     ['Toplam', 'total'], ['Maçlar', 'groupMatches'], ['Gruplar', 'groupTables'],
     ["3.'ler", 'thirds'], ['Eleme', 'knockout'], ['Final', 'finals'],
@@ -351,6 +364,20 @@ function H2H({ rows }) {
           {rows.map((r) => <option key={r.list.id} value={r.list.id}>{r.list.name}</option>)}
         </select>
       </div>
+
+      <button onClick={() => setUnofficial((v) => !v)}
+        className={`w-full flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold border transition ${
+          unofficial ? 'bg-gold text-ink border-gold-dark shadow-sm' : 'bg-gold/15 text-gold-dark border-gold/40 hover:bg-gold/25'
+        }`}>
+        <span className={`inline-block h-2.5 w-2.5 rounded-full ${unofficial ? 'bg-pitch animate-pulse' : 'bg-gold-dark'}`} />
+        {unofficial ? 'Resmi olmayan (projeksiyon) sonuçlar AÇIK' : '⚡ Resmi olmayan sonuçları da göster'}
+      </button>
+      {unofficial && (
+        <div className="rounded-xl bg-gold/10 border border-gold/30 px-3 py-2 text-xs text-gold-dark">
+          Şu anki canlı/yarım sonuçlara göre tahmini puanlar. Gruplar ve eşleşmeler kesinleşince değişebilir.
+        </div>
+      )}
+
       {ra && rb && (
         <div className="card p-4 space-y-3">
           <div className="flex items-center justify-between">
@@ -387,16 +414,16 @@ function H2H({ rows }) {
           </div>
         </div>
       )}
-      {ra && rb && <H2HDetail ra={ra} rb={rb} />}
+      {ra && rb && <H2HDetail ra={ra} rb={rb} actual={actual} unofficial={unofficial} />}
     </div>
   );
 }
 
 const H2H_SECTIONS = [
-  { title: 'Grup maçları', pts: 'groupMatchPoints', rows: [['Tam skor', 'exact'], ['Doğru sonuç', 'correctResult'], ['Puanlanan maç', 'playedScored']] },
+  { title: 'Grup maçları', pts: 'groupMatchPoints', detail: 'group', rows: [['Tam skor', 'exact'], ['Doğru sonuç', 'correctResult'], ['Puanlanan maç', 'playedScored']] },
   { title: 'Grup sıralamaları', pts: 'groupTablePoints', rows: [['Üst tura çıkan', 'correctQualified'], ['Doğru sıra', 'correctPositions'], ['Tamamlanan grup', 'groupsFinal']] },
   { title: "En iyi 3.'ler", pts: 'thirdsPoints', rows: [['Doğru 3. takım', 'thirdsCorrect']] },
-  { title: 'Eleme turu', pts: 'knockoutPoints', rows: [['Doğru eşleşme', 'koMatchupHits'], ['Tam skor', 'koExact'], ['Doğru sonuç', 'koResult'], ['Son 32 kazanan', 'koR32'], ['Son 16 kazanan', 'koR16'], ['Çeyrek kazanan', 'koQF'], ['Yarı kazanan', 'koSF'], ['Sonuçlanan maç', 'koScored']] },
+  { title: 'Eleme turu', pts: 'knockoutPoints', detail: 'ko', rows: [['Doğru eşleşme', 'koMatchupHits'], ['Tam skor', 'koExact'], ['Doğru sonuç', 'koResult'], ['Son 32 kazanan', 'koR32'], ['Son 16 kazanan', 'koR16'], ['Çeyrek kazanan', 'koQF'], ['Yarı kazanan', 'koSF'], ['Sonuçlanan maç', 'koScored']] },
   { title: 'Final & podyum', pts: 'finalsPoints', rows: [['Doğru tahmin (/5)', 'finalsHits']] },
 ];
 
@@ -410,19 +437,78 @@ function CmpRow({ label, a, b, strong }) {
   );
 }
 
-function H2HDetail({ ra, rb }) {
-  const sa = ra.stats || {}, sb = rb.stats || {};
+// Bir kişinin eleme turundaki puan getiren isabetleri (eşleşme +10, tam skor +5, sonuç +3).
+function koDetail(r, actual) {
+  const mh = matchupHitsOf(r.bracket?.pred, r.bracket?.actual, allGroupsComplete(actual)) || [];
+  const kh = koHits(r.pred, actual, r.bracket?.actual) || [];
+  return [
+    ...mh.map((h) => ({ ...h, round: koRoundLabel(h.no) })),
+    ...kh.map((h) => ({ ...h, round: koRoundLabel(h.no) })),
+  ].sort((x, y) => x.no - y.no);
+}
+
+function MiniHits({ hits }) {
+  if (!hits || !hits.length) return <div className="text-[11px] text-ink/35 py-2 text-center">—</div>;
   return (
-    <div className="space-y-2">
-      <div className="text-[11px] font-bold uppercase tracking-wide text-ink/45 text-center pt-1">Kategori kategori karşılaştırma</div>
-      {H2H_SECTIONS.map((sec) => (
-        <div key={sec.title} className="card p-3 text-xs">
-          <div className="mb-1 pb-1.5 border-b border-black/5">
-            <CmpRow label={sec.title.toUpperCase()} a={sa[sec.pts] || 0} b={sb[sec.pts] || 0} strong />
-          </div>
-          {sec.rows.map(([label, k]) => <CmpRow key={k} label={label} a={sa[k] || 0} b={sb[k] || 0} />)}
+    <div className="rounded-lg bg-white border border-black/5 divide-y divide-black/5 max-h-44 overflow-auto">
+      {hits.map((h) => (
+        <div key={h.key} className="flex items-center gap-1 px-1.5 py-1 text-[11px]">
+          {h.round && <span className="w-7 shrink-0 text-ink/40 font-semibold">{h.round}</span>}
+          <span className="flex-1 min-w-0 truncate">{shortName(h.home)}-{shortName(h.away)}</span>
+          {h.pred && <span className="text-ink/40 tabular-nums">{h.pred}</span>}
+          <span className={`chip ${h.pts >= 10 ? 'bg-gold/20 text-gold-dark' : h.pts === 5 ? 'bg-pitch/15 text-pitch-dark' : 'bg-black/5 text-ink/60'}`}>+{h.pts}</span>
         </div>
       ))}
+    </div>
+  );
+}
+
+function TwoColHits({ nameA, nameB, aHits, bHits }) {
+  if ((!aHits || !aHits.length) && (!bHits || !bHits.length))
+    return <p className="mt-2 text-[11px] text-ink/40 text-center">Henüz puan getiren maç yok.</p>;
+  return (
+    <div className="mt-2">
+      <div className="grid grid-cols-2 gap-2 text-[10px] font-bold uppercase tracking-wide text-ink/45 mb-1">
+        <span className="truncate">{nameA}</span><span className="truncate text-right">{nameB}</span>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <MiniHits hits={aHits} /><MiniHits hits={bHits} />
+      </div>
+    </div>
+  );
+}
+
+function H2HDetail({ ra, rb, actual, unofficial }) {
+  const sa = ra.stats || {}, sb = rb.stats || {};
+  const [open, setOpen] = useState(null);
+  const nameA = ra.list.name, nameB = rb.list.name;
+  return (
+    <div className="space-y-2">
+      <div className="text-[11px] font-bold uppercase tracking-wide text-ink/45 text-center pt-1">
+        Kategori kategori karşılaştırma{unofficial ? ' · resmi değil' : ''}
+      </div>
+      {H2H_SECTIONS.map((sec) => {
+        const ex = open === sec.title;
+        return (
+          <div key={sec.title} className="card p-3 text-xs">
+            <button className="w-full" onClick={() => setOpen(ex ? null : sec.title)}>
+              <CmpRow label={sec.title.toUpperCase()} a={sa[sec.pts] || 0} b={sb[sec.pts] || 0} strong />
+              <div className="text-center text-[10px] text-ink/40 mt-1">{ex ? 'detayları gizle ▴' : 'detay ▾'}</div>
+            </button>
+            {ex && (
+              <div className="mt-1 pt-1.5 border-t border-black/5">
+                {sec.rows.map(([label, k]) => <CmpRow key={k} label={label} a={sa[k] || 0} b={sb[k] || 0} />)}
+                {sec.detail === 'group' && (
+                  <TwoColHits nameA={nameA} nameB={nameB} aHits={groupHits(ra.pred, actual)} bHits={groupHits(rb.pred, actual)} />
+                )}
+                {sec.detail === 'ko' && (
+                  <TwoColHits nameA={nameA} nameB={nameB} aHits={koDetail(ra, actual)} bHits={koDetail(rb, actual)} />
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

@@ -1,6 +1,13 @@
 // Uygulama sürüm geçmişi (changelog).
 export const CHANGELOG = [
   {
+    v: '3.9', date: 'Haziran 2026', items: [
+      'Günlük quiz süresi 2 dakikaya indirildi; ilerleme çubuğu ve sayaç artık sayfa kaysa da hep üstte sabit.',
+      'Karşılaştır’a “Resmi olmayan (projeksiyon) sonuçları da göster” seçeneği eklendi.',
+      'Kategori kategori karşılaştırması artık katlanır; açınca puanın hangi maçlardan geldiği iki kişi yan yana dökülür.',
+    ],
+  },
+  {
     v: '3.8', date: 'Haziran 2026', items: [
       'Sürüm bilgisine basınca yalnızca en yeni sürüm görünür; “Daha fazla” ile tüm geçmiş ayrı sayfada.',
       'Ana sayfadaki “çevrimiçi” göstergesine basınca Sıralama’ya gidip online kişiler listelenir.',
