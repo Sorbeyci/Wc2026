@@ -28,7 +28,7 @@ const SUB = [
   { id: 'tree', label: 'Ağaç' },
 ];
 
-export default function ListDetail({ listId, onBack, onEdit }) {
+export default function ListDetail({ listId, onBack, onEdit, crumbs }) {
   const { lists, getPrediction, actual, canEditList, isMyList } = useStore();
   const [sub, setSub] = useState('standings');
   const list = lists.find((l) => l.id === listId);
@@ -82,7 +82,15 @@ export default function ListDetail({ listId, onBack, onEdit }) {
 
   return (
     <div className="space-y-4">
-      <button className="text-sm font-semibold text-pitch" onClick={onBack}>← Listeler</button>
+      <nav className="flex items-center gap-1.5 text-sm font-semibold min-w-0">
+        {(crumbs && crumbs.length ? crumbs : [{ label: 'Listeler', onClick: onBack }]).map((c, i) => (
+          <span key={i} className="flex items-center gap-1.5 shrink-0">
+            <button onClick={c.onClick} className="text-pitch hover:underline">{i === 0 ? '← ' : ''}{c.label}</button>
+            <span className="text-ink/25">/</span>
+          </span>
+        ))}
+        <span className="text-ink/55 truncate">{list.name}</span>
+      </nav>
 
       <div className="card p-4 flex items-center gap-3">
         <Avatar name={list.ownerName || list.name} color={list.color} size={44} />

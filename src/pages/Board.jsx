@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef, useLayoutEffect } from 'react';
+import { useMemo, useState, useRef, useLayoutEffect, useEffect } from 'react';
 import { useStore } from '../lib/store.jsx';
 import { scoreUser, SCORING, allGroupsComplete, groupOrder, hasOrder } from '../lib/scoring.js';
 import { GROUP_MATCHES, GROUP_NAMES } from '../data/tournament.js';
@@ -141,15 +141,22 @@ function useFlip() {
   return ref;
 }
 
+// Görünüm durumu sayfadan ayrılınca da hatırlansın (gezmeye kaldığı yerden devam).
+const boardMem = { sub: 'board', view: 'detay', proj: false, sortKey: 'total', onlyOnline: false, query: '', filtersOpen: false, showOnline: false };
+
 export default function Board({ onOpenList, goHome }) {
-  const { lists, actual, getPrediction, isOnline, onlineCount } = useStore();
-  const [sub, setSub] = useState('board');
-  const [view, setView] = useState('detay');
-  const [proj, setProj] = useState(false);
-  const [sortKey, setSortKey] = useState('total');
-  const [onlyOnline, setOnlyOnline] = useState(false);
-  const [query, setQuery] = useState('');
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const { lists, actual, getPrediction, isOnline, onlineCount, onlineUsers } = useStore();
+  const [sub, setSub] = useState(boardMem.sub);
+  const [view, setView] = useState(boardMem.view);
+  const [proj, setProj] = useState(boardMem.proj);
+  const [sortKey, setSortKey] = useState(boardMem.sortKey);
+  const [onlyOnline, setOnlyOnline] = useState(boardMem.onlyOnline);
+  const [query, setQuery] = useState(boardMem.query);
+  const [filtersOpen, setFiltersOpen] = useState(boardMem.filtersOpen);
+  const [showOnline, setShowOnline] = useState(boardMem.showOnline);
+  useEffect(() => {
+    Object.assign(boardMem, { sub, view, proj, sortKey, onlyOnline, query, filtersOpen, showOnline });
+  }, [sub, view, proj, sortKey, onlyOnline, query, filtersOpen, showOnline]);
 
   const rows = useMemo(() => {
     const cur = lists
@@ -184,9 +191,25 @@ export default function Board({ onOpenList, goHome }) {
       <SectionTitle title="Sıralama" />
 
       {onlineCount > 0 && (
-        <div className="flex items-center gap-1.5 text-xs font-semibold text-pitch -mt-1">
-          <span className="inline-block h-2 w-2 rounded-full bg-pitch animate-pulse" />
-          {onlineCount} kişi çevrimiçi
+        <div className="-mt-1">
+          <button onClick={() => setShowOnline((v) => !v)} className="flex items-center gap-1.5 text-xs font-semibold text-pitch">
+            <span className="inline-block h-2 w-2 rounded-full bg-pitch animate-pulse" />
+            {onlineCount} kişi çevrimiçi
+            <span className={`text-ink/30 transition ${showOnline ? 'rotate-180' : ''}`}>▾</span>
+          </button>
+          {showOnline && (
+            <div className="mt-2 card p-3 flex flex-wrap gap-1.5 fade-in">
+              {onlineUsers.length === 0 ? (
+                <span className="text-xs text-ink/45">Şu an kimse görünmüyor.</span>
+              ) : onlineUsers.map((u) => (
+                <span key={u.uid} className="inline-flex items-center gap-1.5 rounded-full bg-black/[0.04] pl-1 pr-2.5 py-0.5 text-xs font-semibold">
+                  <Avatar name={u.name} size={20} />
+                  <span className="truncate max-w-[120px]">{u.name}</span>
+                  {u.me && <span className="text-pitch-dark">· sen</span>}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

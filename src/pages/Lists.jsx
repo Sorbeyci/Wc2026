@@ -3,14 +3,19 @@ import { useStore } from '../lib/store.jsx';
 import { SectionTitle, Dot, Empty, Avatar, BrandHeader } from '../components/ui.jsx';
 import ListDetail from './ListDetail.jsx';
 
-export default function Lists({ viewListId, setViewListId, onEdit, goHome }) {
+export default function Lists({ viewListId, setViewListId, clearList, onEdit, goHome, listOrigin, goBoard }) {
   const { lists, myLists, isAdmin, user, canCreateList, createList, deleteList, canDeleteList, isMyList, isOnline, requestDeleteList, locked } = useStore();
   const [name, setName] = useState('');
   const [requested, setRequested] = useState(() => new Set());
   const [createOpen, setCreateOpen] = useState(!locked);
 
   if (viewListId) {
-    return <ListDetail listId={viewListId} onBack={() => setViewListId(null)} onEdit={onEdit} />;
+    const fromBoard = listOrigin === 'board';
+    const back = fromBoard ? goBoard : (clearList || (() => setViewListId(null)));
+    const crumbs = [
+      { label: fromBoard ? 'Sıralama' : 'Listeler', onClick: back },
+    ];
+    return <ListDetail listId={viewListId} onBack={back} crumbs={crumbs} onEdit={onEdit} />;
   }
 
   const submit = async () => {

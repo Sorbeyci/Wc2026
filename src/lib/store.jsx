@@ -199,6 +199,13 @@ export function StoreProvider({ children }) {
     for (const p of presence) if (lastSeenMs(p) && now - lastSeenMs(p) < ONLINE_MS) n++;
     return n;
   })();
+  const onlineUsers = (() => {
+    const now = Date.now();
+    return presence
+      .filter((p) => lastSeenMs(p) && now - lastSeenMs(p) < ONLINE_MS)
+      .map((p) => ({ uid: p.uid, name: p.name || 'Oyuncu', email: p.email || '', me: p.uid === user?.uid }))
+      .sort((a, b) => (a.me === b.me ? a.name.localeCompare(b.name, 'tr') : a.me ? -1 : 1));
+  })();
 
   const getPrediction = (listId) =>
     drafts[listId] ?? lists.find((l) => l.id === listId)?.prediction ?? EMPTY_PRED();
@@ -218,7 +225,7 @@ export function StoreProvider({ children }) {
     user, isAdmin, adminEligible, adminMode, setAdminMode,
     authLoading, lists, actual: liveActual,
     settings, locked, lastError, clearError: () => setLastError(null), theme, setTheme,
-    myLists, canCreateList, getPrediction, logs, isOnline, onlineCount, deleteRequests,
+    myLists, canCreateList, getPrediction, logs, isOnline, onlineCount, onlineUsers, deleteRequests,
 
     signIn: () => signInWithPopup(auth, googleProvider).catch((e) => setLastError(e.code || e.message)),
     logout: () => signOut(auth),

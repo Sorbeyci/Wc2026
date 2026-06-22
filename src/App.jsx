@@ -8,6 +8,7 @@ import Lists from './pages/Lists.jsx';
 import Predict from './pages/Predict.jsx';
 import Board from './pages/Board.jsx';
 import Admin from './pages/Admin.jsx';
+import Changelog from './pages/Changelog.jsx';
 import { Skeleton } from './components/ui.jsx';
 
 export default function App() {
@@ -16,6 +17,7 @@ export default function App() {
   const [viewListId, setViewListId] = useState(null); // open in Lists detail
   const [editListId, setEditListId] = useState(null); // preselect in Predict
   const [adminSub, setAdminSub] = useState('results'); // initial Admin tab
+  const [listOrigin, setListOrigin] = useState('lists'); // 'lists' | 'board' — where a list was opened from
 
   if (!firebaseReady) return <ConfigNotice />;
   if (authLoading) return <Splash />;
@@ -23,7 +25,9 @@ export default function App() {
 
   const safePage = page === 'admin' && !isAdmin ? 'home' : page;
 
-  const openList = (id) => { setViewListId(id); setPage('lists'); };
+  const openList = (id) => { setListOrigin('board'); setViewListId(id); setPage('lists'); }; // from Board
+  const openFromLists = (id) => { setListOrigin('lists'); setViewListId(id); };               // from Lists listing
+  const goBoard = () => { setViewListId(null); setPage('board'); };
   const editList = (id) => { setEditListId(id); setViewListId(null); setPage('predict'); };
   const go = (p) => { setViewListId(null); if (p !== 'admin') setAdminSub('results'); setPage(p); };
   const goAdminImport = () => { setViewListId(null); setAdminSub('transfer'); setPage('admin'); };
@@ -33,12 +37,14 @@ export default function App() {
       <main className="mx-auto max-w-lg px-4 pt-6 pb-24">
         {safePage === 'home' && <Home setPage={go} goAdminImport={goAdminImport} />}
         {safePage === 'lists' && (
-          <Lists viewListId={viewListId} setViewListId={setViewListId} onEdit={editList} goHome={() => go('home')} />
+          <Lists viewListId={viewListId} setViewListId={openFromLists} clearList={() => setViewListId(null)}
+            onEdit={editList} goHome={() => go('home')} listOrigin={listOrigin} goBoard={goBoard} />
         )}
         {safePage === 'predict' && (
           <Predict initialListId={editListId} goLists={() => go('lists')} goHome={() => go('home')} />
         )}
         {safePage === 'board' && <Board onOpenList={openList} goHome={() => go('home')} />}
+        {safePage === 'changelog' && <Changelog goHome={() => go('home')} />}
         {safePage === 'admin' && isAdmin && <Admin initialSub={adminSub} />}
       </main>
       <Nav page={safePage} setPage={go} isAdmin={isAdmin} />
