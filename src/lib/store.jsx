@@ -39,6 +39,7 @@ export function StoreProvider({ children }) {
   const [presence, setPresence] = useState([]);
   const [deleteRequests, setDeleteRequests] = useState([]);
   const [quizLeaders, setQuizLeaders] = useState([]);
+  const [activity, setActivity] = useState([]);
   const [, setTick] = useState(0);
   useEffect(() => { const iv = setInterval(() => setTick((t) => t + 1), 30000); return () => clearInterval(iv); }, []);
   const [adminMode, setAdminModeState] = useState(() => {
@@ -87,6 +88,9 @@ export function StoreProvider({ children }) {
     const unsubQuiz = onSnapshot(query(collection(db, 'quizWins'), orderBy('wins', 'desc'), limit(20)),
       (snap) => setQuizLeaders(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), () => {});
     subs.push(unsubQuiz);
+    const unsubAct = onSnapshot(collection(db, 'activity'),
+      (snap) => setActivity(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), () => {});
+    subs.push(unsubAct);
     return () => subs.forEach((fn) => fn());
   }, [user]);
 
@@ -178,6 +182,26 @@ export function StoreProvider({ children }) {
     const onVis = () => { if (document.visibilityState === 'visible') beat(); };
     document.addEventListener('visibilitychange', onVis);
     return () => { clearInterval(iv); document.removeEventListener('visibilitychange', onVis); };
+  }, [user]);
+
+  // Aktiflik: kullanıcının uğradığı farklı gün sayısını tut (günde en fazla 1 artar).
+  useEffect(() => {
+    if (!user) return;
+    let done = false;
+    (async () => {
+      const today = new Date().toISOString().slice(0, 10);
+      const ref = doc(db, 'activity', user.uid);
+      try {
+        const snap = await getDoc(ref);
+        const prev = snap.exists() ? snap.data() : null;
+        if (done || prev?.lastDay === today) return;
+        const days = (prev?.days || 0) + 1;
+        await setDoc(ref, {
+          uid: user.uid, name: user.displayName || '', days, lastDay: today, updatedAt: serverTimestamp(),
+        }, { merge: true });
+      } catch (e) {}
+    })();
+    return () => { done = true; };
   }, [user]);
 
   const ONLINE_MS = 70000;
@@ -335,6 +359,8 @@ export function StoreProvider({ children }) {
       return reportSave(setDoc(doc(db, 'config', 'settings'), { ad: clean, updatedAt: serverTimestamp() }, { merge: true }));
     },
     quizLeaders,
+    quizWinsByUid: Object.fromEntries((quizLeaders || []).map((q) => [q.uid, q.wins || 0])),
+    activeDaysByUid: Object.fromEntries((activity || []).map((a) => [a.uid, a.days || 0])),
     // Bir günlük quiz kazanımını kaydeder. Günde en fazla 1 kez sayılır (lastDate guard).
     async recordQuizWin() {
       if (!user) return { counted: false };
@@ -438,7 +464,7 @@ export function StoreProvider({ children }) {
         return a;
       });
     },
-  }), [user, isAdmin, adminEligible, adminMode, authLoading, lists, actual, settings, locked, lastError, drafts, actualDraft, logs, presence, deleteRequests, quizLeaders, theme]);
+  }), [user, isAdmin, adminEligible, adminMode, authLoading, lists, actual, settings, locked, lastError, drafts, actualDraft, logs, presence, deleteRequests, quizLeaders, activity, theme]);
 
   return <StoreCtx.Provider value={api}>{children}</StoreCtx.Provider>;
 }

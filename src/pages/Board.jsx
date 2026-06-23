@@ -6,6 +6,7 @@ import { bestThirds } from '../data/bracket.js';
 import { shortName } from '../data/flags.js';
 import { SectionTitle, Dot, Empty, Avatar, Flag, CountUp, Segmented, BrandHeader } from '../components/ui.jsx';
 import { shareLeaderboard } from '../lib/shareCard.js';
+import { topAchievement } from '../lib/achievements.js';
 import FullStats from '../components/FullStats.jsx';
 
 const SUB = [
@@ -517,18 +518,24 @@ function H2HDetail({ ra, rb, actual, unofficial }) {
 }
 
 function CompactList({ rows, onOpenList, isOnline, metric }) {
+  const { quizWinsByUid = {}, activeDaysByUid = {} } = useStore();
   const flipRef = useFlip();
   const isTotal = !metric || metric === 'total';
   return (
     <div className="card divide-y divide-black/5" ref={flipRef}>
       {rows.map((r, i) => {
         const leader = i === 0 && r.total > 0 && isTotal;
+        const top = topAchievement(r, {
+          rank: i + 1, quizWins: quizWinsByUid[r.list.ownerUid] || 0,
+          activeDays: activeDaysByUid[r.list.ownerUid] || 0, online: isOnline?.(r.list),
+        });
         return (
           <button key={r.list.id} data-flip-id={r.list.id} onClick={() => onOpenList(r.list.id)}
             className="w-full flex items-center gap-3 px-4 py-2.5 text-left active:bg-black/[0.02] bg-[var(--surface)]">
             <span className={`font-display text-lg w-6 ${leader ? 'text-gold-dark' : 'text-ink/30'}`}>{i + 1}</span>
             <Avatar name={r.list.ownerName || r.list.name} color={r.list.color} src={r.list.ownerPhoto} size={28} />
             <span className="flex-1 min-w-0 font-semibold text-sm truncate">
+              {top && <span title={top.title} className="mr-1">{top.icon}</span>}
               {r.list.name}
               {isOnline?.(r.list) && <span className="ml-1.5 inline-block h-2 w-2 rounded-full bg-pitch align-middle" />}
             </span>
@@ -582,9 +589,14 @@ function Leaderboard({ rows, onOpenList, isOnline, actual, proj, metric }) {
 }
 
 function LbRow({ r, i, onOpenList, online, actual, proj, metric }) {
+  const { quizWinsByUid = {}, activeDaysByUid = {} } = useStore();
   const [cat, setCat] = useState(null);
   const isTotal = !metric || metric === 'total';
   const leader = i === 0 && r.total > 0 && isTotal;
+  const topBadge = topAchievement(r, {
+    rank: i + 1, quizWins: quizWinsByUid[r.list.ownerUid] || 0,
+    activeDays: activeDaysByUid[r.list.ownerUid] || 0, online,
+  });
   const cats = [
     { id: 'gm', label: 'Maçlar', value: r.breakdown.groupMatches },
     { id: 'gt', label: 'Gruplar', value: r.breakdown.groupTables },
@@ -600,6 +612,7 @@ function LbRow({ r, i, onOpenList, online, actual, proj, metric }) {
         <Avatar name={r.list.ownerName || r.list.name} color={r.list.color} src={r.list.ownerPhoto} size={38} />
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-ink truncate">
+            {topBadge && <span title={topBadge.title} className="mr-1">{topBadge.icon}</span>}
             {r.list.name}{leader && <span className="ml-2 chip bg-gold/20 text-gold-dark">Lider</span>}
             {online && <span className="ml-2 inline-flex items-center gap-1 text-[11px] font-bold text-pitch align-middle"><span className="inline-block h-2 w-2 rounded-full bg-pitch" />Online</span>}
           </p>
@@ -826,11 +839,12 @@ function RankRace({ lists, actual, getPrediction, user }) {
   const n = snaps.length;
   const [t, setT] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [showNames, setShowNames] = useState(false);
   useEffect(() => { setT(n ? n - 1 : 0); }, [n]);
   useEffect(() => {
     if (!playing) return;
     if (t >= n - 1) { setPlaying(false); return; }
-    const iv = setInterval(() => setT((x) => Math.min(n - 1, x + 1)), 850);
+    const iv = setInterval(() => setT((x) => Math.min(n - 1, x + 1)), 950);
     return () => clearInterval(iv);
   }, [playing, t, n]);
 
@@ -842,11 +856,13 @@ function RankRace({ lists, actual, getPrediction, user }) {
   const mineId = lists.find((l) => l.ownerUid === user?.uid)?.id;
 
   const rowH = Math.max(15, Math.min(24, Math.floor(380 / Math.max(count, 1))));
-  const colW = 58, leftPad = 22, rightPad = 14, topPad = 22, bottomPad = 10;
+  const colW = 58, leftPad = 22, topPad = 22, bottomPad = 10;
+  const rightPad = showNames ? 116 : 14;
   const W = leftPad + (n - 1) * colW + rightPad + 6;
   const H = topPad + count * rowH + bottomPad;
   const X = (i) => leftPad + i * colW;
   const Y = (rank) => topPad + (rank - 0.5) * rowH;
+  const ease = 'transform .6s cubic-bezier(.4,0,.2,1)';
   const gridRanks = [];
   for (let r = 1; r <= count; r += (count > 12 ? 5 : 3)) gridRanks.push(r);
   if (gridRanks[gridRanks.length - 1] !== count) gridRanks.push(count);
@@ -858,17 +874,25 @@ function RankRace({ lists, actual, getPrediction, user }) {
 
   return (
     <div className="space-y-4">
-      <p className="text-xs text-ink/45 px-1">Kişilerin zaman içindeki sıra değişimi. Alttaki kaydırıcıyla ileri/geri al ya da “Oynat” ile izle.</p>
+      <div className="flex items-center justify-between gap-2 px-1">
+        <p className="text-xs text-ink/45">Kişilerin zaman içindeki sıra değişimi. Alttan ileri/geri al ya da “Oynat”.</p>
+        <button onClick={() => setShowNames((v) => !v)}
+          className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${showNames ? 'bg-ink text-white' : 'bg-black/5 text-ink/60'}`}>
+          İsimler
+        </button>
+      </div>
 
       <div className="card p-2 overflow-x-auto">
         <svg width={W} height={H} className="block">
           {gridRanks.map((r) => (
             <g key={'g' + r}>
-              <line x1={leftPad} y1={Y(r)} x2={W - rightPad} y2={Y(r)} stroke="#000" strokeOpacity="0.05" />
+              <line x1={leftPad} y1={Y(r)} x2={W - rightPad + 6} y2={Y(r)} stroke="#000" strokeOpacity="0.05" />
               <text x={4} y={Y(r) + 3} fontSize="9" fill="#999">{r}</text>
             </g>
           ))}
-          <line x1={X(t)} y1={topPad - 6} x2={X(t)} y2={H - bottomPad} stroke="#1f9d55" strokeOpacity="0.3" strokeWidth="2" />
+          <g style={{ transform: `translateX(${X(t)}px)`, transition: ease }}>
+            <line x1={0} y1={topPad - 6} x2={0} y2={H - bottomPad} stroke="#1f9d55" strokeOpacity="0.3" strokeWidth="2" />
+          </g>
           {snaps.map((s, i) => (
             <text key={'x' + i} x={X(i)} y={12} fontSize="9" textAnchor="middle" fontWeight={i === t ? 700 : 400} fill={i === t ? '#111' : '#aaa'}>{s.label}</text>
           ))}
@@ -881,8 +905,16 @@ function RankRace({ lists, actual, getPrediction, user }) {
             return (
               <g key={l.id}>
                 <polyline points={pts.join(' ')} fill="none" stroke={colorMap[l.id]} strokeWidth={me ? 3.5 : 2}
-                  strokeOpacity={me ? 1 : 0.8} strokeLinejoin="round" strokeLinecap="round" />
-                {here && <circle cx={X(t)} cy={Y(here.rank)} r={me ? 4.5 : 3.2} fill={colorMap[l.id]} stroke="#fff" strokeWidth={me ? 1.5 : 0} />}
+                  strokeOpacity={me ? 1 : 0.8} strokeLinejoin="round" strokeLinecap="round" style={{ transition: 'stroke-width .3s' }} />
+                {here && (
+                  <g style={{ transform: `translate(${X(t)}px, ${Y(here.rank)}px)`, transition: ease }}>
+                    <circle cx={0} cy={0} r={me ? 4.5 : 3.2} fill={colorMap[l.id]} stroke="#fff" strokeWidth={me ? 1.5 : 0} />
+                    {showNames && (
+                      <text x={7} y={3} fontSize="9" fontWeight={me ? 700 : 500} fill={colorMap[l.id]}
+                        stroke="#fff" strokeWidth="3" paintOrder="stroke" strokeLinejoin="round">{(l.name || '').slice(0, 14)}</text>
+                    )}
+                  </g>
+                )}
               </g>
             );
           })}

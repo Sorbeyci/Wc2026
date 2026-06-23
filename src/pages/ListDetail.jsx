@@ -9,7 +9,7 @@ import Standings from '../components/Standings.jsx';
 import BracketTree from '../components/BracketTree.jsx';
 import { shortName, teamColor } from '../data/flags.js';
 import { sharePerson } from '../lib/shareCard.js';
-import { achievements } from '../lib/achievements.js';
+import { achievements, topAchievement } from '../lib/achievements.js';
 import FullStats from '../components/FullStats.jsx';
 
 const KO_VIEW = [
@@ -29,7 +29,7 @@ const SUB = [
 ];
 
 export default function ListDetail({ listId, onBack, onEdit, crumbs }) {
-  const { lists, getPrediction, actual, canEditList, isMyList } = useStore();
+  const { lists, getPrediction, actual, canEditList, isMyList, quizWinsByUid = {}, activeDaysByUid = {}, isOnline } = useStore();
   const [sub, setSub] = useState('standings');
   const list = lists.find((l) => l.id === listId);
   if (!list) {
@@ -62,7 +62,14 @@ export default function ListDetail({ listId, onBack, onEdit, crumbs }) {
     return vals.length ? Math.max(...vals) : 0;
   }, [pred, actual]);
 
-  const achs = useMemo(() => achievements(result, { rank, bestDay }), [result, rank, bestDay]);
+  const achCtx = useMemo(() => ({
+    rank, bestDay,
+    quizWins: quizWinsByUid[list?.ownerUid] || 0,
+    activeDays: activeDaysByUid[list?.ownerUid] || 0,
+    online: isOnline?.(list),
+  }), [rank, bestDay, quizWinsByUid, activeDaysByUid, isOnline, list]);
+  const achs = useMemo(() => achievements(result, achCtx), [result, achCtx]);
+  const topBadge = useMemo(() => topAchievement(result, achCtx), [result, achCtx]);
   const earnedCount = achs.filter((a) => a.earned).length;
   const [achOpen, setAchOpen] = useState(false);
 
@@ -95,7 +102,7 @@ export default function ListDetail({ listId, onBack, onEdit, crumbs }) {
       <div className="card p-4 flex items-center gap-3">
         <Avatar name={list.ownerName || list.name} color={list.color} size={44} />
         <div className="flex-1 min-w-0">
-          <p className="font-display text-2xl text-ink leading-tight truncate">{list.name}</p>
+          <p className="font-display text-2xl text-ink leading-tight truncate">{topBadge && <span title={topBadge.title} className="mr-1">{topBadge.icon}</span>}{list.name}</p>
           <p className="text-xs text-ink/45 truncate">{list.ownerName}{owned ? ' · senin listen' : ''} · {rank}. sıra</p>
         </div>
         <button onClick={onShare} title="Paylaş"

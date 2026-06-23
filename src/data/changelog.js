@@ -1,6 +1,13 @@
 // Uygulama sürüm geçmişi (changelog).
 export const CHANGELOG = [
   {
+    v: '4.1', date: 'Haziran 2026', items: [
+      'Sıralama grafiğinde geçişler yumuşatıldı; “İsimler” ile çizgi uçlarında isim göster/gizle.',
+      'Başarım rozetleri çoğaltıldı: günlük quiz ve site aktifliği (kaç gün uğradın) rozetleri eklendi.',
+      'Kişinin kazandığı en üst rozet artık isminin yanında görünüyor (sıralama ve kişi sayfası).',
+    ],
+  },
+  {
     v: '4.0', date: 'Haziran 2026', items: [
       'Sıralama’ya “Grafik” sekmesi: kişilerin zaman içindeki sıra değişimini gösteren çizgi grafiği (bump chart).',
       'Altta ileri/geri kaydırıcı ve “Oynat” ile gün gün sıralama animasyonu; seçili anın puan tablosu ve sıra farkları.',
