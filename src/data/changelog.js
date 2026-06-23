@@ -1,6 +1,12 @@
 // Uygulama sürüm geçmişi (changelog).
 export const CHANGELOG = [
   {
+    v: '4.0', date: 'Haziran 2026', items: [
+      'Sıralama’ya “Grafik” sekmesi: kişilerin zaman içindeki sıra değişimini gösteren çizgi grafiği (bump chart).',
+      'Altta ileri/geri kaydırıcı ve “Oynat” ile gün gün sıralama animasyonu; seçili anın puan tablosu ve sıra farkları.',
+    ],
+  },
+  {
     v: '3.9', date: 'Haziran 2026', items: [
       'Günlük quiz süresi 2 dakikaya indirildi; ilerleme çubuğu ve sayaç artık sayfa kaysa da hep üstte sabit.',
       'Karşılaştır’a “Resmi olmayan (projeksiyon) sonuçları da göster” seçeneği eklendi.',

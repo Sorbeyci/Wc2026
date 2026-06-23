@@ -10,6 +10,7 @@ import FullStats from '../components/FullStats.jsx';
 
 const SUB = [
   { id: 'board', label: 'Sıralama' },
+  { id: 'grafik', label: 'Grafik' },
   { id: 'stats', label: 'İstatistik' },
   { id: 'h2h', label: 'Karşılaştır' },
 ];
@@ -145,7 +146,7 @@ function useFlip() {
 const boardMem = { sub: 'board', view: 'detay', proj: false, sortKey: 'total', onlyOnline: false, query: '', filtersOpen: false, showOnline: false };
 
 export default function Board({ onOpenList, goHome }) {
-  const { lists, actual, getPrediction, isOnline, onlineCount, onlineUsers } = useStore();
+  const { lists, actual, getPrediction, isOnline, onlineCount, onlineUsers, user } = useStore();
   const [sub, setSub] = useState(boardMem.sub);
   const [view, setView] = useState(boardMem.view);
   const [proj, setProj] = useState(boardMem.proj);
@@ -238,6 +239,8 @@ export default function Board({ onOpenList, goHome }) {
         <Empty title="Henüz liste yok">Tabloyu görmek için liste ve tahmin ekle.</Empty>
       ) : sub === 'h2h' ? (
         <H2H rows={h2hOfficial} projRows={h2hProj} actual={actual} />
+      ) : sub === 'grafik' ? (
+        <RankRace lists={lists} actual={actual} getPrediction={getPrediction} user={user} />
       ) : sub === 'board' ? (
         <div className="space-y-5">
           <Podium rows={rows} onOpenList={onOpenList} />
@@ -777,6 +780,148 @@ function Stats({ rows }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// --- Sıralama yarışı (zaman içinde sıra değişimi: bump chart) ---
+const RACE_PALETTE = ['#e6194B', '#3cb44b', '#4363d8', '#f58231', '#911eb4', '#42d4f4', '#f032e6', '#1f9d55', '#9A6324', '#469990', '#800000', '#808000', '#000075', '#e07a5f', '#6a4c93', '#bc6c25', '#2a9d8f', '#d62828', '#5f0f40', '#3d405b'];
+const raceLabel = (d) => { const m = (d || '').match(/^(\S+)\s+(\d+),/); return m ? `${m[2]} ${m[1]}` : (d || ''); };
+
+function buildRace(lists, actual, getPrediction) {
+  const byNo = Object.fromEntries(GROUP_MATCHES.map((m) => [m.no, m]));
+  const scoredDates = new Set();
+  for (const no of Object.keys(actual.groupMatches || {})) {
+    if (hasS(actual.groupMatches[no]) && byNo[no]) scoredDates.add(byNo[no].date);
+  }
+  const dates = [...scoredDates].sort((a, b) => dkeyOf(a) - dkeyOf(b));
+  const rankMapFor = (filterFn, fullActual) => {
+    let src;
+    if (fullActual) src = actual;
+    else {
+      const gm = {};
+      for (const no of Object.keys(actual.groupMatches || {})) {
+        const mm = byNo[no];
+        if (mm && hasS(actual.groupMatches[no]) && filterFn(mm)) gm[no] = actual.groupMatches[no];
+      }
+      src = { ...actual, groupMatches: gm, groupTables: {}, ko: {}, topScorer: '' };
+    }
+    const ranked = lists
+      .map((l) => ({ id: l.id, name: l.name || '', total: scoreUser(getPrediction(l.id), src, { projection: false }).total }))
+      .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name, 'tr') || a.id.localeCompare(b.id));
+    const map = {};
+    ranked.forEach((r, i) => { map[r.id] = { rank: i + 1, total: r.total }; });
+    return map;
+  };
+  const snaps = dates.map((d) => { const cut = dkeyOf(d); return { label: raceLabel(d), rankMap: rankMapFor((mm) => dkeyOf(mm.date) <= cut) }; });
+  const fullMap = rankMapFor(null, true);
+  const last = snaps[snaps.length - 1];
+  const differs = !last || lists.some((l) => (fullMap[l.id]?.total || 0) !== (last.rankMap[l.id]?.total || 0));
+  if (differs) snaps.push({ label: 'Güncel', rankMap: fullMap });
+  return snaps;
+}
+
+function RankRace({ lists, actual, getPrediction, user }) {
+  const snaps = useMemo(() => buildRace(lists, actual, getPrediction), [lists, actual]);
+  const n = snaps.length;
+  const [t, setT] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  useEffect(() => { setT(n ? n - 1 : 0); }, [n]);
+  useEffect(() => {
+    if (!playing) return;
+    if (t >= n - 1) { setPlaying(false); return; }
+    const iv = setInterval(() => setT((x) => Math.min(n - 1, x + 1)), 850);
+    return () => clearInterval(iv);
+  }, [playing, t, n]);
+
+  if (n === 0) return <Empty title="Henüz veri yok">İlk maç sonuçları girilince sıralama değişim grafiği burada oluşur.</Empty>;
+
+  const count = lists.length;
+  const colorMap = {};
+  lists.forEach((l, idx) => { colorMap[l.id] = l.color || RACE_PALETTE[idx % RACE_PALETTE.length]; });
+  const mineId = lists.find((l) => l.ownerUid === user?.uid)?.id;
+
+  const rowH = Math.max(15, Math.min(24, Math.floor(380 / Math.max(count, 1))));
+  const colW = 58, leftPad = 22, rightPad = 14, topPad = 22, bottomPad = 10;
+  const W = leftPad + (n - 1) * colW + rightPad + 6;
+  const H = topPad + count * rowH + bottomPad;
+  const X = (i) => leftPad + i * colW;
+  const Y = (rank) => topPad + (rank - 0.5) * rowH;
+  const gridRanks = [];
+  for (let r = 1; r <= count; r += (count > 12 ? 5 : 3)) gridRanks.push(r);
+  if (gridRanks[gridRanks.length - 1] !== count) gridRanks.push(count);
+
+  const orderNow = lists
+    .map((l) => ({ l, ...(snaps[t].rankMap[l.id] || {}) }))
+    .sort((a, b) => (a.rank || 999) - (b.rank || 999));
+  const prevSnap = t > 0 ? snaps[t - 1] : null;
+
+  return (
+    <div className="space-y-4">
+      <p className="text-xs text-ink/45 px-1">Kişilerin zaman içindeki sıra değişimi. Alttaki kaydırıcıyla ileri/geri al ya da “Oynat” ile izle.</p>
+
+      <div className="card p-2 overflow-x-auto">
+        <svg width={W} height={H} className="block">
+          {gridRanks.map((r) => (
+            <g key={'g' + r}>
+              <line x1={leftPad} y1={Y(r)} x2={W - rightPad} y2={Y(r)} stroke="#000" strokeOpacity="0.05" />
+              <text x={4} y={Y(r) + 3} fontSize="9" fill="#999">{r}</text>
+            </g>
+          ))}
+          <line x1={X(t)} y1={topPad - 6} x2={X(t)} y2={H - bottomPad} stroke="#1f9d55" strokeOpacity="0.3" strokeWidth="2" />
+          {snaps.map((s, i) => (
+            <text key={'x' + i} x={X(i)} y={12} fontSize="9" textAnchor="middle" fontWeight={i === t ? 700 : 400} fill={i === t ? '#111' : '#aaa'}>{s.label}</text>
+          ))}
+          {lists.map((l) => {
+            const pts = [];
+            for (let i = 0; i <= t; i++) { const rm = snaps[i].rankMap[l.id]; if (rm) pts.push(`${X(i)},${Y(rm.rank)}`); }
+            if (!pts.length) return null;
+            const me = l.id === mineId;
+            const here = snaps[t].rankMap[l.id];
+            return (
+              <g key={l.id}>
+                <polyline points={pts.join(' ')} fill="none" stroke={colorMap[l.id]} strokeWidth={me ? 3.5 : 2}
+                  strokeOpacity={me ? 1 : 0.8} strokeLinejoin="round" strokeLinecap="round" />
+                {here && <circle cx={X(t)} cy={Y(here.rank)} r={me ? 4.5 : 3.2} fill={colorMap[l.id]} stroke="#fff" strokeWidth={me ? 1.5 : 0} />}
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+
+      <div className="card p-3 space-y-2">
+        <div className="flex items-center justify-between text-sm">
+          <span className="font-semibold">{snaps[t].label}</span>
+          <span className="text-ink/45 text-xs tabular-nums">{t + 1}/{n}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={() => { setPlaying(false); setT((x) => Math.max(0, x - 1)); }} aria-label="Geri"
+            className="h-9 w-9 grid place-items-center rounded-lg bg-black/5 text-ink/70 active:scale-95">◀</button>
+          <input type="range" min={0} max={n - 1} value={t} onChange={(e) => { setPlaying(false); setT(+e.target.value); }}
+            className="flex-1 accent-pitch" />
+          <button onClick={() => { setPlaying(false); setT((x) => Math.min(n - 1, x + 1)); }} aria-label="İleri"
+            className="h-9 w-9 grid place-items-center rounded-lg bg-black/5 text-ink/70 active:scale-95">▶</button>
+          <button onClick={() => { if (t >= n - 1) setT(0); setPlaying((p) => !p); }}
+            className="h-9 px-3 rounded-lg bg-ink text-white text-xs font-semibold shrink-0">{playing ? 'Duraklat' : '▶ Oynat'}</button>
+        </div>
+      </div>
+
+      <div className="card divide-y divide-black/5">
+        {orderNow.map(({ l, rank, total }) => {
+          const prev = prevSnap?.rankMap[l.id]?.rank;
+          const delta = prev && rank ? prev - rank : 0;
+          const me = l.id === mineId;
+          return (
+            <div key={l.id} className={`flex items-center gap-3 px-3 py-2 ${me ? 'bg-pitch/[0.05]' : ''}`}>
+              <span className="w-5 text-center font-display text-ink/40">{rank ?? '—'}</span>
+              <span className="h-3 w-3 rounded-full shrink-0" style={{ background: colorMap[l.id] }} />
+              <span className={`flex-1 min-w-0 truncate text-sm ${me ? 'font-bold' : 'font-semibold'}`}>{l.name}{me && <span className="ml-1 text-[11px] text-pitch-dark">· sen</span>}</span>
+              {delta !== 0 && <span className={`text-[11px] font-bold ${delta > 0 ? 'text-pitch' : 'text-red-500'}`}>{delta > 0 ? '▲' : '▼'}{Math.abs(delta)}</span>}
+              <span className="font-display tabular-nums text-ink">{total ?? 0}</span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
