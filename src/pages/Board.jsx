@@ -737,38 +737,85 @@ function HitList({ hits }) {
   );
 }
 
+function CmpBox({ mine, real, fmt }) {
+  const f = fmt || shortName;
+  return (
+    <div className="mt-2 rounded-lg bg-white border border-black/5 p-2 text-xs space-y-1">
+      <div className="flex justify-between"><span className="text-ink/45">Senin tahminin</span><span className="font-semibold">{mine ? f(mine) : '—'}</span></div>
+      <div className="flex justify-between"><span className="text-ink/45">Gerçek</span><span className="font-semibold">{real ? f(real) : '—'}</span></div>
+    </div>
+  );
+}
+
 function CategoryDetail({ cat, r, actual, proj }) {
   const s = r.stats;
   const tick = (b) => (b ? '✓' : '—');
-  const data = {
-    gm: [['Tam skor (5p)', s.exact], ['Doğru sonuç (3p)', s.correctResult], ['Puanlanan maç', s.playedScored]],
-    gt: [['Üst tura çıkan (10p)', s.correctQualified], ['Doğru sıra (5p)', s.correctPositions], ['Tamamlanan grup', `${s.groupsFinal}/12`]],
-    th: [['Doğru 3. takım (10p)', `${s.thirdsCorrect}/8`]],
-    ko: [['Doğru eşleşme (her tur)', s.koMatchupHits], ['Tam skor (5p)', s.koExact], ['Doğru sonuç (3p)', s.koResult], ['Son 32 doğru (20p)', s.koR32], ['Son 16 doğru (20p)', s.koR16], ['Çeyrek doğru (40p)', s.koQF], ['Yarı doğru (60p)', s.koSF]],
-    fn: [['Şampiyon (80p)', tick(s.finalsHit.champion)], ['Finalist (50p)', tick(s.finalsHit.runnerUp)], ["3.'lük (30p)", tick(s.finalsHit.third)], ["4.'lük (20p)", tick(s.finalsHit.fourth)], ['Gol kralı (50p)', tick(s.finalsHit.topScorer)]],
-  }[cat] || [];
+  const [open, setOpen] = useState(null);
+
+  const gHits = groupHits(r.pred, actual);
+  const kHits = koHits(r.pred, actual, r.bracket?.actual);
+  const mhits = matchupHitsOf(r.bracket?.pred, r.bracket?.actual, allGroupsComplete(actual));
+  const roundHits = (lo, hi) => mhits.filter((h) => h.no >= lo && h.no <= hi);
+  const bp = r.bracket?.pred || {}, ba = r.bracket?.actual || {};
+
+  const ROWS = {
+    gm: [
+      { label: 'Tam skor (5p)', val: s.exact, detail: () => <HitList hits={gHits.filter((h) => h.pts === 5)} /> },
+      { label: 'Doğru sonuç (3p)', val: s.correctResult, detail: () => <HitList hits={gHits.filter((h) => h.pts === 3)} /> },
+      { label: 'Puanlanan maç', val: s.playedScored },
+    ],
+    gt: [
+      { label: 'Üst tura çıkan (10p)', val: s.correctQualified, detail: () => <GroupBreakdown pred={r.pred} actual={actual} proj={proj} /> },
+      { label: 'Doğru sıra (5p)', val: s.correctPositions, detail: () => <GroupBreakdown pred={r.pred} actual={actual} proj={proj} /> },
+      { label: 'Tamamlanan grup', val: `${s.groupsFinal}/12` },
+    ],
+    th: [
+      { label: 'Doğru 3. takım (10p)', val: `${s.thirdsCorrect}/8`, detail: () => <ThirdsBreakdown pred={r.pred} actual={actual} proj={proj} /> },
+    ],
+    ko: [
+      { label: 'Doğru eşleşme (her tur)', val: s.koMatchupHits, detail: () => <MatchupList hits={mhits} /> },
+      { label: 'Tam skor (5p)', val: s.koExact, detail: () => <HitList hits={kHits.filter((h) => h.pts === 5)} /> },
+      { label: 'Doğru sonuç (3p)', val: s.koResult, detail: () => <HitList hits={kHits.filter((h) => h.pts === 3)} /> },
+      { label: 'Son 32 doğru (20p)', val: s.koR32, detail: () => <MatchupList hits={roundHits(73, 88)} /> },
+      { label: 'Son 16 doğru (20p)', val: s.koR16, detail: () => <MatchupList hits={roundHits(89, 96)} /> },
+      { label: 'Çeyrek doğru (40p)', val: s.koQF, detail: () => <MatchupList hits={roundHits(97, 100)} /> },
+      { label: 'Yarı doğru (60p)', val: s.koSF, detail: () => <MatchupList hits={roundHits(101, 102)} /> },
+    ],
+    fn: [
+      { label: 'Şampiyon (80p)', val: tick(s.finalsHit.champion), detail: () => <CmpBox mine={bp.champion} real={ba.champion} /> },
+      { label: 'Finalist (50p)', val: tick(s.finalsHit.runnerUp), detail: () => <CmpBox mine={bp.runnerUp} real={ba.runnerUp} /> },
+      { label: "3.'lük (30p)", val: tick(s.finalsHit.third), detail: () => <CmpBox mine={bp.third} real={ba.third} /> },
+      { label: "4.'lük (20p)", val: tick(s.finalsHit.fourth), detail: () => <CmpBox mine={bp.fourth} real={ba.fourth} /> },
+      { label: 'Gol kralı (50p)', val: tick(s.finalsHit.topScorer), detail: () => <CmpBox mine={r.pred.topScorer} real={actual.topScorer} fmt={(x) => x} /> },
+    ],
+  };
+  const rows = ROWS[cat] || [];
   const total = { gm: r.breakdown.groupMatches, gt: r.breakdown.groupTables, th: r.breakdown.thirds, ko: r.breakdown.knockout, fn: r.breakdown.finals }[cat];
-  const hits = cat === 'gm' ? groupHits(r.pred, actual)
-    : cat === 'ko' ? koHits(r.pred, actual, r.bracket?.actual)
-    : null;
-  const mhits = cat === 'ko' ? matchupHitsOf(r.bracket?.pred, r.bracket?.actual, allGroupsComplete(actual)) : null;
+
   return (
     <div className="mt-2 rounded-xl bg-black/[0.02] border border-black/5 p-3">
       <div className="flex justify-between text-xs font-bold uppercase tracking-wide text-ink/50 mb-1">
         <span>Döküm</span><span>{total} puan</span>
       </div>
       <div className="divide-y divide-black/5">
-        {data.map(([label, val], idx) => (
-          <div key={idx} className="flex justify-between py-1 text-sm">
-            <span className="text-ink/65">{label}</span>
-            <span className="font-semibold tabular-nums">{val}</span>
-          </div>
-        ))}
+        {rows.map((row, idx) => {
+          const hasDetail = !!row.detail;
+          const isOpen = open === idx;
+          return (
+            <div key={idx}>
+              <button type="button" onClick={() => hasDetail && setOpen(isOpen ? null : idx)}
+                className="w-full flex items-center justify-between py-1.5 text-sm text-left">
+                <span className="text-ink/65 flex items-center gap-1">
+                  {row.label}
+                  {hasDetail && <span className={`text-ink/30 text-[10px] transition ${isOpen ? 'rotate-180' : ''}`}>▾</span>}
+                </span>
+                <span className="font-semibold tabular-nums">{row.val}</span>
+              </button>
+              {isOpen && hasDetail && <div className="pb-2 fade-in">{row.detail()}</div>}
+            </div>
+          );
+        })}
       </div>
-      {cat === 'gt' && <GroupBreakdown pred={r.pred} actual={actual} proj={proj} />}
-      {cat === 'th' && <ThirdsBreakdown pred={r.pred} actual={actual} proj={proj} />}
-      {mhits && <MatchupList hits={mhits} />}
-      {hits && <HitList hits={hits} />}
     </div>
   );
 }

@@ -1,6 +1,11 @@
 // Uygulama sürüm geçmişi (changelog).
 export const CHANGELOG = [
   {
+    v: '4.5', date: 'Haziran 2026', items: [
+      'Sıralama döküm satırlarına dokununca detay açılıyor: ör. “Doğru eşleşme” → hangi eşleşmeleri bildiğin; tam skor/sonuç → bildiğin maçlar; final → senin tahminin vs gerçek.',
+    ],
+  },
+  {
     v: '4.4', date: 'Haziran 2026', items: [
       'Puanlama: üst tura çıkacağını doğru tahmin ettiğin her takım +10 — takımın 1., 2. ya da 3. olarak çıkması fark etmez.',
     ],
