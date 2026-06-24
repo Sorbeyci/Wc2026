@@ -1,10 +1,12 @@
 // Derives a rich set of achievement badges from a scored result + extra context.
 // Each badge: { id, icon, title, desc, earned, progress? }
-export function achievements(result, { rank = 0, bestDay = 0, quizWins = 0, activeDays = 0, online = false } = {}) {
+export function achievements(result, { rank = 0, bestDay = 0, quizWins = 0, activeDays = 0, online = false, latched = [] } = {}) {
   const s = result?.stats || {};
   const fh = s.finalsHit || {};
   const n = (k) => s[k] || 0;
-  const A = (id, icon, title, desc, earned, progress) => ({ id, icon, title, desc, earned: !!earned, progress });
+  const lock = latched instanceof Set ? latched : new Set(latched || []);
+  // earned: ya şu an koşul sağlanıyor ya da daha önce kazanılıp kilitlenmiş.
+  const A = (id, icon, title, desc, earned, progress) => ({ id, icon, title, desc, earned: !!earned || lock.has(id), progress });
 
   const list = [
     // --- Tahmin: grup maçları ---

@@ -47,6 +47,12 @@ service cloud.firestore {
       allow write: if signedIn() && request.auth.uid == uid;
     }
 
+    // Earned achievement badges (latched): everyone signed in can read; you only write your own doc.
+    match /badges/{uid} {
+      allow read: if signedIn();
+      allow write: if signedIn() && request.auth.uid == uid;
+    }
+
     // Admin action log: only admins can read; admins append (no edits/deletes).
     match /logs/{id} {
       allow read: if isAdmin();

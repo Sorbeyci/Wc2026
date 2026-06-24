@@ -1,6 +1,16 @@
 // Uygulama sürüm geçmişi (changelog).
 export const CHANGELOG = [
   {
+    v: '4.3', date: 'Haziran 2026', items: [
+      'Kazanılan rozetler artık kalıcı: koşul sonradan bozulsa bile (ör. 1.’likten düşmek) rozet geri alınmaz.',
+    ],
+  },
+  {
+    v: '4.2', date: 'Haziran 2026', items: [
+      'Gol krallığı listesinde, bir golcüyü “gol kralı” seçen katılımcıların adı parantez içinde altına yazılır.',
+    ],
+  },
+  {
     v: '4.1', date: 'Haziran 2026', items: [
       'Sıralama grafiğinde geçişler yumuşatıldı; “İsimler” ile çizgi uçlarında isim göster/gizle.',
       'Başarım rozetleri çoğaltıldı: günlük quiz ve site aktifliği (kaç gün uğradın) rozetleri eklendi.',

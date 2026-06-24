@@ -518,7 +518,7 @@ function H2HDetail({ ra, rb, actual, unofficial }) {
 }
 
 function CompactList({ rows, onOpenList, isOnline, metric }) {
-  const { quizWinsByUid = {}, activeDaysByUid = {} } = useStore();
+  const { quizWinsByUid = {}, activeDaysByUid = {}, earnedBadgesByUid = {} } = useStore();
   const flipRef = useFlip();
   const isTotal = !metric || metric === 'total';
   return (
@@ -528,6 +528,7 @@ function CompactList({ rows, onOpenList, isOnline, metric }) {
         const top = topAchievement(r, {
           rank: i + 1, quizWins: quizWinsByUid[r.list.ownerUid] || 0,
           activeDays: activeDaysByUid[r.list.ownerUid] || 0, online: isOnline?.(r.list),
+          latched: earnedBadgesByUid[r.list.ownerUid] || [],
         });
         return (
           <button key={r.list.id} data-flip-id={r.list.id} onClick={() => onOpenList(r.list.id)}
@@ -589,13 +590,14 @@ function Leaderboard({ rows, onOpenList, isOnline, actual, proj, metric }) {
 }
 
 function LbRow({ r, i, onOpenList, online, actual, proj, metric }) {
-  const { quizWinsByUid = {}, activeDaysByUid = {} } = useStore();
+  const { quizWinsByUid = {}, activeDaysByUid = {}, earnedBadgesByUid = {} } = useStore();
   const [cat, setCat] = useState(null);
   const isTotal = !metric || metric === 'total';
   const leader = i === 0 && r.total > 0 && isTotal;
   const topBadge = topAchievement(r, {
     rank: i + 1, quizWins: quizWinsByUid[r.list.ownerUid] || 0,
     activeDays: activeDaysByUid[r.list.ownerUid] || 0, online,
+    latched: earnedBadgesByUid[r.list.ownerUid] || [],
   });
   const cats = [
     { id: 'gm', label: 'Maçlar', value: r.breakdown.groupMatches },

@@ -5,7 +5,9 @@ import {
 } from 'firebase/firestore';
 import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
 import { auth, db, googleProvider, isAdminEmail } from './firebase.js';
-import { setScoring } from './scoring.js';
+import { setScoring, scoreUser, SCORING } from './scoring.js';
+import { GROUP_MATCHES } from '../data/tournament.js';
+import { achievements } from './achievements.js';
 
 const StoreCtx = createContext(null);
 
@@ -40,6 +42,7 @@ export function StoreProvider({ children }) {
   const [deleteRequests, setDeleteRequests] = useState([]);
   const [quizLeaders, setQuizLeaders] = useState([]);
   const [activity, setActivity] = useState([]);
+  const [badges, setBadges] = useState([]);
   const [, setTick] = useState(0);
   useEffect(() => { const iv = setInterval(() => setTick((t) => t + 1), 30000); return () => clearInterval(iv); }, []);
   const [adminMode, setAdminModeState] = useState(() => {
@@ -91,6 +94,9 @@ export function StoreProvider({ children }) {
     const unsubAct = onSnapshot(collection(db, 'activity'),
       (snap) => setActivity(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), () => {});
     subs.push(unsubAct);
+    const unsubBadges = onSnapshot(collection(db, 'badges'),
+      (snap) => setBadges(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), () => {});
+    subs.push(unsubBadges);
     return () => subs.forEach((fn) => fn());
   }, [user]);
 
@@ -203,6 +209,45 @@ export function StoreProvider({ children }) {
     })();
     return () => { done = true; };
   }, [user]);
+
+  // Kazanılan başarımları kalıcı kıl (latch): kendi rozet kümeni badges/<uid>'e biriktir.
+  // Böylece bir rozet kazanıldıktan sonra koşul bozulsa (ör. 1.'likten düşmek) bile kalır.
+  const lastLatchRef = useRef('');
+  useEffect(() => {
+    if (!user || !lists.length) return;
+    const myList = lists.find((l) => l.ownerUid === user.uid);
+    if (!myList) return;
+    const numv = (v) => (v === '' || v == null || isNaN(+v) ? null : +v);
+    const outc = (h, a) => (h > a ? 1 : h < a ? -1 : 0);
+    const totals = lists.map((l) => ({ id: l.id, total: scoreUser(getPrediction(l.id), actual, { projection: false }).total }))
+      .sort((a, b) => b.total - a.total);
+    const rank = totals.findIndex((t) => t.id === myList.id) + 1;
+    const result = scoreUser(getPrediction(myList.id), actual, { projection: false });
+    const gp = getPrediction(myList.id).groupMatches || {};
+    const byDate = {};
+    for (const m of GROUP_MATCHES) {
+      const p = gp[m.no], a = actual?.groupMatches?.[m.no];
+      const ph = numv(p?.home), pp = numv(p?.away), ah = numv(a?.home), aa = numv(a?.away);
+      if (ph == null || pp == null || ah == null || aa == null) continue;
+      const pts = (ph === ah && pp === aa) ? SCORING.match.exact : (outc(ph, pp) === outc(ah, aa) ? SCORING.match.result : 0);
+      byDate[m.date] = (byDate[m.date] || 0) + pts;
+    }
+    const bestDay = Object.values(byDate).length ? Math.max(...Object.values(byDate)) : 0;
+    const qw = (quizLeaders.find((q) => q.uid === user.uid)?.wins) || 0;
+    const ad = (activity.find((x) => x.uid === user.uid)?.days) || 0;
+    const earnedNow = achievements(result, { rank, bestDay, quizWins: qw, activeDays: ad, online: false })
+      .filter((a) => a.earned && a.id !== 'onlinenow').map((a) => a.id);
+    const stored = badges.find((b) => b.uid === user.uid)?.ids || [];
+    const union = Array.from(new Set([...stored, ...earnedNow])).sort();
+    const key = union.join(',');
+    if (key === lastLatchRef.current) return;
+    lastLatchRef.current = key;
+    if (union.length > stored.length) {
+      setDoc(doc(db, 'badges', user.uid), {
+        uid: user.uid, name: user.displayName || '', ids: union, updatedAt: serverTimestamp(),
+      }, { merge: true }).catch(() => {});
+    }
+  }, [user, lists, actual, quizLeaders, activity, badges]);
 
   const ONLINE_MS = 70000;
   const lastSeenMs = (p) => (p?.lastSeen?.toMillis ? p.lastSeen.toMillis() : (p?.lastSeen?.seconds ? p.lastSeen.seconds * 1000 : 0));
@@ -361,6 +406,7 @@ export function StoreProvider({ children }) {
     quizLeaders,
     quizWinsByUid: Object.fromEntries((quizLeaders || []).map((q) => [q.uid, q.wins || 0])),
     activeDaysByUid: Object.fromEntries((activity || []).map((a) => [a.uid, a.days || 0])),
+    earnedBadgesByUid: Object.fromEntries((badges || []).map((b) => [b.uid, b.ids || []])),
     // Bir günlük quiz kazanımını kaydeder. Günde en fazla 1 kez sayılır (lastDate guard).
     async recordQuizWin() {
       if (!user) return { counted: false };
@@ -464,7 +510,7 @@ export function StoreProvider({ children }) {
         return a;
       });
     },
-  }), [user, isAdmin, adminEligible, adminMode, authLoading, lists, actual, settings, locked, lastError, drafts, actualDraft, logs, presence, deleteRequests, quizLeaders, activity, theme]);
+  }), [user, isAdmin, adminEligible, adminMode, authLoading, lists, actual, settings, locked, lastError, drafts, actualDraft, logs, presence, deleteRequests, quizLeaders, activity, badges, theme]);
 
   return <StoreCtx.Provider value={api}>{children}</StoreCtx.Provider>;
 }

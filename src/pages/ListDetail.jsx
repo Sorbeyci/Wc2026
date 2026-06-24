@@ -29,7 +29,7 @@ const SUB = [
 ];
 
 export default function ListDetail({ listId, onBack, onEdit, crumbs }) {
-  const { lists, getPrediction, actual, canEditList, isMyList, quizWinsByUid = {}, activeDaysByUid = {}, isOnline } = useStore();
+  const { lists, getPrediction, actual, canEditList, isMyList, quizWinsByUid = {}, activeDaysByUid = {}, earnedBadgesByUid = {}, isOnline } = useStore();
   const [sub, setSub] = useState('standings');
   const list = lists.find((l) => l.id === listId);
   if (!list) {
@@ -67,7 +67,8 @@ export default function ListDetail({ listId, onBack, onEdit, crumbs }) {
     quizWins: quizWinsByUid[list?.ownerUid] || 0,
     activeDays: activeDaysByUid[list?.ownerUid] || 0,
     online: isOnline?.(list),
-  }), [rank, bestDay, quizWinsByUid, activeDaysByUid, isOnline, list]);
+    latched: earnedBadgesByUid[list?.ownerUid] || [],
+  }), [rank, bestDay, quizWinsByUid, activeDaysByUid, earnedBadgesByUid, isOnline, list]);
   const achs = useMemo(() => achievements(result, achCtx), [result, achCtx]);
   const topBadge = useMemo(() => topAchievement(result, achCtx), [result, achCtx]);
   const earnedCount = achs.filter((a) => a.earned).length;
