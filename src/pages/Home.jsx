@@ -67,6 +67,24 @@ export default function Home({ setPage, goAdminImport }) {
   }, []);
   const scorers = apiScorers;
 
+  // Gol krallığı: her golcüyü kimler "gol kralı" olarak tahmin etti (parantez içinde gösterilir).
+  const scorerPickers = useMemo(() => {
+    const norm = (x) => (x || '').toLocaleLowerCase('tr').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9 ]/g, '').trim();
+    const lastTok = (x) => { const t = norm(x).split(' ').filter(Boolean); return t[t.length - 1] || ''; };
+    return scorers.map((s) => {
+      const sn = norm(s.name), sl = lastTok(s.name);
+      const who = [];
+      for (const l of lists) {
+        const tp = getPrediction(l.id)?.topScorer;
+        if (!tp) continue;
+        const tn = norm(tp);
+        if (tn && (tn === sn || (sl && lastTok(tp) === sl))) who.push({ name: l.name, mine: l.ownerUid === user?.uid });
+      }
+      who.sort((a, b) => (a.mine === b.mine ? 0 : a.mine ? -1 : 1));
+      return who;
+    });
+  }, [scorers, lists, getPrediction, user]);
+
   // --- Günlük quiz / reklam durumu ---
   const quizBase = `wc_dq_${user?.uid || 'anon'}`;
   const today = localDay();
@@ -195,6 +213,13 @@ export default function Home({ setPage, goAdminImport }) {
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-ink truncate">{s.name}</p>
                   {s.team && <p className="text-[11px] text-ink/45 truncate">{s.team}</p>}
+                  {scorerPickers[i]?.length > 0 && (
+                    <p className="text-[11px] text-pitch-dark truncate">
+                      ({scorerPickers[i].map((w, wi) => (
+                        <span key={wi}>{wi > 0 && ', '}<span className={w.mine ? 'font-bold' : ''}>{w.name}</span></span>
+                      ))})
+                    </p>
+                  )}
                 </div>
                 {s.goals > 0 && (
                   <div className="text-right leading-none">
