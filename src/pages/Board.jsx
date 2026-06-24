@@ -1,6 +1,6 @@
 import { useMemo, useState, useRef, useLayoutEffect, useEffect } from 'react';
 import { useStore } from '../lib/store.jsx';
-import { scoreUser, SCORING, allGroupsComplete, groupOrder, hasOrder } from '../lib/scoring.js';
+import { scoreUser, SCORING, allGroupsComplete, groupOrder, hasOrder, advancingTeams } from '../lib/scoring.js';
 import { GROUP_MATCHES, GROUP_NAMES } from '../data/tournament.js';
 import { bestThirds } from '../data/bracket.js';
 import { shortName } from '../data/flags.js';
@@ -671,14 +671,14 @@ function MatchupList({ hits }) {
 }
 
 function GroupBreakdown({ pred, actual, proj }) {
+  const adv = advancingTeams(actual, proj);
   const groups = [];
   for (const g of GROUP_NAMES) {
     const started = GROUP_MATCHES.some((m) => m.group === g && hasS(actual.groupMatches?.[m.no]));
     const ok = proj ? started : (hasOrder(actual, g) && hasOrder(pred, g));
     if (!ok) continue;
     const P = groupOrder(pred, g), A = groupOrder(actual, g);
-    const top2 = new Set(A.slice(0, 2));
-    groups.push({ g, teams: P.map((t, idx) => ({ team: t, q: idx < 2 && top2.has(t), pos: A[idx] === t })) });
+    groups.push({ g, teams: P.map((t, idx) => ({ team: t, q: idx < 2 && adv.has(t), pos: A[idx] === t })) });
   }
   if (!groups.length) return <p className="mt-2 text-xs text-ink/45">Henüz puanlanan grup yok.</p>;
   return (
@@ -702,7 +702,7 @@ function GroupBreakdown({ pred, actual, proj }) {
 
 function ThirdsBreakdown({ pred, actual, proj }) {
   if (!proj && !allGroupsComplete(actual)) return <p className="mt-2 text-xs text-ink/45">Tüm gruplar bitince hesaplanır.</p>;
-  const aSet = new Set(bestThirds(actual).teams.filter(Boolean));
+  const aSet = advancingTeams(actual, proj);
   const p = bestThirds(pred).top8 || [];
   return (
     <div className="mt-2 rounded-lg bg-white border border-black/5 p-2 space-y-0.5">

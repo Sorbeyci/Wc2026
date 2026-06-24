@@ -138,9 +138,30 @@ export function scoreGroupMatches(pred, actual) {
   return { pts };
 }
 
+// Üst tura çıkan takımlar: her grubun ilk 2'si + en iyi 8 üçüncü.
+// Bir takım hangi yolla çıkarsa çıksın (1./2./3.) "üst tura çıkan" sayılır.
+export function advancingTeams(source, projection = false) {
+  const set = new Set();
+  for (const g of Object.keys(GROUPS)) {
+    const ex = source?.groupTables?.[g];
+    const explicit = Array.isArray(ex) && ex.length === 4 && ex.every(Boolean);
+    const started = GROUP_MATCHES.some((m) => m.group === g && num(source?.groupMatches?.[m.no]?.home) != null);
+    const include = projection ? (started || explicit) : hasOrder(source, g);
+    if (!include) continue;
+    const o = groupOrder(source, g);
+    if (o[0]) set.add(o[0]);
+    if (o[1]) set.add(o[1]);
+  }
+  if (projection || allGroupsComplete(source)) {
+    for (const t of bestThirds(source).teams) if (t) set.add(t);
+  }
+  return set;
+}
+
 // ---- Group table (qualified + exact position) ----------------------------
 export function scoreGroupTables(pred, actual, projection = false) {
   let pts = 0;
+  const adv = advancingTeams(actual, projection); // gerçekte üst tura çıkanlar
   for (const g of Object.keys(GROUPS)) {
     if (projection) {
       const started = GROUP_MATCHES.some((m) => m.group === g && num(actual?.groupMatches?.[m.no]?.home) != null);
@@ -150,10 +171,11 @@ export function scoreGroupTables(pred, actual, projection = false) {
     }
     const predicted = groupOrder(pred, g);
     const real = groupOrder(actual, g);
-    const realTop2 = real.slice(0, 2);
     predicted.forEach((team, idx) => {
       if (!team) return;
-      if (idx < 2 && realTop2.includes(team)) pts += SCORING.groupTable.qualified;
+      // İlk 2'ye yazdığın takım gerçekte üst tura çıktıysa (1./2./3. fark etmez) +10.
+      if (idx < 2 && adv.has(team)) pts += SCORING.groupTable.qualified;
+      // Tam sıra bonusu (değişmedi).
       if (real[idx] === team) pts += SCORING.groupTable.position;
     });
   }
@@ -167,10 +189,11 @@ export const scoreMatchPair = scoreMatch;
 // only counts once the actual group stage is complete.
 export function scoreThirds(predSource, actualSource, projection = false) {
   if (!projection && (!allGroupsComplete(actualSource) || !allGroupsComplete(predSource))) return { pts: 0, correct: 0 };
-  const a = new Set(bestThirds(actualSource).teams.filter(Boolean));
+  // En iyi-3. olarak tahmin ettiğin takım gerçekte üst tura çıktıysa (ister 1./2. ister 3.) +10.
+  const adv = advancingTeams(actualSource, projection);
   const p = bestThirds(predSource).teams.filter(Boolean);
   let correct = 0;
-  for (const t of p) if (a.has(t)) correct++;
+  for (const t of p) if (adv.has(t)) correct++;
   return { pts: correct * SCORING.thirdPlace.advance, correct };
 }
 
@@ -274,13 +297,13 @@ export function scoreUser(prediction, actual, opts = {}) {
   }
   // group table stats
   let correctQualified = 0, correctPositions = 0, groupsFinal = 0;
+  const advForStats = advancingTeams(actual, proj);
   for (const g of Object.keys(GROUPS)) {
     if (!hasOrder(actual, g) || !hasOrder(prediction, g)) continue;
     groupsFinal++;
     const predicted = groupOrder(prediction, g);
     const real = groupOrder(actual, g);
-    const realTop2 = real.slice(0, 2);
-    predicted.slice(0, 2).forEach((t) => { if (t && realTop2.includes(t)) correctQualified++; });
+    predicted.slice(0, 2).forEach((t) => { if (t && advForStats.has(t)) correctQualified++; });
     predicted.forEach((t, idx) => { if (t && real[idx] === t) correctPositions++; });
   }
   const finalsHits = Object.values(fn.hit).filter(Boolean).length;

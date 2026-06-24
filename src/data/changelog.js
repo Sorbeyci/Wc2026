@@ -1,6 +1,11 @@
 // Uygulama sürüm geçmişi (changelog).
 export const CHANGELOG = [
   {
+    v: '4.4', date: 'Haziran 2026', items: [
+      'Puanlama: üst tura çıkacağını doğru tahmin ettiğin her takım +10 — takımın 1., 2. ya da 3. olarak çıkması fark etmez.',
+    ],
+  },
+  {
     v: '4.3', date: 'Haziran 2026', items: [
       'Kazanılan rozetler artık kalıcı: koşul sonradan bozulsa bile (ör. 1.’likten düşmek) rozet geri alınmaz.',
     ],
