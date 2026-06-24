@@ -214,7 +214,7 @@ export default function Home({ setPage, goAdminImport }) {
                   <p className="font-semibold text-ink truncate">{s.name}</p>
                   {s.team && <p className="text-[11px] text-ink/45 truncate">{s.team}</p>}
                   {scorerPickers[i]?.length > 0 && (
-                    <p className="text-[11px] text-pitch-dark truncate">
+                    <p className="text-[11px] text-pitch-dark leading-snug break-words">
                       ({scorerPickers[i].map((w, wi) => (
                         <span key={wi}>{wi > 0 && ', '}<span className={w.mine ? 'font-bold' : ''}>{w.name}</span></span>
                       ))})
