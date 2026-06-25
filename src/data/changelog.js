@@ -1,6 +1,12 @@
 // Uygulama sürüm geçmişi (changelog).
 export const CHANGELOG = [
   {
+    v: '4.6', date: 'Haziran 2026', items: [
+      'Yeni “Sonuçlar” sekmesi: girilen skorlara göre güncel grup puan durumunu grup grup gösterir.',
+      'Eleme “Doğru eşleşme” detayı projeksiyonda da doğru açılıyor (Son 32 eşleşmeleri artık listede görünüyor).',
+    ],
+  },
+  {
     v: '4.5', date: 'Haziran 2026', items: [
       'Sıralama döküm satırlarına dokununca detay açılıyor: ör. “Doğru eşleşme” → hangi eşleşmeleri bildiğin; tam skor/sonuç → bildiğin maçlar; final → senin tahminin vs gerçek.',
     ],

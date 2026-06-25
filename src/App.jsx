@@ -7,6 +7,7 @@ import Home from './pages/Home.jsx';
 import Lists from './pages/Lists.jsx';
 import Predict from './pages/Predict.jsx';
 import Board from './pages/Board.jsx';
+import Results from './pages/Results.jsx';
 import Admin from './pages/Admin.jsx';
 import Changelog from './pages/Changelog.jsx';
 import { Skeleton } from './components/ui.jsx';
@@ -43,6 +44,7 @@ export default function App() {
         {safePage === 'predict' && (
           <Predict initialListId={editListId} goLists={() => go('lists')} goHome={() => go('home')} />
         )}
+        {safePage === 'results' && <Results goHome={() => go('home')} />}
         {safePage === 'board' && <Board onOpenList={openList} goHome={() => go('home')} />}
         {safePage === 'changelog' && <Changelog goHome={() => go('home')} />}
         {safePage === 'admin' && isAdmin && <Admin initialSub={adminSub} />}

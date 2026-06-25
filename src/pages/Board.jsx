@@ -754,7 +754,7 @@ function CategoryDetail({ cat, r, actual, proj }) {
 
   const gHits = groupHits(r.pred, actual);
   const kHits = koHits(r.pred, actual, r.bracket?.actual);
-  const mhits = matchupHitsOf(r.bracket?.pred, r.bracket?.actual, allGroupsComplete(actual));
+  const mhits = matchupHitsOf(r.bracket?.pred, r.bracket?.actual, proj || allGroupsComplete(actual));
   const roundHits = (lo, hi) => mhits.filter((h) => h.no >= lo && h.no <= hi);
   const bp = r.bracket?.pred || {}, ba = r.bracket?.actual || {};
 
