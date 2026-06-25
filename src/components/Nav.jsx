@@ -1,6 +1,6 @@
 const BASE_TABS = [
   { id: 'home', label: 'Ana Sayfa', icon: '⌂' },
-  { id: 'results', label: 'Sonuçlar', icon: '▦' },
+  { id: 'results', label: 'Puan Durumu', icon: '▦' },
   { id: 'lists', label: 'Listeler', icon: '☰' },
   { id: 'predict', label: 'Tahmin', icon: '✎' },
   { id: 'board', label: 'Sıralama', icon: '★' },

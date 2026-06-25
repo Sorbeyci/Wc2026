@@ -1,6 +1,12 @@
 // Uygulama sürüm geçmişi (changelog).
 export const CHANGELOG = [
   {
+    v: '4.9', date: 'Haziran 2026', items: [
+      'Gerçek Puan Durumu sayfasına grup kısayolları (A B C …) eklendi; basınca o gruba kaydırır.',
+      'Alt menüdeki “Sonuçlar” sekmesi “Puan Durumu” olarak adlandırıldı.',
+    ],
+  },
+  {
     v: '4.8', date: 'Haziran 2026', items: [
       'Tahminler kilitliyken alt menüde Listeler/Tahmin gizlenir; ana sayfadaki “Tahmin yap” butonu bulanıklaşır.',
       'Gerçek Sonuçlar sayfasında üstte “En iyi 3.’ler tablosuna git” kısayolu.',

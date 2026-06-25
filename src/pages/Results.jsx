@@ -75,26 +75,45 @@ function ThirdsTable({ actual }) {
 export default function Results({ goHome }) {
   const { actual } = useStore();
   const thirdsRef = useRef(null);
+  const groupRefs = useRef({});
   const goThirds = () => thirdsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const goGroup = (g) => groupRefs.current[g]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   return (
     <div className="space-y-4">
       <BrandHeader onClick={goHome} />
-      <SectionTitle title="Gerçek Sonuçlar" />
+      <SectionTitle title="Gerçek Puan Durumu" />
       <p className="text-xs text-ink/55 px-1 leading-relaxed">
         Girilen skorlara göre güncel grup puan durumu. Her grupta ilk 2 takım üst tura çıkar;
         12 grubun 3.’sünden en iyi 8’i de eleme turuna kalır.
       </p>
-      <button onClick={goThirds}
-        className="w-full btn bg-ink text-white hover:opacity-90 text-sm flex items-center justify-center gap-1.5">
-        🥉 En iyi 3.’ler tablosuna git ↓
-      </button>
+
+      {/* Hızlı geçiş: gruplar (A B C …) + 3.'ler */}
+      <div className="flex flex-wrap gap-1.5">
+        {GROUP_NAMES.map((g) => (
+          <button key={g} onClick={() => goGroup(g)}
+            className="h-8 w-8 grid place-items-center rounded-lg bg-black/5 text-ink/70 text-sm font-display font-bold active:scale-95 hover:bg-black/10">
+            {g}
+          </button>
+        ))}
+        <button onClick={goThirds}
+          className="h-8 px-3 grid place-items-center rounded-lg bg-ink text-white text-xs font-semibold active:scale-95">
+          🥉 3.’ler
+        </button>
+      </div>
+
       <p className="text-[11px] text-ink/45 px-1 leading-relaxed">
         Sağdaki rozetler son maçları gösterir: <span className="font-semibold text-pitch">G</span> galibiyet ·
         <span className="font-semibold text-gold-dark"> B</span> beraberlik ·
         <span className="font-semibold text-red-500"> M</span> mağlubiyet. · Av Averaj · AG Atılan gol
       </p>
-      {GROUP_NAMES.map((g) => <ResultGroup key={g} g={g} actual={actual} />)}
-      <div ref={thirdsRef} className="scroll-mt-4">
+
+      {GROUP_NAMES.map((g) => (
+        <div key={g} ref={(el) => { groupRefs.current[g] = el; }} className="scroll-mt-3">
+          <ResultGroup g={g} actual={actual} />
+        </div>
+      ))}
+
+      <div ref={thirdsRef} className="scroll-mt-3">
         <SectionTitle title="En iyi 3.’ler tablosu" />
       </div>
       <ThirdsTable actual={actual} />
