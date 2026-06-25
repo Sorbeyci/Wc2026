@@ -1,6 +1,14 @@
 // Uygulama sürüm geçmişi (changelog).
 export const CHANGELOG = [
   {
+    v: '5.0', date: 'Haziran 2026', items: [
+      'Gerçek Puan Durumu’na görsel eleme ağacı eklendi: takımlar gruplar bittikçe netleşir, boş kutular grup kökenini (1A, 2B, 3.) gösterir.',
+      '“Kendi puan durumunla karşılaştır” aç/kapa: gruplarda senin tahmin sıranı işaretler (✓ tam, sarı = senin sıran).',
+      'Aşağı kayınca “↑ yukarı” butonu çıkar; sayfa başına döndürür.',
+      '“En iyi 3.’ler Puan tablosuna git” ve “Eleme ağacını gör” kısayolları.',
+    ],
+  },
+  {
     v: '4.9', date: 'Haziran 2026', items: [
       'Gerçek Puan Durumu sayfasına grup kısayolları (A B C …) eklendi; basınca o gruba kaydırır.',
       'Alt menüdeki “Sonuçlar” sekmesi “Puan Durumu” olarak adlandırıldı.',

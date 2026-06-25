@@ -1,12 +1,13 @@
-import { useRef } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { useStore } from '../lib/store.jsx';
 import { SectionTitle, BrandHeader, Flag, FormBadges } from '../components/ui.jsx';
-import { computeStandings, teamForm } from '../lib/scoring.js';
+import { computeStandings, teamForm, groupOrder } from '../lib/scoring.js';
 import { rankedThirds } from '../data/bracket.js';
 import { shortName } from '../data/flags.js';
 import { GROUP_NAMES } from '../data/tournament.js';
+import ResultBracket from '../components/ResultBracket.jsx';
 
-function ResultGroup({ g, actual }) {
+function ResultGroup({ g, actual, compareOrder }) {
   const scores = actual.groupMatches || {};
   const rows = computeStandings(g, scores);
   const byTeam = Object.fromEntries(rows.map((r) => [r.team, r]));
@@ -23,11 +24,25 @@ function ResultGroup({ g, actual }) {
       <div className="divide-y divide-black/5 px-2">
         {order.map((t, i) => {
           const r = byTeam[t] || { Pts: 0, GD: 0, GF: 0 };
+          let cmp = null;
+          if (compareOrder) {
+            const pIdx = compareOrder.indexOf(t);
+            if (pIdx >= 0) {
+              const exact = pIdx === i;
+              cmp = (
+                <span className={`shrink-0 text-[10px] font-bold rounded px-1.5 py-0.5 ${exact ? 'bg-pitch/15 text-pitch-dark' : 'bg-gold/20 text-gold-dark'}`}
+                  title={exact ? 'Sıra tam tuttu' : `Senin tahminin: ${pIdx + 1}.`}>
+                  {exact ? `✓ ${pIdx + 1}.` : `sen ${pIdx + 1}.`}
+                </span>
+              );
+            }
+          }
           return (
             <div key={t} className={`flex items-center gap-2 py-2 px-1 ${i < 2 ? 'bg-pitch/[0.05]' : ''}`}>
               <span className={`font-display text-sm w-5 text-center ${i < 2 ? 'text-pitch' : 'text-ink/40'}`}>{i + 1}</span>
               <Flag team={t} size={18} className="shrink-0" />
               <span className="flex-1 min-w-0 truncate text-sm font-semibold">{shortName(t)}</span>
+              {cmp}
               <FormBadges form={teamForm(t, scores)} />
               <span className="text-[11px] text-ink/45 tabular-nums whitespace-nowrap">{r.Pts}p · Av {r.GD >= 0 ? '+' : ''}{r.GD} · AG {r.GF}</span>
             </div>
@@ -73,13 +88,33 @@ function ThirdsTable({ actual }) {
 }
 
 export default function Results({ goHome }) {
-  const { actual } = useStore();
+  const { actual, lists, getPrediction, user } = useStore();
   const thirdsRef = useRef(null);
+  const bracketRef = useRef(null);
+  const topRef = useRef(null);
   const groupRefs = useRef({});
+  const [compare, setCompare] = useState(false);
+  const [bracketOpen, setBracketOpen] = useState(false);
+  const [showTop, setShowTop] = useState(false);
+
+  const myList = lists.find((l) => l.ownerUid === user?.uid);
+  const myPred = myList ? getPrediction(myList.id) : null;
+
   const goThirds = () => thirdsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   const goGroup = (g) => groupRefs.current[g]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const goBracket = () => { setBracketOpen(true); requestAnimationFrame(() => bracketRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })); };
+  const goTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  // Aşağı kayınca "yukarı" oku göster.
+  useEffect(() => {
+    const onScroll = () => setShowTop(window.scrollY > 480);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" ref={topRef}>
       <BrandHeader onClick={goHome} />
       <SectionTitle title="Gerçek Puan Durumu" />
       <p className="text-xs text-ink/55 px-1 leading-relaxed">
@@ -87,7 +122,7 @@ export default function Results({ goHome }) {
         12 grubun 3.’sünden en iyi 8’i de eleme turuna kalır.
       </p>
 
-      {/* Hızlı geçiş: gruplar (A B C …) + 3.'ler */}
+      {/* Hızlı geçiş: gruplar (A B C …) */}
       <div className="flex flex-wrap gap-1.5">
         {GROUP_NAMES.map((g) => (
           <button key={g} onClick={() => goGroup(g)}
@@ -95,11 +130,33 @@ export default function Results({ goHome }) {
             {g}
           </button>
         ))}
+      </div>
+
+      {/* Kısayol butonları */}
+      <div className="grid grid-cols-1 gap-2">
         <button onClick={goThirds}
-          className="h-8 px-3 grid place-items-center rounded-lg bg-ink text-white text-xs font-semibold active:scale-95">
-          🥉 3.’ler
+          className="w-full btn bg-ink text-white hover:opacity-90 text-sm flex items-center justify-center gap-1.5">
+          🥉 En iyi 3.’ler Puan tablosuna git ↓
+        </button>
+        <button onClick={goBracket}
+          className="w-full btn bg-black/5 text-ink hover:bg-black/10 text-sm flex items-center justify-center gap-1.5">
+          🏆 Eleme ağacını gör ↓
         </button>
       </div>
+
+      {/* Kendi tahminimle karşılaştır (aç/kapa) */}
+      {myPred && (
+        <button onClick={() => setCompare((v) => !v)}
+          className={`w-full rounded-xl border px-3 py-2.5 text-sm font-semibold flex items-center justify-between transition ${compare ? 'border-pitch bg-pitch/10 text-pitch-dark' : 'border-black/10 text-ink/70 hover:bg-black/[0.03]'}`}>
+          <span>🔍 Kendi puan durumunla karşılaştır</span>
+          <span className="text-xs">{compare ? 'açık ✓' : 'kapalı'}</span>
+        </button>
+      )}
+      {compare && (
+        <p className="text-[11px] text-ink/45 px-1 -mt-1">
+          Yeşil <span className="font-semibold text-pitch-dark">✓ N.</span> = sırayı tam bildin · sarı <span className="font-semibold text-gold-dark">sen N.</span> = senin o takıma verdiğin sıra.
+        </p>
+      )}
 
       <p className="text-[11px] text-ink/45 px-1 leading-relaxed">
         Sağdaki rozetler son maçları gösterir: <span className="font-semibold text-pitch">G</span> galibiyet ·
@@ -109,7 +166,7 @@ export default function Results({ goHome }) {
 
       {GROUP_NAMES.map((g) => (
         <div key={g} ref={(el) => { groupRefs.current[g] = el; }} className="scroll-mt-3">
-          <ResultGroup g={g} actual={actual} />
+          <ResultGroup g={g} actual={actual} compareOrder={compare && myPred ? groupOrder(myPred, g) : null} />
         </div>
       ))}
 
@@ -117,6 +174,27 @@ export default function Results({ goHome }) {
         <SectionTitle title="En iyi 3.’ler tablosu" />
       </div>
       <ThirdsTable actual={actual} />
+
+      <div ref={bracketRef} className="scroll-mt-3">
+        <SectionTitle title="Eleme ağacı (gerçek)" right={
+          <button onClick={() => setBracketOpen((v) => !v)} className="text-xs font-semibold text-pitch">
+            {bracketOpen ? 'gizle' : 'göster'}
+          </button>
+        } />
+      </div>
+      {bracketOpen
+        ? <ResultBracket source={actual} />
+        : <button onClick={() => setBracketOpen(true)} className="w-full card p-4 text-sm text-ink/55 hover:bg-black/[0.02]">
+            Eleme ağacını görmek için dokun. Takımlar gruplar bittikçe netleşir; boş kutular grup kökenini (1A, 2B, 3.) gösterir.
+          </button>}
+
+      {/* Yukarı çık FAB */}
+      {showTop && (
+        <button onClick={goTop} aria-label="Yukarı çık"
+          className="fixed right-4 bottom-24 z-30 h-11 w-11 grid place-items-center rounded-full bg-ink text-white shadow-lg active:scale-95 fade-in">
+          ↑
+        </button>
+      )}
     </div>
   );
 }
