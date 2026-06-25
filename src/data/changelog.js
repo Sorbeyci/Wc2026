@@ -1,6 +1,13 @@
 // Uygulama sürüm geçmişi (changelog).
 export const CHANGELOG = [
   {
+    v: '4.8', date: 'Haziran 2026', items: [
+      'Tahminler kilitliyken alt menüde Listeler/Tahmin gizlenir; ana sayfadaki “Tahmin yap” butonu bulanıklaşır.',
+      'Gerçek Sonuçlar sayfasında üstte “En iyi 3.’ler tablosuna git” kısayolu.',
+      'Sıralama sayfasındaki ara sıra olan anlık yukarı kayma düzeltildi.',
+    ],
+  },
+  {
     v: '4.7', date: 'Haziran 2026', items: [
       'Gerçek Sonuçlar sayfası düzeltildi: puanlar artık doğru görünüyor + G/M/B form rozetleri eklendi.',
       'Gerçek Sonuçlar’a “En iyi 3.’ler” tablosu eklendi (ilk 8 üst tura çıkar).',

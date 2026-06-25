@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { useStore } from '../lib/store.jsx';
 import { SectionTitle, BrandHeader, Flag, FormBadges } from '../components/ui.jsx';
 import { computeStandings, teamForm } from '../lib/scoring.js';
@@ -73,6 +74,8 @@ function ThirdsTable({ actual }) {
 
 export default function Results({ goHome }) {
   const { actual } = useStore();
+  const thirdsRef = useRef(null);
+  const goThirds = () => thirdsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   return (
     <div className="space-y-4">
       <BrandHeader onClick={goHome} />
@@ -81,13 +84,19 @@ export default function Results({ goHome }) {
         Girilen skorlara göre güncel grup puan durumu. Her grupta ilk 2 takım üst tura çıkar;
         12 grubun 3.’sünden en iyi 8’i de eleme turuna kalır.
       </p>
+      <button onClick={goThirds}
+        className="w-full btn bg-ink text-white hover:opacity-90 text-sm flex items-center justify-center gap-1.5">
+        🥉 En iyi 3.’ler tablosuna git ↓
+      </button>
       <p className="text-[11px] text-ink/45 px-1 leading-relaxed">
         Sağdaki rozetler son maçları gösterir: <span className="font-semibold text-pitch">G</span> galibiyet ·
         <span className="font-semibold text-gold-dark"> B</span> beraberlik ·
         <span className="font-semibold text-red-500"> M</span> mağlubiyet. · Av Averaj · AG Atılan gol
       </p>
       {GROUP_NAMES.map((g) => <ResultGroup key={g} g={g} actual={actual} />)}
-      <SectionTitle title="En iyi 3.’ler tablosu" />
+      <div ref={thirdsRef} className="scroll-mt-4">
+        <SectionTitle title="En iyi 3.’ler tablosu" />
+      </div>
       <ThirdsTable actual={actual} />
     </div>
   );

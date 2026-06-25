@@ -6,10 +6,13 @@ const BASE_TABS = [
   { id: 'board', label: 'Sıralama', icon: '★' },
 ];
 const ADMIN_TAB = { id: 'admin', label: 'Yönetim', icon: '⚙' };
-const COLS = { 5: 'grid-cols-5', 6: 'grid-cols-6' };
+const COLS = { 3: 'grid-cols-3', 4: 'grid-cols-4', 5: 'grid-cols-5', 6: 'grid-cols-6' };
 
-export default function Nav({ page, setPage, isAdmin }) {
-  const tabs = isAdmin ? [...BASE_TABS, ADMIN_TAB] : BASE_TABS;
+export default function Nav({ page, setPage, isAdmin, locked }) {
+  // Tahminler kilitliyken (ve admin değilken) tahmin yapma sekmeleri gizlenir.
+  let tabs = BASE_TABS;
+  if (locked && !isAdmin) tabs = tabs.filter((t) => t.id !== 'lists' && t.id !== 'predict');
+  if (isAdmin) tabs = [...tabs, ADMIN_TAB];
   return (
     <nav className="fixed bottom-0 inset-x-0 z-30 border-t border-black/10 bg-white/95 backdrop-blur pb-[env(safe-area-inset-bottom)]">
       <div className={`mx-auto max-w-lg grid ${COLS[tabs.length] || 'grid-cols-5'}`}>

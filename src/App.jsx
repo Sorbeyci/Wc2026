@@ -13,7 +13,7 @@ import Changelog from './pages/Changelog.jsx';
 import { Skeleton } from './components/ui.jsx';
 
 export default function App() {
-  const { user, authLoading, isAdmin } = useStore();
+  const { user, authLoading, isAdmin, locked } = useStore();
   const [page, setPage] = useState('home');
   const [viewListId, setViewListId] = useState(null); // open in Lists detail
   const [editListId, setEditListId] = useState(null); // preselect in Predict
@@ -49,7 +49,7 @@ export default function App() {
         {safePage === 'changelog' && <Changelog goHome={() => go('home')} />}
         {safePage === 'admin' && isAdmin && <Admin initialSub={adminSub} />}
       </main>
-      <Nav page={safePage} setPage={go} isAdmin={isAdmin} />
+      <Nav page={safePage} setPage={go} isAdmin={isAdmin} locked={locked} />
     </div>
   );
 }

@@ -120,9 +120,13 @@ function useFlip() {
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
+    // Pozisyonları KAPSAYICIYA göre ölç. Böylece listenin üstündeki içerik
+    // (ör. "X kişi çevrimiçi" bloğu) gelip gidince tüm liste topluca kaysa bile
+    // FLIP bunu "sıra değişti" sanmaz; yalnız gerçek yeniden sıralamada animasyon olur.
+    const base = el.getBoundingClientRect().top;
     const nodes = el.querySelectorAll('[data-flip-id]');
     const next = new Map();
-    nodes.forEach((n) => next.set(n.getAttribute('data-flip-id'), n.getBoundingClientRect().top));
+    nodes.forEach((n) => next.set(n.getAttribute('data-flip-id'), n.getBoundingClientRect().top - base));
     nodes.forEach((n) => {
       const id = n.getAttribute('data-flip-id');
       const p = prev.current.get(id), c = next.get(id);

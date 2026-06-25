@@ -31,7 +31,7 @@ function tournamentStatus() {
 }
 
 export default function Home({ setPage, goAdminImport }) {
-  const { lists, actual, getPrediction, user, isAdmin, adminEligible, adminMode, setAdminMode, logout, isMyList, theme, setTheme, onlineCount, ad, quizLeaders, recordQuizWin } = useStore();
+  const { lists, actual, getPrediction, user, isAdmin, adminEligible, adminMode, setAdminMode, logout, isMyList, theme, setTheme, onlineCount, ad, quizLeaders, recordQuizWin, locked } = useStore();
 
   const rows = useMemo(() => {
     return lists
@@ -153,10 +153,15 @@ export default function Home({ setPage, goAdminImport }) {
           </button>
         )}
         <p className="mt-2 text-sm text-white/70">Merhaba {user?.displayName?.split(' ')[0] || 'oyuncu'}{isAdmin ? ' · yönetici' : ''}.</p>
-        <div className="mt-4 flex gap-2">
-          <button className="btn-primary" onClick={() => setPage('predict')}>Tahmin yap</button>
+        <div className="mt-4 flex gap-2 items-center">
+          {locked && !isAdmin ? (
+            <span className="btn-primary blur-[1.5px] opacity-60 pointer-events-none select-none" aria-disabled="true">Tahmin yap</span>
+          ) : (
+            <button className="btn-primary" onClick={() => setPage('predict')}>Tahmin yap</button>
+          )}
           <button className="btn bg-red-600 text-white hover:bg-red-700 shadow-sm" onClick={() => setPage('board')}>Sıralama →</button>
         </div>
+        {locked && !isAdmin && <p className="mt-1.5 text-xs text-white/55">🔒 Tahminler kilitlendi — artık düzenlenemez.</p>}
       </div>
 
       <div className="grid grid-cols-3 gap-3">
