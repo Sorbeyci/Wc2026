@@ -8,6 +8,7 @@ import { shortName } from '../data/flags.js';
 import Standings from '../components/Standings.jsx';
 import Bracket from '../components/Bracket.jsx';
 import ImportExport from './ImportExport.jsx';
+import { attemptHighlight } from '../lib/highlights.js';
 
 const SUB = [
   { id: 'results', label: 'Sonuçlar' },
@@ -276,12 +277,53 @@ function AdEditor({ store }) {
   );
 }
 
+function HighlightAdmin({ store }) {
+  const { actual, highlightsByNo = {}, writeHighlight } = store;
+  const [busy, setBusy] = useState(false);
+  const [prog, setProg] = useState(null);
+  const finished = GROUP_MATCHES.filter((m) => {
+    const a = actual.groupMatches?.[m.no];
+    return a && a.home !== '' && a.home != null && a.away !== '' && a.away != null;
+  });
+  const missing = finished.filter((m) => !highlightsByNo[m.no]?.videoId);
+  const scan = async () => {
+    if (!window.confirm(`${missing.length} maç için TRT Spor özet videosu aranacak (YouTube kotası kullanır). Devam?`)) return;
+    setBusy(true);
+    let found = 0;
+    for (let i = 0; i < missing.length; i++) {
+      const m = missing[i];
+      setProg(`${i + 1}/${missing.length} · ${shortName(m.home)}-${shortName(m.away)}`);
+      const res = await attemptHighlight(m, highlightsByNo[m.no], { force: true });
+      if (res.action === 'save') { found++; await writeHighlight(m.no, res.data); }
+      else if (res.action === 'tried') { await writeHighlight(m.no, res.data); }
+      await new Promise((r) => setTimeout(r, 350));
+    }
+    setProg(`Bitti · ${found} yeni özet bulundu`);
+    setBusy(false);
+  };
+  return (
+    <div className="card p-4">
+      <p className="font-display text-lg text-ink">Maç özetleri (TRT Spor · YouTube)</p>
+      <p className="text-xs text-ink/55 mt-0.5">
+        Biten maçlar için TRT Spor kanalında özet videosu arar ve “Son sonuçlar” kartına link koyar.
+        Bulunan: {finished.length - missing.length}/{finished.length}. (Vercel’de <b>YOUTUBE_API_KEY</b> env değişkeni gerekir.)
+      </p>
+      <button disabled={busy || missing.length === 0} onClick={scan}
+        className="mt-3 w-full btn bg-ink text-white hover:opacity-90 disabled:opacity-40">
+        {busy ? 'Taranıyor…' : `Eksik özetleri tara (${missing.length})`}
+      </button>
+      {prog && <p className="mt-2 text-xs text-ink/55">{prog}</p>}
+    </div>
+  );
+}
+
 function AdminSettings({ store }) {
   const { locked, setLocked, resetAllLists, resetActual, lists } = store;
   return (
     <div className="space-y-3">
       <ScoringEditor store={store} />
       <AdEditor store={store} />
+      <HighlightAdmin store={store} />
 
       <div className="card p-4">
         <div className="flex items-center justify-between">

@@ -53,6 +53,12 @@ service cloud.firestore {
       allow write: if signedIn() && request.auth.uid == uid;
     }
 
+    // Match highlight links (TRT Spor): everyone signed in can read; any signed-in user can cache.
+    match /highlights/{no} {
+      allow read: if signedIn();
+      allow write: if signedIn();
+    }
+
     // Admin action log: only admins can read; admins append (no edits/deletes).
     match /logs/{id} {
       allow read: if isAdmin();

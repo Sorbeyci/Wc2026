@@ -43,6 +43,7 @@ export function StoreProvider({ children }) {
   const [quizLeaders, setQuizLeaders] = useState([]);
   const [activity, setActivity] = useState([]);
   const [badges, setBadges] = useState([]);
+  const [highlights, setHighlights] = useState([]);
   const [, setTick] = useState(0);
   useEffect(() => { const iv = setInterval(() => setTick((t) => t + 1), 30000); return () => clearInterval(iv); }, []);
   const [adminMode, setAdminModeState] = useState(() => {
@@ -97,6 +98,9 @@ export function StoreProvider({ children }) {
     const unsubBadges = onSnapshot(collection(db, 'badges'),
       (snap) => setBadges(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), () => {});
     subs.push(unsubBadges);
+    const unsubHl = onSnapshot(collection(db, 'highlights'),
+      (snap) => setHighlights(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), () => {});
+    subs.push(unsubHl);
     return () => subs.forEach((fn) => fn());
   }, [user]);
 
@@ -407,6 +411,11 @@ export function StoreProvider({ children }) {
     quizWinsByUid: Object.fromEntries((quizLeaders || []).map((q) => [q.uid, q.wins || 0])),
     activeDaysByUid: Object.fromEntries((activity || []).map((a) => [a.uid, a.days || 0])),
     earnedBadgesByUid: Object.fromEntries((badges || []).map((b) => [b.uid, b.ids || []])),
+    highlightsByNo: Object.fromEntries((highlights || []).map((h) => [h.no, h])),
+    writeHighlight(no, data) {
+      if (!user) return Promise.resolve();
+      return setDoc(doc(db, 'highlights', String(no)), { no, ...data, updatedAt: serverTimestamp() }, { merge: true }).catch(() => {});
+    },
     // Bir günlük quiz kazanımını kaydeder. Günde en fazla 1 kez sayılır (lastDate guard).
     async recordQuizWin() {
       if (!user) return { counted: false };
@@ -510,7 +519,7 @@ export function StoreProvider({ children }) {
         return a;
       });
     },
-  }), [user, isAdmin, adminEligible, adminMode, authLoading, lists, actual, settings, locked, lastError, drafts, actualDraft, logs, presence, deleteRequests, quizLeaders, activity, badges, theme]);
+  }), [user, isAdmin, adminEligible, adminMode, authLoading, lists, actual, settings, locked, lastError, drafts, actualDraft, logs, presence, deleteRequests, quizLeaders, activity, badges, highlights, theme]);
 
   return <StoreCtx.Provider value={api}>{children}</StoreCtx.Provider>;
 }

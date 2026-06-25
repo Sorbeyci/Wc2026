@@ -8,6 +8,7 @@ import { Dot, Flag, Avatar, CountUp } from '../components/ui.jsx';
 import { shortName, teamColor } from '../data/flags.js';
 import { QUIZ } from '../data/quiz.js';
 import { CHANGELOG } from '../data/changelog.js';
+import { attemptHighlight } from '../lib/highlights.js';
 
 const TR_MON = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
 const todayStr = () => { const n = new Date(); return `${TR_MON[n.getMonth()]} ${n.getDate()}, ${n.getFullYear()}`; };
@@ -1009,33 +1010,83 @@ function FunStats({ lists, getPrediction, actual, seed }) {
 }
 
 function RecentResults({ actual }) {
-  const recent = useMemo(() => {
-    const scored = GROUP_MATCHES.filter((m) => hasScore(actual.groupMatches?.[m.no]));
-    if (scored.length === 0) return null;
-    const latest = scored.reduce((best, m) => (dayKey(m.date) > dayKey(best) ? m.date : best), scored[0].date);
-    return { date: latest, matches: scored.filter((m) => m.date === latest).sort((a, b) => timeKey(a) - timeKey(b)) };
+  const { highlightsByNo = {}, writeHighlight } = useStore();
+  const days = useMemo(() => {
+    const map = new Map();
+    for (const m of GROUP_MATCHES) {
+      if (!hasScore(actual.groupMatches?.[m.no])) continue;
+      if (!map.has(m.date)) map.set(m.date, []);
+      map.get(m.date).push(m);
+    }
+    const arr = [...map.entries()].map(([date, ms]) => ({ date, matches: ms.sort((a, b) => timeKey(a) - timeKey(b)) }));
+    arr.sort((a, b) => dayKey(a.date) - dayKey(b.date));
+    return arr;
   }, [actual]);
-  if (!recent) return null;
+
+  const [idx, setIdx] = useState(0);
+  useEffect(() => { setIdx(days.length ? days.length - 1 : 0); }, [days.length]);
+  const day = days[idx];
+
+  // Otomatik özet bulma (görünen günün biten maçları için; Firestore yüklensin diye gecikmeli).
+  useEffect(() => {
+    if (!day) return;
+    let cancelled = false;
+    const tid = setTimeout(async () => {
+      for (const m of day.matches) {
+        if (cancelled) break;
+        const ex = highlightsByNo[m.no];
+        if (ex?.videoId) continue;
+        const res = await attemptHighlight(m, ex, {});
+        if (cancelled) break;
+        if (res.action === 'save' || res.action === 'tried') await writeHighlight(m.no, res.data);
+      }
+    }, 1400);
+    return () => { cancelled = true; clearTimeout(tid); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [day?.date, days.length]);
+
+  if (!day) return null;
   return (
     <div className="card overflow-hidden">
-      <div className="px-4 py-3 border-b border-black/5">
-        <p className="font-display text-xl">Son sonuçlar</p>
-        <p className="text-xs text-ink/45">{recent.date}</p>
+      <div className="px-4 py-3 border-b border-black/5 flex items-center justify-between">
+        <div className="min-w-0">
+          <p className="font-display text-xl">Son sonuçlar</p>
+          <p className="text-xs text-ink/45">{day.date}</p>
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          <button className="h-7 w-7 rounded-full bg-black/5 text-ink/70 active:scale-95 disabled:opacity-30"
+            disabled={idx === 0} onClick={() => setIdx((i) => Math.max(0, i - 1))} aria-label="Önceki gün">‹</button>
+          <span className="text-[11px] text-ink/40 tabular-nums w-9 text-center">{idx + 1}/{days.length}</span>
+          <button className="h-7 w-7 rounded-full bg-black/5 text-ink/70 active:scale-95 disabled:opacity-30"
+            disabled={idx === days.length - 1} onClick={() => setIdx((i) => Math.min(days.length - 1, i + 1))} aria-label="Sonraki gün">›</button>
+        </div>
       </div>
       <div className="divide-y divide-black/5">
-        {recent.matches.map((m) => {
+        {day.matches.map((m) => {
           const a = actual.groupMatches[m.no];
+          const hl = highlightsByNo[m.no];
           return (
-            <div key={m.no} className="flex items-center gap-2 px-4 py-2 text-sm">
-              <div className="flex-1 min-w-0 flex items-center justify-end gap-1.5">
-                <span className={`truncate ${Number(a.home) > Number(a.away) ? 'font-bold text-pitch' : Number(a.home) < Number(a.away) ? 'text-ink/40' : ''}`}>{shortName(m.home)}</span>
-                <Flag team={m.home} size={16} className="shrink-0" />
+            <div key={m.no} className="px-4 py-2">
+              <div className="flex items-center gap-2 text-sm">
+                <div className="flex-1 min-w-0 flex items-center justify-end gap-1.5">
+                  <span className={`truncate ${Number(a.home) > Number(a.away) ? 'font-bold text-pitch' : Number(a.home) < Number(a.away) ? 'text-ink/40' : ''}`}>{shortName(m.home)}</span>
+                  <Flag team={m.home} size={16} className="shrink-0" />
+                </div>
+                <span className="shrink-0 w-12 text-center font-display tabular-nums">{a.home}-{a.away}</span>
+                <div className="flex-1 min-w-0 flex items-center gap-1.5">
+                  <Flag team={m.away} size={16} className="shrink-0" />
+                  <span className={`truncate ${Number(a.away) > Number(a.home) ? 'font-bold text-pitch' : Number(a.away) < Number(a.home) ? 'text-ink/40' : ''}`}>{shortName(m.away)}</span>
+                </div>
               </div>
-              <span className="shrink-0 w-12 text-center font-display tabular-nums">{a.home}-{a.away}</span>
-              <div className="flex-1 min-w-0 flex items-center gap-1.5">
-                <Flag team={m.away} size={16} className="shrink-0" />
-                <span className={`truncate ${Number(a.away) > Number(a.home) ? 'font-bold text-pitch' : Number(a.away) < Number(a.home) ? 'text-ink/40' : ''}`}>{shortName(m.away)}</span>
-              </div>
+              {hl?.videoId && (
+                <div className="mt-1.5 flex justify-center">
+                  <a href={hl.url} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-red-600 text-white px-2.5 py-1 text-[11px] font-bold active:scale-95">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21.6 7.2s-.2-1.4-.8-2c-.8-.8-1.6-.8-2-.9C16 4 12 4 12 4h0s-4 0-6.8.3c-.4.1-1.2.1-2 .9-.6.6-.8 2-.8 2S2 8.8 2 10.4v1.2c0 1.6.2 3.2.2 3.2s.2 1.4.8 2c.8.8 1.8.8 2.3.9 1.7.2 6.7.3 6.7.3s4 0 6.8-.3c.4-.1 1.2-.1 2-.9.6-.6.8-2 .8-2s.2-1.6.2-3.2v-1.2c0-1.6-.2-3.2-.2-3.2zM9.8 14.6V8.8l5.2 2.9-5.2 2.9z"/></svg>
+                    Maç özeti
+                  </a>
+                </div>
+              )}
             </div>
           );
         })}
