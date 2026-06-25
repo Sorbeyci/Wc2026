@@ -351,6 +351,8 @@ function QuizModal({ base, playedToday, onClose, onDone, onStart }) {
   const [answers, setAnswers] = useState({});
   const [result, setResult] = useState(null);
   const [timeLeft, setTimeLeft] = useState(QUIZ_SECONDS);
+  const [reviewLeft, setReviewLeft] = useState(15); // quiz sonu doğru-cevap inceleme süresi
+  const onCloseRef = useRef(onClose); onCloseRef.current = onClose;
   const answeredCount = Object.keys(answers).length;
   const allAnswered = questions.length > 0 && answeredCount === questions.length;
 
@@ -377,6 +379,14 @@ function QuizModal({ base, playedToday, onClose, onDone, onStart }) {
   const mm = String(Math.floor(timeLeft / 60)).padStart(2, '0');
   const ss = String(timeLeft % 60).padStart(2, '0');
   const low = timeLeft <= 30;
+
+  // Quiz bitince doğru cevaplar 15 saniye gösterilir, sonra otomatik kapanır.
+  useEffect(() => {
+    if (!result) return;
+    if (reviewLeft <= 0) { onCloseRef.current(); return; }
+    const iv = setInterval(() => setReviewLeft((t) => t - 1), 1000);
+    return () => clearInterval(iv);
+  }, [result, reviewLeft]);
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-3" onClick={onClose}>
@@ -432,20 +442,59 @@ function QuizModal({ base, playedToday, onClose, onDone, onStart }) {
           )}
 
           {result && (
-            <div className="space-y-3 text-center">
-              <div className={`text-4xl font-display ${result.ok ? 'text-pitch-dark' : 'text-red-600'}`}>{result.score}/10</div>
-              {result.ok ? (
-                <>
-                  <p className="text-base font-semibold text-pitch-dark">Tebrikler! 🎉</p>
-                  <p className="text-sm text-ink/75">Bugün için reklam görmeyeceksin. Yarın yeni bir quiz seni bekliyor.</p>
-                </>
-              ) : (
-                <>
-                  <p className="text-sm text-ink/75">Yeterli değil (en az 8 gerekiyor). Yeni quiz için:</p>
-                  <p className="font-display text-xl"><NextQuiz /></p>
-                </>
-              )}
-              <button className="btn btn-primary w-full" onClick={onClose}>Kapat</button>
+            <div className="space-y-3">
+              <div className="text-center space-y-1">
+                <div className={`text-4xl font-display ${result.ok ? 'text-pitch-dark' : 'text-red-600'}`}>{result.score}/10</div>
+                {result.ok ? (
+                  <>
+                    <p className="text-base font-semibold text-pitch-dark">Tebrikler! 🎉</p>
+                    <p className="text-sm text-ink/75">Bugün için reklam görmeyeceksin. Yarın yeni bir quiz seni bekliyor.</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm text-ink/75">Yeterli değil (en az 8 gerekiyor). Yeni quiz için:</p>
+                    <p className="font-display text-xl"><NextQuiz /></p>
+                  </>
+                )}
+              </div>
+
+              <div className="pt-1">
+                <p className="text-xs font-bold uppercase tracking-wide text-ink/45 mb-2">Doğru cevaplar</p>
+                <ol className="space-y-3">
+                  {questions.map((qq, qi) => {
+                    const chosen = answers[qi];
+                    const gotIt = qq.opts[chosen]?.correct;
+                    return (
+                      <li key={qi} className="space-y-1.5">
+                        <p className="text-sm font-semibold flex items-start gap-1.5">
+                          <span className={gotIt ? 'text-pitch-dark' : 'text-red-600'}>{gotIt ? '✓' : '✗'}</span>
+                          <span>{qi + 1}. {qq.q}</span>
+                        </p>
+                        <div className="grid grid-cols-1 gap-1.5">
+                          {qq.opts.map((o, oi) => {
+                            const isCorrect = o.correct;
+                            const isChosen = chosen === oi;
+                            const cls = isCorrect
+                              ? 'border-pitch bg-pitch/10 text-pitch-dark font-semibold'
+                              : isChosen
+                                ? 'border-red-400 bg-red-50 text-red-600'
+                                : 'border-black/10 text-ink/50';
+                            return (
+                              <div key={oi} className={`text-left text-sm rounded-lg border px-3 py-2 flex items-center gap-2 ${cls}`}>
+                                <span className="flex-1 min-w-0">{o.t}</span>
+                                {isCorrect && <span className="shrink-0">✓ doğru</span>}
+                                {isChosen && !isCorrect && <span className="shrink-0 text-[11px]">senin yanıtın</span>}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ol>
+              </div>
+
+              <button className="btn btn-primary w-full" onClick={onClose}>Kapat ({reviewLeft}s)</button>
             </div>
           )}
         </div>

@@ -1,6 +1,13 @@
 // Uygulama sürüm geçmişi (changelog).
 export const CHANGELOG = [
   {
+    v: '4.7', date: 'Haziran 2026', items: [
+      'Gerçek Sonuçlar sayfası düzeltildi: puanlar artık doğru görünüyor + G/M/B form rozetleri eklendi.',
+      'Gerçek Sonuçlar’a “En iyi 3.’ler” tablosu eklendi (ilk 8 üst tura çıkar).',
+      'Quiz bitince doğru cevaplar 15 saniye gösteriliyor; nerede doğru/yanlış yaptığın işaretli.',
+    ],
+  },
+  {
     v: '4.6', date: 'Haziran 2026', items: [
       'Yeni “Sonuçlar” sekmesi: girilen skorlara göre güncel grup puan durumunu grup grup gösterir.',
       'Eleme “Doğru eşleşme” detayı projeksiyonda da doğru açılıyor (Son 32 eşleşmeleri artık listede görünüyor).',
