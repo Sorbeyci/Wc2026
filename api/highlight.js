@@ -17,10 +17,24 @@ async function ytGet(url) {
   };
 }
 
+const looksLikeId = (s) => /^UC[\w-]{20,}$/.test(s || '');
+function extractHandle(s) {
+  if (!s) return 'trtspor';
+  const at = s.match(/@([A-Za-z0-9_.\-]+)/);
+  if (at) return at[1];
+  if (/^https?:/i.test(s)) {
+    const seg = s.replace(/[/?#].*$/, '').replace(/\/+$/, '').split('/').pop();
+    return (seg || 'trtspor').replace(/^@/, '');
+  }
+  return s.replace(/^@/, '');
+}
+
 async function resolveChannelId(key) {
   if (CHANNEL_ID) return { id: CHANNEL_ID };
-  if (process.env.TRT_CHANNEL_ID) { CHANNEL_ID = process.env.TRT_CHANNEL_ID; return { id: CHANNEL_ID }; }
-  const res = await ytGet(`https://www.googleapis.com/youtube/v3/channels?part=id&forHandle=trtspor&key=${key}`);
+  const env = process.env.TRT_CHANNEL_ID;
+  if (env && looksLikeId(env)) { CHANNEL_ID = env; return { id: CHANNEL_ID }; }
+  const handle = extractHandle(env);
+  const res = await ytGet(`https://www.googleapis.com/youtube/v3/channels?part=id&forHandle=${encodeURIComponent(handle)}&key=${key}`);
   if (!res.ok) return { error: res };
   CHANNEL_ID = res.body?.items?.[0]?.id || null;
   return { id: CHANNEL_ID, raw: res };
