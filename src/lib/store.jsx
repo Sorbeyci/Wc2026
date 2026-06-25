@@ -416,6 +416,10 @@ export function StoreProvider({ children }) {
       if (!user) return Promise.resolve();
       return setDoc(doc(db, 'highlights', String(no)), { no, ...data, updatedAt: serverTimestamp() }, { merge: true }).catch(() => {});
     },
+    clearHighlight(no) {
+      if (!user) return Promise.resolve();
+      return deleteDoc(doc(db, 'highlights', String(no))).catch(() => {});
+    },
     // Bir günlük quiz kazanımını kaydeder. Günde en fazla 1 kez sayılır (lastDate guard).
     async recordQuizWin() {
       if (!user) return { counted: false };

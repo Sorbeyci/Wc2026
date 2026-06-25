@@ -1,13 +1,17 @@
 // Maç özeti (TRT Spor) bulma & eşleştirme yardımcıları.
-// Kota koruması: /api/highlight kenar-cache'li; ayrıca bulunan video Firestore'da
-// önbelleğe yazılır (maç başına en fazla birkaç arama, 1s/+1s artan tekrar).
+// Kota koruması: /api/highlight kenar-cache'li; bulunan video Firestore'da önbelleğe
+// yazılır (maç başına en fazla birkaç arama, 1s/+1s artan tekrar).
 import { shortName } from '../data/flags.js';
 
 const HOUR = 3600 * 1000;
 const MAX_TRIES = 8;
 
-const norm = (s) => (s || '').toLocaleLowerCase('tr').normalize('NFD')
-  .replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+const norm = (s) => (s || '')
+  .replace(/İ/g, 'i').replace(/I/g, 'i').replace(/ı/g, 'i')
+  .toLowerCase()
+  .replace(/ş/g, 's').replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ö/g, 'o').replace(/ç/g, 'c')
+  .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
 
 // TRT başlıklarında geçen ada en yakın arama adı.
 const TRT_NAME = {
@@ -23,6 +27,10 @@ const ALIASES = {
   'Bosna Hersek': ['bosna'],
   'Birleşik Arap Emirlikleri': ['bae'],
 };
+// Yanlış turnuva/kategori başlıklarını ele (Kadınlar, gençlik, elemeler, hazırlık...).
+const BAD = ['kadinlar', 'kadin', 'eleme', 'hazirlik', 'dostluk', 'u23', 'u21', 'u20', 'u19', 'u17', 'olimpiyat', 'efsaneler'];
+
+const TR_MON = { oca: 0, sub: 1, mar: 2, nis: 3, may: 4, haz: 5, tem: 6, agu: 7, eyl: 8, eki: 9, kas: 10, ara: 11 };
 
 const trtName = (team) => TRT_NAME[team] || team;
 
@@ -32,19 +40,55 @@ function candidates(team) {
   return [...set];
 }
 
-export function buildQuery(m) {
-  return `${trtName(m.home)} ${trtName(m.away)} Dünya Kupası`;
+// "Haz 14, 2026" + "23:00" -> ms (TR yerel ~UTC+3 kabul edip UTC'ye çevirir).
+function matchStartMs(m) {
+  try {
+    const mo = norm(m.date).match(/([a-z]+) (\d+) (\d{4})/);
+    if (!mo) return null;
+    const mon = TR_MON[mo[1].slice(0, 3)];
+    if (mon == null) return null;
+    const [hh, mm] = (m.time || '00:00').split(':').map(Number);
+    // TR saati -> UTC
+    return Date.UTC(+mo[3], mon, +mo[2], (hh || 0) - 3, mm || 0);
+  } catch { return null; }
 }
 
+export function buildQuery(m) {
+  const grp = m.group ? ` ${m.group} Grubu` : '';
+  return `${trtName(m.home)} ${trtName(m.away)} 2026 Dünya Kupası${grp}`;
+}
+
+// Doğru videoyu seçer: iki takım + "dünya kupası" + (2026 veya grup) şart;
+// Kadınlar/gençlik/eleme/hazırlık elenir; maçtan ÖNCE yüklenenler elenir.
 export function pickHighlight(m, items) {
   const hc = candidates(m.home), ac = candidates(m.away);
+  const start = matchStartMs(m);
+  const grpTok = m.group ? norm(`${m.group} grubu`) : null;
+  let best = null, bestScore = -1;
   for (const it of items || []) {
     const t = norm(it.title);
-    const homeHit = hc.some((c) => t.includes(c));
-    const awayHit = ac.some((c) => t.includes(c));
-    if (homeHit && awayHit) {
-      return { videoId: it.videoId, url: `https://www.youtube.com/watch?v=${it.videoId}`, title: it.title };
-    }
+    if (!hc.some((c) => t.includes(c))) continue;
+    if (!ac.some((c) => t.includes(c))) continue;
+    if (!t.includes('dunya kupasi')) continue;
+    if (BAD.some((b) => t.includes(b))) continue;
+    const has2026 = t.includes('2026');
+    const hasGrp = grpTok ? t.includes(grpTok) : false;
+    if (!has2026 && !hasGrp) continue; // yanlış turnuva riskini ele
+
+    // Tarih: özet maçtan SONRA yüklenir. Maçtan >36s önce yüklendiyse (eski sezon) ele.
+    let pub = null;
+    if (it.publishedAt) { const p = Date.parse(it.publishedAt); if (!Number.isNaN(p)) pub = p; }
+    if (start && pub && pub < start - 36 * HOUR) continue;
+
+    let score = 0;
+    if (has2026) score += 3;
+    if (hasGrp) score += 4;
+    if (t.includes('ozet')) score += 1;
+    if (start && pub && pub >= start - 6 * HOUR && pub <= start + 7 * 24 * HOUR) score += 2;
+    if (score > bestScore) { bestScore = score; best = it; }
+  }
+  if (best && bestScore >= 3) {
+    return { videoId: best.videoId, url: `https://www.youtube.com/watch?v=${best.videoId}`, title: best.title };
   }
   return null;
 }
@@ -52,9 +96,9 @@ export function pickHighlight(m, items) {
 const inFlight = new Set();
 
 // Bir maç için özet bulmayı dener. existingDoc: Firestore highlights/{no} (yoksa null).
-// Döner: { action:'save', data } | { action:'tried', data } | { action:'skip' }
+// Döner: { action:'save', data } | { action:'tried', data } | { action:'error', detail } | { action:'skip' }
 export async function attemptHighlight(m, existingDoc, { force = false, base = '' } = {}) {
-  if (existingDoc?.videoId) return { action: 'skip' };
+  if (existingDoc?.videoId && !force) return { action: 'skip' };
   if (inFlight.has(m.no)) return { action: 'skip' };
   const now = Date.now();
   const tries = existingDoc?.tries || 0;
@@ -62,7 +106,7 @@ export async function attemptHighlight(m, existingDoc, { force = false, base = '
   if (!force) {
     if (tries >= MAX_TRIES) return { action: 'skip' };
     if (!existingDoc) {
-      // İlk kez görüldü: ~1 saat bekle (TRT videoyu genelde maçtan 1 saat sonra ekler).
+      // İlk kez görüldü: ~1 saat bekle (TRT videoyu genelde maçtan 1+ saat sonra ekler).
       return { action: 'tried', data: { tries: 0, nextTry: now + HOUR } };
     }
     if (existingDoc.nextTry && now < existingDoc.nextTry) return { action: 'skip' };
@@ -72,9 +116,9 @@ export async function attemptHighlight(m, existingDoc, { force = false, base = '
   try {
     const q = buildQuery(m);
     const r = await fetch(`${base}/api/highlight?q=${encodeURIComponent(q)}`);
-    if (!r.ok) return { action: 'skip' };
-    const j = await r.json();
-    const hit = pickHighlight(m, j.items || []);
+    const j = await r.json().catch(() => null);
+    if (!r.ok) return { action: 'error', detail: j || { status: r.status } };
+    const hit = pickHighlight(m, (j && j.items) || []);
     if (hit) return { action: 'save', data: hit };
     const nt = tries + 1;
     return { action: 'tried', data: { tries: nt, nextTry: now + nt * HOUR } };

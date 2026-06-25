@@ -278,41 +278,81 @@ function AdEditor({ store }) {
 }
 
 function HighlightAdmin({ store }) {
-  const { actual, highlightsByNo = {}, writeHighlight } = store;
+  const { actual, highlightsByNo = {}, writeHighlight, clearHighlight } = store;
   const [busy, setBusy] = useState(false);
   const [prog, setProg] = useState(null);
+  const test = async () => {
+    setProg('Test ediliyor…');
+    try {
+      const r = await fetch('/api/highlight?debug=1');
+      const j = await r.json().catch(() => null);
+      if (r.ok && j?.ok) setProg(`✓ Bağlantı OK · kanal: ${j.channelId}`);
+      else setProg(`HATA · ${j?.status || r.status} ${j?.reason || j?.error || ''} — ${j?.message || 'anahtar/izin sorunu'}`);
+    } catch (e) { setProg('HATA · ağ/sunucu (' + String(e).slice(0, 80) + ')'); }
+  };
   const finished = GROUP_MATCHES.filter((m) => {
     const a = actual.groupMatches?.[m.no];
     return a && a.home !== '' && a.home != null && a.away !== '' && a.away != null;
   });
   const missing = finished.filter((m) => !highlightsByNo[m.no]?.videoId);
-  const scan = async () => {
-    if (!window.confirm(`${missing.length} maç için TRT Spor özet videosu aranacak (YouTube kotası kullanır). Devam?`)) return;
+
+  const run = async (list, force) => {
     setBusy(true);
-    let found = 0;
-    for (let i = 0; i < missing.length; i++) {
-      const m = missing[i];
-      setProg(`${i + 1}/${missing.length} · ${shortName(m.home)}-${shortName(m.away)}`);
-      const res = await attemptHighlight(m, highlightsByNo[m.no], { force: true });
-      if (res.action === 'save') { found++; await writeHighlight(m.no, res.data); }
-      else if (res.action === 'tried') { await writeHighlight(m.no, res.data); }
+    let found = 0, fixed = 0, removed = 0;
+    for (let i = 0; i < list.length; i++) {
+      const m = list[i];
+      setProg(`${i + 1}/${list.length} · ${shortName(m.home)}-${shortName(m.away)}`);
+      const ex = highlightsByNo[m.no];
+      const res = await attemptHighlight(m, ex, { force });
+      if (res.action === 'error') {
+        const d = res.detail || {};
+        setProg(`HATA · YouTube ${d.status || ''} ${d.reason || d.error || ''} — ${d.message || 'anahtar/izin sorunu'}`);
+        setBusy(false);
+        return;
+      }
+      if (res.action === 'save') {
+        if (ex?.videoId && ex.videoId !== res.data.videoId) fixed++; else found++;
+        await writeHighlight(m.no, res.data);
+      } else if (res.action === 'tried') {
+        // Yeniden taramada doğru video bulunamadıysa eski (yanlış) linki kaldır.
+        if (force && ex?.videoId) { await clearHighlight(m.no); removed++; }
+        else await writeHighlight(m.no, res.data);
+      }
       await new Promise((r) => setTimeout(r, 350));
     }
-    setProg(`Bitti · ${found} yeni özet bulundu`);
+    setProg(`Bitti · ${found} yeni · ${fixed} düzeltildi · ${removed} hatalı kaldırıldı`);
     setBusy(false);
   };
+
+  const scan = async () => {
+    if (!window.confirm(`${missing.length} maç için TRT Spor özet videosu aranacak (YouTube kotası kullanır). Devam?`)) return;
+    run(missing, false);
+  };
+  const rescanAll = async () => {
+    if (!window.confirm(`TÜM biten ${finished.length} maç yeniden taranacak; yanlış linkler düzeltilir/kaldırılır (YouTube kotası: ~${finished.length}×100 birim). Devam?`)) return;
+    run(finished, true);
+  };
+
   return (
     <div className="card p-4">
       <p className="font-display text-lg text-ink">Maç özetleri (TRT Spor · YouTube)</p>
       <p className="text-xs text-ink/55 mt-0.5">
         Biten maçlar için TRT Spor kanalında özet videosu arar ve “Son sonuçlar” kartına link koyar.
-        Bulunan: {finished.length - missing.length}/{finished.length}. (Vercel’de <b>YOUTUBE_API_KEY</b> env değişkeni gerekir.)
+        Bulunan: {finished.length - missing.length}/{finished.length}. (Vercel’de <b>YOUTUBE_API_KEY</b> env gerekir.)
       </p>
       <button disabled={busy || missing.length === 0} onClick={scan}
         className="mt-3 w-full btn bg-ink text-white hover:opacity-90 disabled:opacity-40">
         {busy ? 'Taranıyor…' : `Eksik özetleri tara (${missing.length})`}
       </button>
-      {prog && <p className="mt-2 text-xs text-ink/55">{prog}</p>}
+      <button disabled={busy || finished.length === 0} onClick={rescanAll}
+        className="mt-2 w-full btn bg-gold/20 text-gold-dark hover:bg-gold/30 disabled:opacity-40">
+        Tümünü yeniden tara (yanlışları düzelt)
+      </button>
+      <button disabled={busy} onClick={test}
+        className="mt-2 w-full btn bg-black/5 text-ink hover:bg-black/10 disabled:opacity-40">
+        Bağlantıyı test et
+      </button>
+      {prog && <p className="mt-2 text-xs text-ink/55 break-words">{prog}</p>}
     </div>
   );
 }

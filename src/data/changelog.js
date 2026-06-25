@@ -1,6 +1,17 @@
 // Uygulama sürüm geçmişi (changelog).
 export const CHANGELOG = [
   {
+    v: '5.3', date: 'Haziran 2026', items: [
+      'Maç özeti eşleştirmesi sıkılaştırıldı: yalnız “2026 Dünya Kupası + grup” başlıkları kabul edilir; Kadınlar/gençlik/eleme/hazırlık videoları ve maçtan önce yüklenenler elenir (yanlış videoların önüne geçer).',
+      'Admin’e “Tümünü yeniden tara (yanlışları düzelt)” eklendi; hatalı linkleri düzeltir/kaldırır.',
+    ],
+  },
+  {
+    v: '5.2', date: 'Haziran 2026', items: [
+      'Maç özeti tanılama: YouTube hata sebebi artık görünür + Admin’de “Bağlantıyı test et” butonu (403/anahtar sorunlarını anında gösterir).',
+    ],
+  },
+  {
     v: '5.1', date: 'Haziran 2026', items: [
       '“Son sonuçlar” kartına gün gün ‹ › gezinme eklendi; en sondaki sayfa en yeni biten maçlardır.',
       'Maç özeti: biten maçlar için TRT Spor kanalından YouTube özet videosu bulunup “▶ Maç özeti” linki konur. Admin · Ayarlar’dan geriye dönük tarama yapılır.',
