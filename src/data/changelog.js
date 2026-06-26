@@ -1,6 +1,14 @@
 // Uygulama sürüm geçmişi (changelog).
 export const CHANGELOG = [
   {
+    v: '6.2', date: 'Haziran 2026', items: [
+      'Banner butonları mobilde tek satıra sığacak şekilde küçültüldü.',
+      'Banner durum yazısı 10 saniyede bir iki metin arasında fade ile değişiyor (faz/oynanan maç ↔ gün/finale sayacı).',
+      'Puan Durumu grup tablolarında form rozetleri (G/M/B) ve puan sütunu hizalandı (artık kaymıyor).',
+      '“Kendi puan durumunla karşılaştır” butonu dikkat çekici hale getirildi (renkli arka plan + yanıp sönen nokta).',
+    ],
+  },
+  {
     v: '6.1', date: 'Haziran 2026', items: [
       'Banner düzenlendi: “Puan Durumu” butonu sarı yapıldı, üç buton biraz küçültüldü.',
       'Banner başlığı: “kupayikimalir.com / FIFA Dünya Kupası 2026” üstte bitişik; “Tahmin Oyunu” tek satır.',

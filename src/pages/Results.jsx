@@ -41,10 +41,12 @@ function ResultGroup({ g, actual, compareOrder }) {
             <div key={t} className={`flex items-center gap-2 py-2 px-1 ${i < 2 ? 'bg-pitch/[0.05]' : ''}`}>
               <span className={`font-display text-sm w-5 text-center ${i < 2 ? 'text-pitch' : 'text-ink/40'}`}>{i + 1}</span>
               <Flag team={t} size={18} className="shrink-0" />
-              <span className="flex-1 min-w-0 truncate text-sm font-semibold">{shortName(t)}</span>
-              {cmp}
-              <FormBadges form={teamForm(t, scores)} />
-              <span className="text-[11px] text-ink/45 tabular-nums whitespace-nowrap">{r.Pts}p · Av {r.GD >= 0 ? '+' : ''}{r.GD} · AG {r.GF}</span>
+              <div className="flex-1 min-w-0 flex items-center gap-1.5">
+                <span className="truncate text-sm font-semibold">{shortName(t)}</span>
+                {cmp}
+              </div>
+              <div className="shrink-0 w-[64px] flex justify-end"><FormBadges form={teamForm(t, scores)} /></div>
+              <span className="shrink-0 w-[96px] text-right text-[11px] text-ink/45 tabular-nums whitespace-nowrap">{r.Pts}p · Av {r.GD >= 0 ? '+' : ''}{r.GD} · AG {r.GF}</span>
             </div>
           );
         })}
@@ -144,12 +146,22 @@ export default function Results({ goHome }) {
         </button>
       </div>
 
-      {/* Kendi tahminimle karşılaştır (aç/kapa) */}
+      {/* Kendi tahminimle karşılaştır (aç/kapa) — dikkat çekici */}
       {myPred && (
         <button onClick={() => setCompare((v) => !v)}
-          className={`w-full rounded-xl border px-3 py-2.5 text-sm font-semibold flex items-center justify-between transition ${compare ? 'border-pitch bg-pitch/10 text-pitch-dark' : 'border-black/10 text-ink/70 hover:bg-black/[0.03]'}`}>
-          <span>🔍 Kendi puan durumunla karşılaştır</span>
-          <span className="text-xs">{compare ? 'açık ✓' : 'kapalı'}</span>
+          className={`w-full rounded-xl px-3 py-3 text-sm font-bold flex items-center justify-between gap-2 transition active:scale-[.99] ${compare
+            ? 'bg-pitch text-white shadow'
+            : 'bg-gradient-to-r from-gold/35 via-gold/15 to-pitch/25 text-ink ring-1 ring-gold/50 shadow-sm'}`}>
+          <span className="flex items-center gap-2 min-w-0">
+            {!compare && (
+              <span className="relative flex h-2.5 w-2.5 shrink-0">
+                <span className="absolute inline-flex h-full w-full rounded-full bg-pitch opacity-60 animate-ping" />
+                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-pitch" />
+              </span>
+            )}
+            <span className="truncate">🔍 Kendi puan durumunla karşılaştır</span>
+          </span>
+          <span className={`shrink-0 text-xs rounded-full px-2 py-0.5 ${compare ? 'bg-white/20' : 'bg-pitch text-white'}`}>{compare ? 'açık ✓' : 'aç →'}</span>
         </button>
       )}
       {compare && (

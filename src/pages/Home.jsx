@@ -33,6 +33,34 @@ function tournamentStatus(played = 0, total = 104) {
   return `${phase} · ${played}/${total} maç oynandı`;
 }
 
+function tournamentCountdown() {
+  const t = new Date(); t.setHours(0, 0, 0, 0);
+  if (t < TOUR_START) return `Başlamasına ${Math.ceil((TOUR_START - t) / DAY_MS)} gün kaldı`;
+  if (t > TOUR_FINAL) return 'Turnuva tamamlandı';
+  const dayNo = Math.floor((t - TOUR_START) / DAY_MS) + 1;
+  const left = Math.ceil((TOUR_FINAL - t) / DAY_MS);
+  return `Turnuvanın ${dayNo}. günü · finale ${left} gün kaldı`;
+}
+
+// İki durum metnini 10 saniyede bir fade in/out ile değiştirir.
+function StatusRotator({ items, className = '' }) {
+  const [i, setI] = useState(0);
+  const [show, setShow] = useState(true);
+  useEffect(() => {
+    if (items.length < 2) return;
+    const iv = setInterval(() => {
+      setShow(false);
+      setTimeout(() => { setI((x) => (x + 1) % items.length); setShow(true); }, 320);
+    }, 10000);
+    return () => clearInterval(iv);
+  }, [items.length]);
+  return (
+    <span className={`inline-block transition-opacity duration-300 ${className}`} style={{ opacity: show ? 1 : 0 }}>
+      {items[i]}
+    </span>
+  );
+}
+
 export default function Home({ setPage, goAdminImport }) {
   const { lists, actual, getPrediction, user, isAdmin, adminEligible, adminMode, setAdminMode, logout, isMyList, theme, setTheme, onlineCount, ad, quizLeaders, recordQuizWin, locked } = useStore();
 
@@ -154,7 +182,9 @@ export default function Home({ setPage, goAdminImport }) {
           </div>
         </div>
         <h1 className="font-display text-4xl leading-none mt-3">Tahmin Oyunu</h1>
-        <p className="mt-2 text-xs font-semibold text-gold">{tournamentStatus(resultsIn + koIn, totalMatches)}</p>
+        <p className="mt-2 text-xs font-semibold text-gold h-4">
+          <StatusRotator items={[tournamentStatus(resultsIn + koIn, totalMatches), tournamentCountdown()]} />
+        </p>
         <div className="mt-1 h-5">
           {onlineCount > 0 && (
             <button onClick={() => setPage('board')}
@@ -166,14 +196,14 @@ export default function Home({ setPage, goAdminImport }) {
           )}
         </div>
         <p className="mt-2 text-sm text-white/70">Merhaba {user?.displayName?.split(' ')[0] || 'oyuncu'}{isAdmin ? ' · yönetici' : ''}.</p>
-        <div className="mt-4 flex flex-wrap gap-2 items-center">
+        <div className="mt-4 flex gap-2 items-stretch">
           {locked && !isAdmin ? (
-            <span className="btn-primary text-sm px-3 py-2 blur-[1.5px] opacity-60 pointer-events-none select-none" aria-disabled="true">Tahmin yap</span>
+            <span className="btn-primary flex-1 justify-center text-xs px-2 py-2 whitespace-nowrap blur-[1.5px] opacity-60 pointer-events-none select-none" aria-disabled="true">Tahmin yap</span>
           ) : (
-            <button className="btn-primary text-sm px-3 py-2" onClick={() => setPage('predict')}>Tahmin yap</button>
+            <button className="btn-primary flex-1 justify-center text-xs px-2 py-2 whitespace-nowrap" onClick={() => setPage('predict')}>Tahmin yap</button>
           )}
-          <button className="btn-gold text-sm px-3 py-2" onClick={() => setPage('results')}>Puan Durumu</button>
-          <button className="btn bg-red-600 text-white hover:bg-red-700 shadow-sm text-sm px-3 py-2" onClick={() => setPage('board')}>Sıralama →</button>
+          <button className="btn-gold flex-1 justify-center text-xs px-2 py-2 whitespace-nowrap" onClick={() => setPage('results')}>Puan Durumu</button>
+          <button className="btn bg-red-600 text-white hover:bg-red-700 shadow-sm flex-1 justify-center text-xs px-2 py-2 whitespace-nowrap" onClick={() => setPage('board')}>Sıralama</button>
         </div>
         {locked && !isAdmin && <p className="mt-1.5 text-xs text-white/55">🔒 Tahminler kilitlendi — artık düzenlenemez.</p>}
       </div>
