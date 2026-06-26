@@ -29,7 +29,8 @@ const ALIASES = {
 };
 // Yanlış turnuva/kategori başlıklarını ele (Kadınlar, gençlik, elemeler, hazırlık...).
 const BAD = ['kadinlar', 'kadin', 'eleme', 'hazirlik', 'dostluk', 'u23', 'u21', 'u20', 'u19', 'u17', 'olimpiyat', 'efsaneler',
-  'mac onu', 'mac oncesi', 'basin toplantisi', 'roportaj', 'canli', 'ilk 11', 'kadrolar', 'gol dakikalari sirali'];
+  'mac onu', 'mac oncesi', 'mac sonu', 'basin toplantisi', 'roportaj', 'yorumlar', 'degerlendirme', 'canli', 'ilk 11',
+  'kadrolar', 'gol dakikalari sirali', 'taniyalim', 'tanitim', 'aciklamalar', 'kamp'];
 
 const TR_MON = { oca: 0, sub: 1, mar: 2, nis: 3, may: 4, haz: 5, tem: 6, agu: 7, eyl: 8, eki: 9, kas: 10, ara: 11 };
 
@@ -97,7 +98,8 @@ export function pickHighlight(m, items) {
     let score = 0;
     if (has2026) score += 3;
     if (hasGrp) score += 4;
-    if (t.includes('ozet')) score += 1;
+    if (t.includes('ozet')) score += 3;
+    if (t.includes('petrol ofisi')) score += 1;
     if (start && pub && pub >= start - 6 * HOUR && pub <= start + 7 * 24 * HOUR) score += 2;
     if (score > bestScore) { bestScore = score; best = it; }
   }

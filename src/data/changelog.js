@@ -1,6 +1,11 @@
 // Uygulama sürüm geçmişi (changelog).
 export const CHANGELOG = [
   {
+    v: '5.8', date: 'Haziran 2026', items: [
+      'Maç özeti seçimi güçlendirildi: “özet/Petrol Ofisi” daha yüksek puan alır; maç sonu, yorumlar, tanıtım, röportaj, kamp gibi özet olmayan videolar elenir. Doğru özet listede kaçıncı sırada olursa olsun seçilir.',
+    ],
+  },
+  {
     v: '5.7', date: 'Haziran 2026', items: [
       'Maç özeti aramaları artık Türkiye bölgesiyle (regionCode=TR) yapılıyor; TRT’nin Türkiye’ye kısıtlı (yayın hakkı) özet videoları yurt dışı sunucudan da bulunabiliyor.',
     ],
