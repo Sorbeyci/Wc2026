@@ -8,7 +8,7 @@ import { shortName } from '../data/flags.js';
 import Standings from '../components/Standings.jsx';
 import Bracket from '../components/Bracket.jsx';
 import ImportExport from './ImportExport.jsx';
-import { attemptHighlight } from '../lib/highlights.js';
+import { attemptHighlight, diagnoseHighlight } from '../lib/highlights.js';
 
 const SUB = [
   { id: 'results', label: 'Sonuçlar' },
@@ -281,6 +281,7 @@ function HighlightAdmin({ store }) {
   const { actual, highlightsByNo = {}, writeHighlight, clearHighlight } = store;
   const [busy, setBusy] = useState(false);
   const [prog, setProg] = useState(null);
+  const [diag, setDiag] = useState(null);
   const test = async () => {
     setProg('Test ediliyor…');
     try {
@@ -332,6 +333,21 @@ function HighlightAdmin({ store }) {
     if (!window.confirm(`TÜM biten ${finished.length} maç yeniden taranacak; yanlış linkler düzeltilir/kaldırılır (YouTube kotası: ~${finished.length}×100 birim). Devam?`)) return;
     run(finished, true);
   };
+  const diagnose = async () => {
+    const m = finished[finished.length - 1] || finished[0];
+    if (!m) { setDiag('Biten maç yok.'); return; }
+    setDiag('Sorgulanıyor…');
+    const d = await diagnoseHighlight(m, {});
+    if (!d.ok) { setDiag(`${shortName(m.home)}-${shortName(m.away)} · HATA ${d.status || ''} ${d.error || ''} ${d.detail?.reason || ''}`); return; }
+    const lines = [
+      `Maç: ${shortName(m.home)}-${shortName(m.away)} (${m.group})`,
+      `Sorgu: ${d.q}`,
+      `Dönen video: ${d.count}`,
+      ...d.titles.slice(0, 6).map((t, i) => `${i + 1}. ${t}`),
+      `Seçim: ${d.pick ? d.pick.title : '— (eşleşme yok)'}`,
+    ];
+    setDiag(lines.join('\n'));
+  };
 
   return (
     <div className="card p-4">
@@ -352,7 +368,12 @@ function HighlightAdmin({ store }) {
         className="mt-2 w-full btn bg-black/5 text-ink hover:bg-black/10 disabled:opacity-40">
         Bağlantıyı test et
       </button>
+      <button disabled={busy} onClick={diagnose}
+        className="mt-2 w-full btn bg-black/5 text-ink hover:bg-black/10 disabled:opacity-40">
+        Teşhis: son biten maçı dene
+      </button>
       {prog && <p className="mt-2 text-xs text-ink/55 break-words">{prog}</p>}
+      {diag && <pre className="mt-2 text-[11px] text-ink/70 bg-black/[0.03] rounded-lg p-2 whitespace-pre-wrap break-words">{diag}</pre>}
     </div>
   );
 }

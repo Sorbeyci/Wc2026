@@ -28,7 +28,8 @@ const ALIASES = {
   'Birleşik Arap Emirlikleri': ['bae'],
 };
 // Yanlış turnuva/kategori başlıklarını ele (Kadınlar, gençlik, elemeler, hazırlık...).
-const BAD = ['kadinlar', 'kadin', 'eleme', 'hazirlik', 'dostluk', 'u23', 'u21', 'u20', 'u19', 'u17', 'olimpiyat', 'efsaneler'];
+const BAD = ['kadinlar', 'kadin', 'eleme', 'hazirlik', 'dostluk', 'u23', 'u21', 'u20', 'u19', 'u17', 'olimpiyat', 'efsaneler',
+  'mac onu', 'mac oncesi', 'basin toplantisi', 'roportaj', 'canli', 'ilk 11', 'kadrolar', 'gol dakikalari sirali'];
 
 const TR_MON = { oca: 0, sub: 1, mar: 2, nis: 3, may: 4, haz: 5, tem: 6, agu: 7, eyl: 8, eki: 9, kas: 10, ara: 11 };
 
@@ -54,8 +55,22 @@ function matchStartMs(m) {
 }
 
 export function buildQuery(m) {
-  const grp = m.group ? ` ${m.group} Grubu` : '';
-  return `${trtName(m.home)} ${trtName(m.away)} 2026 Dünya Kupası${grp}`;
+  return `${trtName(m.home)} ${trtName(m.away)} 2026 Dünya Kupası özet`;
+}
+
+// Teşhis: bir maç için /api/highlight'ı çağırır; ham başlıkları ve seçimi döner.
+export async function diagnoseHighlight(m, { base = '' } = {}) {
+  const q = buildQuery(m);
+  try {
+    const r = await fetch(`${base}/api/highlight?q=${encodeURIComponent(q)}`, { cache: 'no-store' });
+    const j = await r.json().catch(() => null);
+    if (!r.ok) return { q, ok: false, status: r.status, detail: j };
+    const items = (j && j.items) || [];
+    const pick = pickHighlight(m, items);
+    return { q, ok: true, count: items.length, titles: items.map((x) => x.title), pick };
+  } catch (e) {
+    return { q, ok: false, error: String(e).slice(0, 120) };
+  }
 }
 
 // Doğru videoyu seçer: iki takım + "dünya kupası" + (2026 veya grup) şart;

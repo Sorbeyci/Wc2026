@@ -80,7 +80,9 @@ export default async function handler(req, res) {
       publishedAt: it.snippet?.publishedAt || '',
     })).filter((x) => x.videoId);
 
-    res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=86400');
+    // Boş sonucu uzun cache'leme (video henüz yoksa kısa sürede tekrar denensin).
+    if (items.length) res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=86400');
+    else res.setHeader('Cache-Control', 's-maxage=120');
     res.status(200).json({ channelId, items });
   } catch (e) {
     res.status(500).json({ error: 'exception', detail: String(e).slice(0, 200) });

@@ -1,6 +1,11 @@
 // Uygulama sürüm geçmişi (changelog).
 export const CHANGELOG = [
   {
+    v: '5.5', date: 'Haziran 2026', items: [
+      'Maç özeti: arama sorgusu yenilendi (bayat boş önbelleği kırar), maç önü/canlı/röportaj gibi videolar elenir, boş sonuçlar artık uzun süre önbelleğe alınmaz; Admin’e “Teşhis” butonu eklendi.',
+    ],
+  },
+  {
     v: '5.4', date: 'Haziran 2026', items: [
       'Maç özeti çekme düzeltildi: 304 önbellek yanıtı yüzünden özetler boş dönüyordu; istek artık no-store ile yapılıyor. Katı tarih elemesi kaldırıldı (yanlış elemeleri önler).',
     ],
