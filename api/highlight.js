@@ -68,8 +68,10 @@ export default async function handler(req, res) {
     const q = (req.query.q || '').toString().trim();
     if (!q) { res.status(400).json({ error: 'no_query' }); return; }
 
+    const region = (req.query.region || process.env.TRT_REGION || 'TR').toString();
     const sres = await ytGet(`https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=${channelId}`
-      + `&q=${encodeURIComponent(q)}&type=video&maxResults=25&order=date&key=${key}`);
+      + `&q=${encodeURIComponent(q)}&type=video&maxResults=25&order=date`
+      + `&regionCode=${encodeURIComponent(region)}&relevanceLanguage=tr&key=${key}`);
     if (!sres.ok) {
       res.status(502).json({ error: 'yt_search_failed', status: sres.status, reason: sres.reason, message: sres.message });
       return;
