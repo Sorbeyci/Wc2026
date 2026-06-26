@@ -22,13 +22,15 @@ const hasScore = (s) => s && s.home !== '' && s.home != null && s.away !== '' &&
 const TOUR_START = new Date(2026, 5, 11); // 11 Haziran 2026
 const TOUR_FINAL = new Date(2026, 6, 19); // 19 Temmuz 2026 (final)
 const DAY_MS = 86400000;
-function tournamentStatus() {
+function tournamentStatus(played = 0, total = 104) {
   const t = new Date(); t.setHours(0, 0, 0, 0);
-  if (t < TOUR_START) return `Başlamasına ${Math.ceil((TOUR_START - t) / DAY_MS)} gün`;
-  if (t > TOUR_FINAL) return 'Turnuva tamamlandı';
-  const dayNo = Math.floor((t - TOUR_START) / DAY_MS) + 1;
-  const left = Math.ceil((TOUR_FINAL - t) / DAY_MS);
-  return `Turnuvanın ${dayNo}. günü · finale ${left} gün kaldı`;
+  if (t < TOUR_START) return `Başlamasına ${Math.ceil((TOUR_START - t) / DAY_MS)} gün — hazır mısın?`;
+  if (t > TOUR_FINAL) return '🏆 Turnuva tamamlandı';
+  const phase = played >= 102 ? '🏆 Final haftası'
+    : played >= 88 ? '🔥 Eleme turları'
+    : played >= 72 ? '⚔️ Son 16 başladı'
+    : '⚽ Grup aşaması';
+  return `${phase} · ${played}/${total} maç oynandı`;
 }
 
 export default function Home({ setPage, goAdminImport }) {
@@ -127,8 +129,11 @@ export default function Home({ setPage, goAdminImport }) {
       <div className="relative overflow-hidden rounded-2xl bg-ink text-white p-5">
         <div className="pointer-events-none absolute -right-8 -top-8 w-40 h-40 rounded-full bg-pitch/30 blur-2xl" />
         <div className="pointer-events-none absolute right-6 bottom-4 text-6xl opacity-10 font-display">26</div>
-        <div className="relative z-10 flex items-center justify-between gap-2">
-          <p className="font-display text-lg text-pitch leading-none">kupayikimalir.com</p>
+        <div className="relative z-10 flex items-start justify-between gap-2">
+          <div>
+            <p className="font-display text-xl text-pitch leading-none">kupayikimalir.com</p>
+            <p className="text-[10px] uppercase tracking-[0.18em] text-white/55 mt-1">FIFA Dünya Kupası 2026</p>
+          </div>
           <div className="flex flex-col items-end gap-2 shrink-0">
             {adminEligible && (
               <button onClick={() => setAdminMode(!adminMode)} className="flex items-center gap-1.5" aria-label="Admin modu">
@@ -148,9 +153,8 @@ export default function Home({ setPage, goAdminImport }) {
             )}
           </div>
         </div>
-        <p className="label text-white/60 mt-2">FIFA Dünya Kupası 2026</p>
-        <h1 className="font-display text-4xl leading-none mt-1">Tahmin<br />Oyunu</h1>
-        <p className="mt-2 text-xs font-semibold text-gold">{tournamentStatus()}</p>
+        <h1 className="font-display text-4xl leading-none mt-3">Tahmin Oyunu</h1>
+        <p className="mt-2 text-xs font-semibold text-gold">{tournamentStatus(resultsIn + koIn, totalMatches)}</p>
         <div className="mt-1 h-5">
           {onlineCount > 0 && (
             <button onClick={() => setPage('board')}
@@ -164,12 +168,12 @@ export default function Home({ setPage, goAdminImport }) {
         <p className="mt-2 text-sm text-white/70">Merhaba {user?.displayName?.split(' ')[0] || 'oyuncu'}{isAdmin ? ' · yönetici' : ''}.</p>
         <div className="mt-4 flex flex-wrap gap-2 items-center">
           {locked && !isAdmin ? (
-            <span className="btn-primary blur-[1.5px] opacity-60 pointer-events-none select-none" aria-disabled="true">Tahmin yap</span>
+            <span className="btn-primary text-sm px-3 py-2 blur-[1.5px] opacity-60 pointer-events-none select-none" aria-disabled="true">Tahmin yap</span>
           ) : (
-            <button className="btn-primary" onClick={() => setPage('predict')}>Tahmin yap</button>
+            <button className="btn-primary text-sm px-3 py-2" onClick={() => setPage('predict')}>Tahmin yap</button>
           )}
-          <button className="btn bg-white/10 text-white hover:bg-white/20" onClick={() => setPage('results')}>Puan Durumu</button>
-          <button className="btn bg-red-600 text-white hover:bg-red-700 shadow-sm" onClick={() => setPage('board')}>Sıralama →</button>
+          <button className="btn-gold text-sm px-3 py-2" onClick={() => setPage('results')}>Puan Durumu</button>
+          <button className="btn bg-red-600 text-white hover:bg-red-700 shadow-sm text-sm px-3 py-2" onClick={() => setPage('board')}>Sıralama →</button>
         </div>
         {locked && !isAdmin && <p className="mt-1.5 text-xs text-white/55">🔒 Tahminler kilitlendi — artık düzenlenemez.</p>}
       </div>

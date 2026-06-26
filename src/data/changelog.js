@@ -1,6 +1,13 @@
 // Uygulama sürüm geçmişi (changelog).
 export const CHANGELOG = [
   {
+    v: '6.1', date: 'Haziran 2026', items: [
+      'Banner düzenlendi: “Puan Durumu” butonu sarı yapıldı, üç buton biraz küçültüldü.',
+      'Banner başlığı: “kupayikimalir.com / FIFA Dünya Kupası 2026” üstte bitişik; “Tahmin Oyunu” tek satır.',
+      'Turnuva durumu satırı yenilendi: gün sayacı yerine faz + oynanan maç sayısı (ör. “⚽ Grup aşaması · 32/104 maç oynandı”).',
+    ],
+  },
+  {
     v: '6.0', date: 'Haziran 2026', items: [
       'Ana Sayfa ve Sıralama sayfalarına “yukarı çık” butonu eklendi.',
       'Banner’a “Puan Durumu” butonu (Tahmin yap ile Sıralama arasına) eklendi.',
