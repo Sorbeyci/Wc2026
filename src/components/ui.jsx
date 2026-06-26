@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { TEAMS } from '../data/tournament.js';
 import { flagUrl, flagEmoji } from '../data/flags.js';
 
-// Country flag image (flagcdnn). Falls back to nothing if the team has no code.
+// Country flag image (flagcdn). Falls back to nothing if the team has no code.
 export function Flag({ team, size = 20, className = '' }) {
   const url = flagUrl(team, 40);
   if (!url) return null;
@@ -171,6 +171,24 @@ export function BrandHeader({ onClick }) {
       className={`w-full text-center pb-1 ${onClick ? 'active:scale-[.99] transition' : ''}`}>
       <p className="font-display text-xl leading-none text-ink">kupayikimalir.com</p>
       <p className="text-[10px] uppercase tracking-[0.18em] text-ink/45 mt-1">FIFA Dünya Kupası 2026</p>
+    </button>
+  );
+}
+
+// Sayfada aşağı kayınca beliren "yukarı çık" butonu (Ana Sayfa, Sıralama, Puan Durumu).
+export function ScrollTopFab({ threshold = 480 }) {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setShow(window.scrollY > threshold);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [threshold]);
+  if (!show) return null;
+  return (
+    <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} aria-label="Yukarı çık"
+      className="fixed right-4 bottom-24 z-30 h-11 w-11 grid place-items-center rounded-full bg-ink text-white shadow-lg active:scale-95 fade-in">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M5 12l7-7 7 7" /></svg>
     </button>
   );
 }

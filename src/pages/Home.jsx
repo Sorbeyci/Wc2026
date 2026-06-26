@@ -4,7 +4,7 @@ import { GROUP_MATCHES } from '../data/tournament.js';
 import { scoreUser, SCORING } from '../lib/scoring.js';
 import { resolveBracket } from '../data/bracket.js';
 import { mapLiveFixtures } from '../lib/importScores.js';
-import { Dot, Flag, Avatar, CountUp } from '../components/ui.jsx';
+import { Dot, Flag, Avatar, CountUp, ScrollTopFab } from '../components/ui.jsx';
 import { shortName, teamColor } from '../data/flags.js';
 import { QUIZ } from '../data/quiz.js';
 import { CHANGELOG } from '../data/changelog.js';
@@ -115,6 +115,12 @@ export default function Home({ setPage, goAdminImport }) {
     return () => { alive = false; clearInterval(iv); };
   }, []);
 
+  const matchesRef = useRef(null);
+  const resultsRef = useRef(null);
+  const scorersRef = useRef(null);
+  const topRef = useRef(null);
+  const jump = (ref) => ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
   return (
     <div className="space-y-4">
       {showOnboard && <OnboardingWizard onClose={() => { lsSet('wc_onboard_v1', '1'); setShowOnboard(false); }} />}
@@ -145,24 +151,42 @@ export default function Home({ setPage, goAdminImport }) {
         <p className="label text-white/60 mt-2">FIFA Dünya Kupası 2026</p>
         <h1 className="font-display text-4xl leading-none mt-1">Tahmin<br />Oyunu</h1>
         <p className="mt-2 text-xs font-semibold text-gold">{tournamentStatus()}</p>
-        {onlineCount > 0 && (
-          <button onClick={() => setPage('board')}
-            className="mt-1 text-xs font-semibold text-white/80 hover:text-white flex items-center gap-1.5">
-            <span className="inline-block h-2 w-2 rounded-full bg-pitch animate-pulse" />
-            {onlineCount} kişi çevrimiçi
-            <span className="text-white/45">· gör →</span>
-          </button>
-        )}
+        <div className="mt-1 h-5">
+          {onlineCount > 0 && (
+            <button onClick={() => setPage('board')}
+              className="text-xs font-semibold text-white/80 hover:text-white flex items-center gap-1.5 h-5">
+              <span className="inline-block h-2 w-2 rounded-full bg-pitch animate-pulse" />
+              {onlineCount} kişi çevrimiçi
+              <span className="text-white/45">· gör →</span>
+            </button>
+          )}
+        </div>
         <p className="mt-2 text-sm text-white/70">Merhaba {user?.displayName?.split(' ')[0] || 'oyuncu'}{isAdmin ? ' · yönetici' : ''}.</p>
-        <div className="mt-4 flex gap-2 items-center">
+        <div className="mt-4 flex flex-wrap gap-2 items-center">
           {locked && !isAdmin ? (
             <span className="btn-primary blur-[1.5px] opacity-60 pointer-events-none select-none" aria-disabled="true">Tahmin yap</span>
           ) : (
             <button className="btn-primary" onClick={() => setPage('predict')}>Tahmin yap</button>
           )}
+          <button className="btn bg-white/10 text-white hover:bg-white/20" onClick={() => setPage('results')}>Puan Durumu</button>
           <button className="btn bg-red-600 text-white hover:bg-red-700 shadow-sm" onClick={() => setPage('board')}>Sıralama →</button>
         </div>
         {locked && !isAdmin && <p className="mt-1.5 text-xs text-white/55">🔒 Tahminler kilitlendi — artık düzenlenemez.</p>}
+      </div>
+
+      {/* Hızlı geçiş (aşağı kaydır) */}
+      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+        {[
+          { ic: '⚽', t: 'Maçlar', r: matchesRef },
+          { ic: '📋', t: 'Son sonuçlar', r: resultsRef },
+          { ic: '🏆', t: 'Liderler', r: topRef },
+          { ic: '👟', t: 'Gol krallığı', r: scorersRef },
+        ].map((x) => (
+          <button key={x.t} onClick={() => jump(x.r)}
+            className="shrink-0 flex items-center gap-1.5 rounded-full bg-black/[0.04] hover:bg-black/[0.08] text-ink/70 text-xs font-semibold px-3 h-8 active:scale-95">
+            <span>{x.ic}</span>{x.t}<span className="text-ink/30">↓</span>
+          </button>
+        ))}
       </div>
 
       <div className="grid grid-cols-3 gap-3">
@@ -178,11 +202,15 @@ export default function Home({ setPage, goAdminImport }) {
       <MyScore rows={rows} isMyList={isMyList} setPage={setPage} onCreate={() => setPage('lists')} />
       <AdZone ad={ad} wonToday={wonToday} onRemove={() => setQuizOpen(true)} />
       {quizOpen && <QuizModal base={quizBase} playedToday={playedToday} onClose={() => setQuizOpen(false)} onDone={onQuizDone} onStart={() => { setQPlayed(today); lsSet(`${quizBase}_played`, today); }} />}
-      <DayBrowser lists={lists} getPrediction={getPrediction} actual={actual} myPred={myPred} liveScores={liveScores} />
-      <RecentResults actual={actual} />
+      <div ref={matchesRef} className="scroll-mt-3">
+        <DayBrowser lists={lists} getPrediction={getPrediction} actual={actual} myPred={myPred} liveScores={liveScores} />
+      </div>
+      <div ref={resultsRef} className="scroll-mt-3">
+        <RecentResults actual={actual} />
+      </div>
       <FunStats lists={lists} getPrediction={getPrediction} actual={actual} seed={funSeed} />
 
-      <div className="card p-4">
+      <div ref={topRef} className="card p-4 scroll-mt-3">
         <div className="flex items-center justify-between">
           <p className="font-display text-xl">Tablonun zirvesi</p>
           <button className="text-sm font-semibold text-pitch" onClick={() => setPage('board')}>Tümü</button>
@@ -204,7 +232,7 @@ export default function Home({ setPage, goAdminImport }) {
       </div>
 
       {scorers.length > 0 && (
-        <div className="card overflow-hidden">
+        <div ref={scorersRef} className="card overflow-hidden scroll-mt-3">
           <button onClick={() => setScorersOpen((v) => !v)} className="w-full flex items-center justify-between gap-2 px-4 pt-3 pb-1">
             <p className="font-display text-lg">⚽ Dünya Kupası gol krallığı</p>
             <div className="flex items-center gap-2">
@@ -267,6 +295,7 @@ export default function Home({ setPage, goAdminImport }) {
       <button className="w-full btn-ghost" onClick={logout}>Çıkış yap</button>
 
       <Footer setPage={setPage} />
+      <ScrollTopFab />
     </div>
   );
 }

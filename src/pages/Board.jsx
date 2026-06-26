@@ -4,7 +4,7 @@ import { scoreUser, SCORING, allGroupsComplete, groupOrder, hasOrder, advancingT
 import { GROUP_MATCHES, GROUP_NAMES } from '../data/tournament.js';
 import { bestThirds } from '../data/bracket.js';
 import { shortName } from '../data/flags.js';
-import { SectionTitle, Dot, Empty, Avatar, Flag, CountUp, Segmented, BrandHeader } from '../components/ui.jsx';
+import { SectionTitle, Dot, Empty, Avatar, Flag, CountUp, Segmented, BrandHeader, ScrollTopFab } from '../components/ui.jsx';
 import { shareLeaderboard } from '../lib/shareCard.js';
 import { topAchievement } from '../lib/achievements.js';
 import FullStats from '../components/FullStats.jsx';
@@ -233,10 +233,13 @@ export default function Board({ onOpenList, goHome }) {
       <Segmented items={SUB} value={sub} onChange={setSub} />
 
       {lists.length > 0 && sub === 'board' && (
-        <button onClick={() => shareLeaderboard(rows, { title: 'Sıralama', subtitle: new Date().toLocaleDateString('tr-TR') })}
-          className="w-full btn bg-ink text-white hover:opacity-90 text-sm">
-          📲 Sıralamayı paylaş (story)
-        </button>
+        <div className="flex justify-end -mt-2 -mb-1">
+          <button onClick={() => shareLeaderboard(rows, { title: 'Sıralama', subtitle: new Date().toLocaleDateString('tr-TR') })}
+            title="Sıralamayı paylaş (story)" aria-label="Sıralamayı paylaş (story)"
+            className="inline-flex items-center gap-1.5 rounded-full bg-ink text-white px-3 h-8 text-xs font-semibold active:scale-95 hover:opacity-90">
+            📲 Paylaş
+          </button>
+        </div>
       )}
 
       <div key={sub} className="fade-in">
@@ -310,6 +313,7 @@ export default function Board({ onOpenList, goHome }) {
         <Stats rows={rows} />
       )}
       </div>
+      <ScrollTopFab />
     </div>
   );
 }
@@ -892,7 +896,8 @@ function RankRace({ lists, actual, getPrediction, user }) {
   const n = snaps.length;
   const [t, setT] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const [showNames, setShowNames] = useState(false);
+  const [showNames, setShowNames] = useState(true);
+  const scrollRef = useRef(null);
   useEffect(() => { setT(n ? n - 1 : 0); }, [n]);
   useEffect(() => {
     if (!playing) return;
@@ -900,6 +905,14 @@ function RankRace({ lists, actual, getPrediction, user }) {
     const iv = setInterval(() => setT((x) => Math.min(n - 1, x + 1)), 950);
     return () => clearInterval(iv);
   }, [playing, t, n]);
+  // Oynatırken/ilerlerken oynatma çizgisini görünür tut (isimler ekrandan kaybolmasın).
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const colW = 58, leftPad = 22;
+    const target = leftPad + t * colW - el.clientWidth * 0.45;
+    el.scrollTo({ left: Math.max(0, target), behavior: 'smooth' });
+  }, [t]);
 
   if (n === 0) return <Empty title="Henüz veri yok">İlk maç sonuçları girilince sıralama değişim grafiği burada oluşur.</Empty>;
 
@@ -935,7 +948,7 @@ function RankRace({ lists, actual, getPrediction, user }) {
         </button>
       </div>
 
-      <div className="card p-2 overflow-x-auto">
+      <div ref={scrollRef} className="card p-2 overflow-x-auto">
         <svg width={W} height={H} className="block">
           {gridRanks.map((r) => (
             <g key={'g' + r}>

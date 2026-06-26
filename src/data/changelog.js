@@ -1,6 +1,16 @@
 // Uygulama sürüm geçmişi (changelog).
 export const CHANGELOG = [
   {
+    v: '6.0', date: 'Haziran 2026', items: [
+      'Ana Sayfa ve Sıralama sayfalarına “yukarı çık” butonu eklendi.',
+      'Banner’a “Puan Durumu” butonu (Tahmin yap ile Sıralama arasına) eklendi.',
+      'Ana Sayfa’da hızlı aşağı-kaydır bağlantıları: Maçlar, Son sonuçlar, Liderler, Gol krallığı.',
+      'Sıralama grafiğinde “İsimler” varsayılan açık; oynatırken grafik sağa kayarken isimler ekranda takip eder.',
+      '“Sıralamayı paylaş (story)” küçük bir ikon oldu (sayfayı aşağı büyütmüyor).',
+      'Ana Sayfa’da “kişi çevrimiçi” göstergesi kaybolunca oluşan kayma düzeltildi.',
+    ],
+  },
+  {
     v: '5.9', date: 'Haziran 2026', items: [
       'Admin · Maç özetleri: tek maç seçip API’de tek tek aratma ve bulunmayanlara elle YouTube linki ekleme/kaldırma eklendi.',
       'Arka planda otomatik özet arama için aç/kapa anahtarı; kapalıyken kullanıcılar siteyi açınca otomatik YouTube araması yapılmaz.',
