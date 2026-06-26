@@ -75,10 +75,9 @@ export function pickHighlight(m, items) {
     const hasGrp = grpTok ? t.includes(grpTok) : false;
     if (!has2026 && !hasGrp) continue; // yanlış turnuva riskini ele
 
-    // Tarih: özet maçtan SONRA yüklenir. Maçtan >36s önce yüklendiyse (eski sezon) ele.
+    // Tarih: özet maçtan sonra yüklenir. Yalnız SOFT ipucu olarak puanlanır (eleme yok).
     let pub = null;
     if (it.publishedAt) { const p = Date.parse(it.publishedAt); if (!Number.isNaN(p)) pub = p; }
-    if (start && pub && pub < start - 36 * HOUR) continue;
 
     let score = 0;
     if (has2026) score += 3;
@@ -115,7 +114,7 @@ export async function attemptHighlight(m, existingDoc, { force = false, base = '
   inFlight.add(m.no);
   try {
     const q = buildQuery(m);
-    const r = await fetch(`${base}/api/highlight?q=${encodeURIComponent(q)}`);
+    const r = await fetch(`${base}/api/highlight?q=${encodeURIComponent(q)}`, { cache: 'no-store' });
     const j = await r.json().catch(() => null);
     if (!r.ok) return { action: 'error', detail: j || { status: r.status } };
     const hit = pickHighlight(m, (j && j.items) || []);

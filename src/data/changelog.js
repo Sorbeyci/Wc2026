@@ -1,6 +1,11 @@
 // Uygulama sürüm geçmişi (changelog).
 export const CHANGELOG = [
   {
+    v: '5.4', date: 'Haziran 2026', items: [
+      'Maç özeti çekme düzeltildi: 304 önbellek yanıtı yüzünden özetler boş dönüyordu; istek artık no-store ile yapılıyor. Katı tarih elemesi kaldırıldı (yanlış elemeleri önler).',
+    ],
+  },
+  {
     v: '5.3', date: 'Haziran 2026', items: [
       'Maç özeti eşleştirmesi sıkılaştırıldı: yalnız “2026 Dünya Kupası + grup” başlıkları kabul edilir; Kadınlar/gençlik/eleme/hazırlık videoları ve maçtan önce yüklenenler elenir (yanlış videoların önüne geçer).',
       'Admin’e “Tümünü yeniden tara (yanlışları düzelt)” eklendi; hatalı linkleri düzeltir/kaldırır.',
