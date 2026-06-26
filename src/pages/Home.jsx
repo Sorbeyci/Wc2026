@@ -1010,7 +1010,7 @@ function FunStats({ lists, getPrediction, actual, seed }) {
 }
 
 function RecentResults({ actual }) {
-  const { highlightsByNo = {}, writeHighlight } = useStore();
+  const { highlightsByNo = {}, writeHighlight, highlightsAuto } = useStore();
   const days = useMemo(() => {
     const map = new Map();
     for (const m of GROUP_MATCHES) {
@@ -1029,7 +1029,7 @@ function RecentResults({ actual }) {
 
   // Otomatik özet bulma (görünen günün biten maçları için; Firestore yüklensin diye gecikmeli).
   useEffect(() => {
-    if (!day) return;
+    if (!day || highlightsAuto === false) return;
     let cancelled = false;
     const tid = setTimeout(async () => {
       for (const m of day.matches) {
@@ -1043,7 +1043,7 @@ function RecentResults({ actual }) {
     }, 1400);
     return () => { cancelled = true; clearTimeout(tid); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [day?.date, days.length]);
+  }, [day?.date, days.length, highlightsAuto]);
 
   if (!day) return null;
   return (

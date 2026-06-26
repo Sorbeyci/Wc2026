@@ -446,6 +446,11 @@ export function StoreProvider({ children }) {
       logAction('Kilit', val ? 'açıldı (kilitli)' : 'kaldırıldı');
       return reportSave(setDoc(doc(db, 'config', 'settings'), { locked: !!val, updatedAt: serverTimestamp() }, { merge: true }));
     },
+    highlightsAuto: settings.highlightsAuto !== false,
+    setHighlightsAuto: (val) => {
+      logAction('Maç özeti otomatik', val ? 'açık' : 'kapalı');
+      return reportSave(setDoc(doc(db, 'config', 'settings'), { highlightsAuto: !!val, updatedAt: serverTimestamp() }, { merge: true }));
+    },
     async resetAllLists() {
       if (!isAdmin) return;
       logAction('Tüm listeler sıfırlandı', `${listsRef.current.length} liste`);

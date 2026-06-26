@@ -109,6 +109,17 @@ export function pickHighlight(m, items) {
   return null;
 }
 
+// YouTube URL / kısa link / ham ID'den videoId çıkarır.
+export function parseYouTubeId(input) {
+  const s = (input || '').trim();
+  if (!s) return null;
+  if (/^[\w-]{11}$/.test(s)) return s; // ham ID
+  const m = s.match(/(?:v=|\/shorts\/|youtu\.be\/|\/embed\/|\/live\/)([\w-]{11})/);
+  if (m) return m[1];
+  const last = s.split(/[/?&#]/).filter(Boolean).pop();
+  return /^[\w-]{11}$/.test(last || '') ? last : null;
+}
+
 const inFlight = new Set();
 
 // Bir maç için özet bulmayı dener. existingDoc: Firestore highlights/{no} (yoksa null).

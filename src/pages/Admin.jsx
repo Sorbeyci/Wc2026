@@ -8,7 +8,7 @@ import { shortName } from '../data/flags.js';
 import Standings from '../components/Standings.jsx';
 import Bracket from '../components/Bracket.jsx';
 import ImportExport from './ImportExport.jsx';
-import { attemptHighlight, diagnoseHighlight } from '../lib/highlights.js';
+import { attemptHighlight, diagnoseHighlight, parseYouTubeId } from '../lib/highlights.js';
 
 const SUB = [
   { id: 'results', label: 'Sonuçlar' },
@@ -374,6 +374,88 @@ function HighlightAdmin({ store }) {
       </button>
       {prog && <p className="mt-2 text-xs text-ink/55 break-words">{prog}</p>}
       {diag && <pre className="mt-2 text-[11px] text-ink/70 bg-black/[0.03] rounded-lg p-2 whitespace-pre-wrap break-words">{diag}</pre>}
+
+      <div className="mt-3 pt-3 border-t border-black/5 flex items-center justify-between">
+        <div className="pr-3">
+          <p className="text-sm font-semibold text-ink">Arka planda otomatik arama</p>
+          <p className="text-[11px] text-ink/50">Kapalıyken kullanıcılar siteyi açınca YouTube’da otomatik özet aranmaz; yalnız buradan manuel/tarama ile bulunur.</p>
+        </div>
+        <button onClick={() => store.setHighlightsAuto(!store.highlightsAuto)}
+          className={`shrink-0 w-14 h-8 rounded-full transition relative ${store.highlightsAuto ? 'bg-pitch' : 'bg-black/15'}`}>
+          <span className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow transition-all ${store.highlightsAuto ? 'left-7' : 'left-1'}`} />
+        </button>
+      </div>
+
+      <HighlightManual store={store} />
+    </div>
+  );
+}
+
+function HighlightManual({ store }) {
+  const { actual, highlightsByNo = {}, writeHighlight, clearHighlight } = store;
+  const finished = GROUP_MATCHES.filter((m) => {
+    const a = actual.groupMatches?.[m.no];
+    return a && a.home !== '' && a.home != null && a.away !== '' && a.away != null;
+  });
+  const [no, setNo] = useState('');
+  const [url, setUrl] = useState('');
+  const [msg, setMsg] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const m = finished.find((x) => String(x.no) === String(no));
+  const cur = no ? highlightsByNo[no] : null;
+
+  const search = async () => {
+    if (!m) return;
+    setBusy(true); setMsg('Aranıyor…');
+    const res = await attemptHighlight(m, highlightsByNo[m.no], { force: true });
+    if (res.action === 'save') { await writeHighlight(m.no, res.data); setMsg(`✓ Bulundu: ${res.data.title}`); }
+    else if (res.action === 'error') { const d = res.detail || {}; setMsg(`HATA · ${d.status || ''} ${d.reason || d.error || ''}`); }
+    else setMsg('Bulunamadı. Aşağıdan elle link ekleyebilirsin.');
+    setBusy(false);
+  };
+  const addManual = async () => {
+    if (!m) return;
+    const id = parseYouTubeId(url);
+    if (!id) { setMsg('Geçerli bir YouTube linki/ID değil.'); return; }
+    await writeHighlight(m.no, { videoId: id, url: `https://www.youtube.com/watch?v=${id}`, title: 'Elle eklendi', manual: true });
+    setMsg('✓ Elle eklendi.'); setUrl('');
+  };
+  const remove = async () => {
+    if (!m) return;
+    await clearHighlight(m.no); setMsg('Kaldırıldı.');
+  };
+
+  return (
+    <div className="mt-3 pt-3 border-t border-black/5">
+      <p className="text-sm font-semibold text-ink">Tek maç · manuel</p>
+      <p className="text-[11px] text-ink/50 mb-2">Bir maç seç; API’de tek tek aratabilir ya da elle YouTube linki yapıştırabilirsin.</p>
+      <select value={no} onChange={(e) => { setNo(e.target.value); setMsg(null); setUrl(''); }}
+        className="w-full rounded-lg border border-black/10 px-2 py-2 text-sm bg-white">
+        <option value="">— maç seç —</option>
+        {finished.map((x) => (
+          <option key={x.no} value={x.no}>
+            {highlightsByNo[x.no]?.videoId ? '✓' : '•'} {x.no}. {shortName(x.home)} - {shortName(x.away)} ({x.group})
+          </option>
+        ))}
+      </select>
+
+      {m && (
+        <div className="mt-2 space-y-2">
+          {cur?.videoId
+            ? <p className="text-[11px] text-ink/60 break-words">Mevcut: <a className="text-red-600 font-semibold" href={cur.url} target="_blank" rel="noreferrer">{cur.title || cur.videoId}</a>{cur.manual ? ' (elle)' : ''}</p>
+            : <p className="text-[11px] text-ink/45">Bu maçta henüz özet yok.</p>}
+          <div className="flex gap-2">
+            <button disabled={busy} onClick={search} className="flex-1 btn bg-ink text-white text-sm disabled:opacity-40">🔍 API’de ara</button>
+            {cur?.videoId && <button onClick={remove} className="btn bg-black/5 text-ink text-sm">Kaldır</button>}
+          </div>
+          <div className="flex gap-2">
+            <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="YouTube linki veya ID"
+              className="flex-1 rounded-lg border border-black/10 px-2 py-2 text-sm" />
+            <button onClick={addManual} className="btn bg-gold/20 text-gold-dark text-sm">Ekle</button>
+          </div>
+          {msg && <p className="text-[11px] text-ink/60 break-words">{msg}</p>}
+        </div>
+      )}
     </div>
   );
 }

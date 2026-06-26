@@ -1,6 +1,12 @@
 // Uygulama sürüm geçmişi (changelog).
 export const CHANGELOG = [
   {
+    v: '5.9', date: 'Haziran 2026', items: [
+      'Admin · Maç özetleri: tek maç seçip API’de tek tek aratma ve bulunmayanlara elle YouTube linki ekleme/kaldırma eklendi.',
+      'Arka planda otomatik özet arama için aç/kapa anahtarı; kapalıyken kullanıcılar siteyi açınca otomatik YouTube araması yapılmaz.',
+    ],
+  },
+  {
     v: '5.8', date: 'Haziran 2026', items: [
       'Maç özeti seçimi güçlendirildi: “özet/Petrol Ofisi” daha yüksek puan alır; maç sonu, yorumlar, tanıtım, röportaj, kamp gibi özet olmayan videolar elenir. Doğru özet listede kaçıncı sırada olursa olsun seçilir.',
     ],
