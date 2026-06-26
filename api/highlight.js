@@ -69,7 +69,7 @@ export default async function handler(req, res) {
     if (!q) { res.status(400).json({ error: 'no_query' }); return; }
 
     const sres = await ytGet(`https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=${channelId}`
-      + `&q=${encodeURIComponent(q)}&type=video&maxResults=8&order=relevance&key=${key}`);
+      + `&q=${encodeURIComponent(q)}&type=video&maxResults=25&order=date&key=${key}`);
     if (!sres.ok) {
       res.status(502).json({ error: 'yt_search_failed', status: sres.status, reason: sres.reason, message: sres.message });
       return;

@@ -55,7 +55,7 @@ function matchStartMs(m) {
 }
 
 export function buildQuery(m) {
-  return `${trtName(m.home)} ${trtName(m.away)} 2026 Dünya Kupası özet`;
+  return `${trtName(m.home)} ${trtName(m.away)} 2026 Dünya Kupası`;
 }
 
 // Teşhis: bir maç için /api/highlight'ı çağırır; ham başlıkları ve seçimi döner.
