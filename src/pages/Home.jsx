@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect, useRef } from 'react';
 import { useStore } from '../lib/store.jsx';
 import { GROUP_MATCHES } from '../data/tournament.js';
 import { scoreUser, SCORING } from '../lib/scoring.js';
-import { resolveBracket } from '../data/bracket.js';
+import { resolveBracket, MATCH_BY_NO, KO_DATES, KO_ORDER } from '../data/bracket.js';
 import { mapLiveFixtures } from '../lib/importScores.js';
 import { Dot, Flag, Avatar, CountUp, ScrollTopFab } from '../components/ui.jsx';
 import { shortName, teamColor } from '../data/flags.js';
@@ -804,6 +804,48 @@ function liveBadge(m, now) {
   return null;
 }
 
+const KO_ROUND_TR = { R32: 'Son 32', R16: 'Son 16', QF: 'Çeyrek Final', SF: 'Yarı Final', TP: 'Üçüncülük', F: 'Final' };
+function koRefLabel(ref, tsg) {
+  if (!ref) return '?';
+  if (ref.t === 'W') return '1' + ref.g;
+  if (ref.t === 'R') return '2' + ref.g;
+  if (ref.t === 'T') { const g = tsg?.[ref.slot]; return g ? '3.' + g : 'en iyi 3.'; }
+  if (ref.t === 'Wm') return ref.n + '. galibi';
+  if (ref.t === 'Lm') return ref.n + '. mağlubu';
+  return '?';
+}
+
+function KoRow({ no, time, A, now }) {
+  const def = MATCH_BY_NO[no] || {};
+  const mm = A.matches[no] || {};
+  const tsg = A.thirdSlotGroup;
+  const homeT = mm.home, awayT = mm.away, win = mm.winner;
+  const homeLab = homeT ? shortName(homeT) : koRefLabel(def.home, tsg);
+  const awayLab = awayT ? shortName(awayT) : koRefLabel(def.away, tsg);
+  const lb = liveBadge({ date: KO_DATES[no].date, time }, now);
+  return (
+    <div className="px-4 py-2.5"
+      style={homeT || awayT ? { backgroundImage: `linear-gradient(90deg, ${homeT ? teamColor(homeT) : '#999'}10, transparent 26%, transparent 74%, ${awayT ? teamColor(awayT) : '#999'}10)` } : undefined}>
+      <div className="text-[11px] text-ink/45 mb-1 flex items-center gap-2">
+        <span>{no}. maç · {KO_ROUND_TR[def.round] || 'Eleme'} · {time}</span>
+        {lb && lb.type === 'count' && <span className="inline-flex items-center gap-1 rounded-full bg-gold/20 text-gold-dark px-1.5 py-0.5 text-[10px] font-bold">⏱ {lb.text}</span>}
+        {lb && lb.type === 'live' && <span className="inline-flex items-center gap-1 rounded-full bg-black/10 text-ink/60 px-1.5 py-0.5 text-[10px] font-bold">⏱ başladı</span>}
+      </div>
+      <div className="flex items-center gap-2">
+        <div className="flex-1 min-w-0 flex items-center justify-end gap-1.5">
+          <span className={`truncate text-sm ${win && win === homeT ? 'font-bold text-pitch' : homeT ? 'font-semibold' : 'text-ink/45 italic'}`}>{homeLab}</span>
+          {homeT && <Flag team={homeT} size={18} className="shrink-0" />}
+        </div>
+        <span className="shrink-0 w-10 text-center font-display text-ink/40 text-xs">{win ? '✓' : 'vs'}</span>
+        <div className="flex-1 min-w-0 flex items-center gap-1.5">
+          {awayT && <Flag team={awayT} size={18} className="shrink-0" />}
+          <span className={`truncate text-sm ${win && win === awayT ? 'font-bold text-pitch' : awayT ? 'font-semibold' : 'text-ink/45 italic'}`}>{awayLab}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function DayBrowser({ lists, getPrediction, actual, myPred, liveScores }) {
   const [off, setOff] = useState(0);
   const [openNo, setOpenNo] = useState(null);
@@ -813,6 +855,14 @@ function DayBrowser({ lists, getPrediction, actual, myPred, liveScores }) {
   const date = dateForOffset(off);
   const matches = useMemo(
     () => GROUP_MATCHES.filter((m) => m.date === date).sort((a, b) => timeKey(a) - timeKey(b)),
+    [date]
+  );
+  const A = useMemo(() => resolveBracket(actual, actual.ko || {}), [actual]);
+  const kos = useMemo(
+    () => Object.entries(KO_DATES)
+      .filter(([, info]) => info.date === date)
+      .map(([no, info]) => ({ no: +no, time: info.time }))
+      .sort((a, b) => (a.time < b.time ? -1 : 1)),
     [date]
   );
   const setDay = (o) => { setOff(o); setOpenNo(null); };
@@ -840,7 +890,7 @@ function DayBrowser({ lists, getPrediction, actual, myPred, liveScores }) {
           )}
         </div>
       </div>
-      {matches.length === 0 ? (
+      {matches.length === 0 && kos.length === 0 ? (
         <p className="px-4 py-4 text-sm text-ink/55">Bu gün maç yok.</p>
       ) : (
         <div className="divide-y divide-black/5">
@@ -907,6 +957,9 @@ function DayBrowser({ lists, getPrediction, actual, myPred, liveScores }) {
               </div>
             );
           })}
+          {kos.map(({ no, time }) => (
+            <KoRow key={`ko${no}`} no={no} time={time} A={A} now={now} />
+          ))}
         </div>
       )}
     </div>

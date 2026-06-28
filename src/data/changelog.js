@@ -1,6 +1,11 @@
 // Uygulama sürüm geçmişi (changelog).
 export const CHANGELOG = [
   {
+    v: '6.3', date: 'Haziran 2026', items: [
+      '“Maçlar” takvimine eleme turu fikstürleri eklendi (Son 32, Son 16, Çeyrek, Yarı, Üçüncülük, Final) — tarih ve saatleriyle. Takımlar netleştikçe yazılır; belli değilse “1A / 2B / 74. galibi” gibi kaynak gösterilir.',
+    ],
+  },
+  {
     v: '6.2', date: 'Haziran 2026', items: [
       'Banner butonları mobilde tek satıra sığacak şekilde küçültüldü.',
       'Banner durum yazısı 10 saniyede bir iki metin arasında fade ile değişiyor (faz/oynanan maç ↔ gün/finale sayacı).',

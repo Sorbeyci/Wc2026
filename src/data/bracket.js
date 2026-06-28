@@ -78,6 +78,33 @@ export const KO_ORDER = [
   { id: 'F', labelTr: 'Final', from: 104, to: 104 },
 ];
 
+// Eleme turu fikstür tarihleri (2026 takvimine yakın; gerekirse buradan düzenle).
+// Saatler TR (yaklaşık). Tarih biçimi GROUP_MATCHES ile aynı: "Haz/Tem GG, 2026".
+export const KO_DATES = {
+  // Son 32 — 28 Haz – 3 Tem
+  73: { date: 'Haz 28, 2026', time: '20:00' }, 74: { date: 'Haz 28, 2026', time: '23:00' },
+  75: { date: 'Haz 29, 2026', time: '20:00' }, 76: { date: 'Haz 29, 2026', time: '23:00' },
+  77: { date: 'Haz 30, 2026', time: '20:00' }, 78: { date: 'Haz 30, 2026', time: '23:00' },
+  79: { date: 'Tem 1, 2026', time: '20:00' }, 80: { date: 'Tem 1, 2026', time: '23:00' },
+  81: { date: 'Tem 2, 2026', time: '20:00' }, 82: { date: 'Tem 2, 2026', time: '23:00' },
+  83: { date: 'Tem 3, 2026', time: '20:00' }, 84: { date: 'Tem 3, 2026', time: '23:00' },
+  85: { date: 'Haz 29, 2026', time: '02:00' }, 86: { date: 'Haz 30, 2026', time: '02:00' },
+  87: { date: 'Tem 1, 2026', time: '02:00' }, 88: { date: 'Tem 2, 2026', time: '02:00' },
+  // Son 16 — 4–7 Tem
+  89: { date: 'Tem 4, 2026', time: '20:00' }, 90: { date: 'Tem 4, 2026', time: '23:00' },
+  91: { date: 'Tem 5, 2026', time: '20:00' }, 92: { date: 'Tem 5, 2026', time: '23:00' },
+  93: { date: 'Tem 6, 2026', time: '20:00' }, 94: { date: 'Tem 6, 2026', time: '23:00' },
+  95: { date: 'Tem 7, 2026', time: '20:00' }, 96: { date: 'Tem 7, 2026', time: '23:00' },
+  // Çeyrek — 9 & 11 Tem
+  97: { date: 'Tem 9, 2026', time: '20:00' }, 98: { date: 'Tem 9, 2026', time: '23:00' },
+  99: { date: 'Tem 11, 2026', time: '20:00' }, 100: { date: 'Tem 11, 2026', time: '23:00' },
+  // Yarı — 14 & 15 Tem
+  101: { date: 'Tem 14, 2026', time: '22:00' }, 102: { date: 'Tem 15, 2026', time: '22:00' },
+  // Üçüncülük & Final
+  103: { date: 'Tem 18, 2026', time: '22:00' },
+  104: { date: 'Tem 19, 2026', time: '22:00' },
+};
+
 const ALL = [...R32.map((m) => ({ ...m, round: 'R32' })), ...LATER];
 export const MATCH_BY_NO = Object.fromEntries(ALL.map((m) => [m.no, m]));
 
