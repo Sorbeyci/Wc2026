@@ -1,6 +1,13 @@
 // Uygulama sürüm geçmişi (changelog).
 export const CHANGELOG = [
   {
+    v: '6.7', date: 'Haziran 2026', items: [
+      'Eleme dağılımında “Bir takımı tutturan” artık takıma göre gruplanıp bayraklı gösteriliyor (ör. 🇩🇪 Almanya başlığı altında o takımı tutanlar) — okumak daha kolay.',
+      'Henüz belli olmayan eleme tarafı “75. galibi” yerine o eşleşmenin iki takımını bayraklı gösteriyor (ör. 🇳🇱 Hollanda / 🇲🇦 Fas).',
+      'Eleme maçı kapalıyken: bu eşleşmede stake’in varsa küçük yıldız — ★ (altın) eşleşmeyi tuttun, ★ (gri) bir takımı tuttun.',
+    ],
+  },
+  {
     v: '6.6', date: 'Haziran 2026', items: [
       'Maç özetleri (TRT Spor) artık eleme maçlarını da kapsıyor: Son 32/16/Çeyrek/Yarı/Final için de özet aranır ve bulunur (round etiketiyle eşleştirme). Tarama, manuel seçim ve sayaç grup + eleme maçlarını birlikte sayar.',
       '“Son sonuçlar” kartında eleme maçları (Son 32, Son 16, …) da görünür — skoru ve maç özeti linkiyle.',
