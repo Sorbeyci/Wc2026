@@ -839,31 +839,32 @@ function koDistribution(no, lists, getPrediction, A, actualKo) {
     if (same) {
       const pk = pred.ko?.[no];
       const pkHas = pk && pk.hs !== '' && pk.hs != null && pk.as !== '' && pk.as != null;
+      const sc = pkHas ? `${pm.home === ah ? Number(pk.hs) : Number(pk.as)}-${pm.home === ah ? Number(pk.as) : Number(pk.hs)}` : null;
       if (aHasScore && pkHas) {
         const ohs = pm.home === ah ? Number(pk.hs) : Number(pk.as);
         const oas = pm.home === ah ? Number(pk.as) : Number(pk.hs);
-        const sc = `${ohs}-${oas}`;
-        if (ohs === ahsN && oas === aasN) exactHit.push({ name: l.name, sc });
-        else if (koOutcome(ohs, oas) === aOut) resultHit.push({ name: l.name, sc });
-        else matchupOnly.push(l.name);
-      } else matchupOnly.push(l.name);
+        if (ohs === ahsN && oas === aasN) exactHit.push({ name: l.name, extra: sc });
+        else if (koOutcome(ohs, oas) === aOut) resultHit.push({ name: l.name, extra: sc });
+        else matchupOnly.push({ name: l.name, extra: sc }); // eşleşme doğru, skor yanlış
+      } else matchupOnly.push({ name: l.name, extra: sc }); // skor yoksa null
     } else if (inter === 1) {
-      oneTeam.push(l.name);
+      const right = [pm.home, pm.away].find((t) => t === ah || t === aa);
+      oneTeam.push({ name: l.name, extra: shortName(right) });
     }
   }
   const tot = exactHit.length + resultHit.length + matchupOnly.length + oneTeam.length;
   return { exactHit, resultHit, matchupOnly, oneTeam, tot, aHas };
 }
 
-function KoDistGroup({ icon, label, names, withSc, color }) {
-  if (!names.length) return null;
+function KoDistGroup({ icon, label, items, color }) {
+  if (!items.length) return null;
   return (
     <div className="mt-1.5">
-      <p className="text-[11px] font-semibold text-ink/60">{icon} {label} ({names.length})</p>
+      <p className="text-[11px] font-semibold text-ink/60">{icon} {label} ({items.length})</p>
       <div className="mt-1 flex flex-wrap gap-1">
-        {names.map((n, i) => (
+        {items.map((n, i) => (
           <span key={i} className={`rounded-full px-2 py-0.5 text-[11px] ${color || 'bg-black/5 text-ink/70'}`}>
-            {withSc ? `${n.name} · ${n.sc}` : n}
+            {n.name}{n.extra ? ` · ${n.extra}` : ''}
           </span>
         ))}
       </div>
@@ -876,10 +877,10 @@ function KoDist({ d }) {
   if (d.tot === 0) return <p className="text-xs text-ink/45">Kimse bu eşleşmeyi/takımı tutturamadı.</p>;
   return (
     <div>
-      <KoDistGroup icon="🎯" label="Tam skoru bilen" names={d.exactHit} withSc color="bg-pitch/15 text-pitch-dark font-semibold" />
-      <KoDistGroup icon="✅" label="Doğru galibi bilen" names={d.resultHit} withSc color="bg-gold/20 text-gold-dark font-semibold" />
-      <KoDistGroup icon="🤝" label="Eşleşmeyi tutturan" names={d.matchupOnly} />
-      <KoDistGroup icon="1️⃣" label="Bir takımı tutturan" names={d.oneTeam} />
+      <KoDistGroup icon="🎯" label="Tam skoru bilen" items={d.exactHit} color="bg-pitch/15 text-pitch-dark font-semibold" />
+      <KoDistGroup icon="✅" label="Doğru galibi bilen" items={d.resultHit} color="bg-gold/20 text-gold-dark font-semibold" />
+      <KoDistGroup icon="🤝" label="Eşleşmeyi tutturan (tahmini)" items={d.matchupOnly} />
+      <KoDistGroup icon="1️⃣" label="Bir takımı tutturan" items={d.oneTeam} />
     </div>
   );
 }
@@ -1206,17 +1207,27 @@ function FunStats({ lists, getPrediction, actual, seed }) {
 
 function RecentResults({ actual }) {
   const { highlightsByNo = {}, writeHighlight, highlightsAuto } = useStore();
+  const A = useMemo(() => resolveBracket(actual, actual.ko || {}), [actual]);
   const days = useMemo(() => {
     const map = new Map();
+    const push = (date, item) => { if (!date) return; if (!map.has(date)) map.set(date, []); map.get(date).push(item); };
     for (const m of GROUP_MATCHES) {
-      if (!hasScore(actual.groupMatches?.[m.no])) continue;
-      if (!map.has(m.date)) map.set(m.date, []);
-      map.get(m.date).push(m);
+      const a = actual.groupMatches?.[m.no];
+      if (!hasScore(a)) continue;
+      push(m.date, { no: m.no, home: m.home, away: m.away, hs: a.home, as: a.away, time: m.time, date: m.date });
+    }
+    for (let no = 73; no <= 104; no++) {
+      const k = actual.ko?.[no];
+      if (!k || k.hs === '' || k.hs == null || k.as === '' || k.as == null) continue;
+      const am = A.matches?.[no];
+      if (!am?.home || !am?.away) continue;
+      const d = KO_DATES[no] || {};
+      push(d.date, { no, home: am.home, away: am.away, hs: k.hs, as: k.as, time: d.time, date: d.date, round: KO_ROUND_TR[MATCH_BY_NO[no]?.round] || 'Eleme' });
     }
     const arr = [...map.entries()].map(([date, ms]) => ({ date, matches: ms.sort((a, b) => timeKey(a) - timeKey(b)) }));
     arr.sort((a, b) => dayKey(a.date) - dayKey(b.date));
     return arr;
-  }, [actual]);
+  }, [actual, A]);
 
   const [idx, setIdx] = useState(0);
   useEffect(() => { setIdx(days.length ? days.length - 1 : 0); }, [days.length]);
@@ -1258,19 +1269,20 @@ function RecentResults({ actual }) {
       </div>
       <div className="divide-y divide-black/5">
         {day.matches.map((m) => {
-          const a = actual.groupMatches[m.no];
           const hl = highlightsByNo[m.no];
+          const hn = Number(m.hs), an = Number(m.as);
           return (
             <div key={m.no} className="px-4 py-2">
+              {m.round && <div className="text-[10px] text-ink/40 mb-0.5">{m.round}</div>}
               <div className="flex items-center gap-2 text-sm">
                 <div className="flex-1 min-w-0 flex items-center justify-end gap-1.5">
-                  <span className={`truncate ${Number(a.home) > Number(a.away) ? 'font-bold text-pitch' : Number(a.home) < Number(a.away) ? 'text-ink/40' : ''}`}>{shortName(m.home)}</span>
+                  <span className={`truncate ${hn > an ? 'font-bold text-pitch' : hn < an ? 'text-ink/40' : ''}`}>{shortName(m.home)}</span>
                   <Flag team={m.home} size={16} className="shrink-0" />
                 </div>
-                <span className="shrink-0 w-12 text-center font-display tabular-nums">{a.home}-{a.away}</span>
+                <span className="shrink-0 w-12 text-center font-display tabular-nums">{m.hs}-{m.as}</span>
                 <div className="flex-1 min-w-0 flex items-center gap-1.5">
                   <Flag team={m.away} size={16} className="shrink-0" />
-                  <span className={`truncate ${Number(a.away) > Number(a.home) ? 'font-bold text-pitch' : Number(a.away) < Number(a.home) ? 'text-ink/40' : ''}`}>{shortName(m.away)}</span>
+                  <span className={`truncate ${an > hn ? 'font-bold text-pitch' : an < hn ? 'text-ink/40' : ''}`}>{shortName(m.away)}</span>
                 </div>
               </div>
               {hl?.videoId && (

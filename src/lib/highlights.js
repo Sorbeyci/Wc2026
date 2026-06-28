@@ -80,6 +80,8 @@ export function pickHighlight(m, items) {
   const hc = candidates(m.home), ac = candidates(m.away);
   const start = matchStartMs(m);
   const grpTok = m.group ? norm(`${m.group} grubu`) : null;
+  const KO_TOK = { R32: 'son 32', R16: 'son 16', QF: 'ceyrek final', SF: 'yari final', TP: 'ucuncoluk', F: 'final' };
+  const roundTok = m.round ? norm(KO_TOK[m.round] || '') : null;
   let best = null, bestScore = -1;
   for (const it of items || []) {
     const t = norm(it.title);
@@ -89,7 +91,8 @@ export function pickHighlight(m, items) {
     if (BAD.some((b) => t.includes(b))) continue;
     const has2026 = t.includes('2026');
     const hasGrp = grpTok ? t.includes(grpTok) : false;
-    if (!has2026 && !hasGrp) continue; // yanlış turnuva riskini ele
+    const hasRound = roundTok ? t.includes(roundTok) : false;
+    if (!has2026 && !hasGrp && !hasRound) continue; // yanlış turnuva riskini ele
 
     // Tarih: özet maçtan sonra yüklenir. Yalnız SOFT ipucu olarak puanlanır (eleme yok).
     let pub = null;
@@ -98,6 +101,7 @@ export function pickHighlight(m, items) {
     let score = 0;
     if (has2026) score += 3;
     if (hasGrp) score += 4;
+    if (hasRound) score += 4;
     if (t.includes('ozet')) score += 3;
     if (t.includes('petrol ofisi')) score += 1;
     if (start && pub && pub >= start - 6 * HOUR && pub <= start + 7 * 24 * HOUR) score += 2;

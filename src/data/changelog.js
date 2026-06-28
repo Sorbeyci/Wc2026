@@ -1,6 +1,13 @@
 // Uygulama sürüm geçmişi (changelog).
 export const CHANGELOG = [
   {
+    v: '6.6', date: 'Haziran 2026', items: [
+      'Maç özetleri (TRT Spor) artık eleme maçlarını da kapsıyor: Son 32/16/Çeyrek/Yarı/Final için de özet aranır ve bulunur (round etiketiyle eşleştirme). Tarama, manuel seçim ve sayaç grup + eleme maçlarını birlikte sayar.',
+      '“Son sonuçlar” kartında eleme maçları (Son 32, Son 16, …) da görünür — skoru ve maç özeti linkiyle.',
+      'Eleme dağılımında (Maçlar > maça dokun): “Bir takımı tutturan” artık hangi takımı tutturduğunu, “Eşleşmeyi tutturan” ise kişinin tahmin skorunu gösterir.',
+    ],
+  },
+  {
     v: '6.5', date: 'Haziran 2026', items: [
       'Eleme maçı puan rozetleri düzeltildi (liste inceleme): +5 (tam skor) / +3 (doğru galip) artık yalnızca doğru eşleşmeyi (iki takımı) tutturana gösterilir. Yanlış eşleşmede (ör. tahmin G. Kore, gerçek G. Afrika) sadece ✓20 (doğru tur atlatan) kalır; skor gerçek ev/deplasmana göre hizalanır.',
     ],

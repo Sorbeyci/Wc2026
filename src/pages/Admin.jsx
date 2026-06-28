@@ -9,6 +9,28 @@ import Standings from '../components/Standings.jsx';
 import Bracket from '../components/Bracket.jsx';
 import ImportExport from './ImportExport.jsx';
 import { attemptHighlight, diagnoseHighlight, parseYouTubeId } from '../lib/highlights.js';
+import { resolveBracket, MATCH_BY_NO, KO_DATES } from '../data/bracket.js';
+
+const KO_ROUND_TR = { R32: 'Son 32', R16: 'Son 16', QF: 'Çeyrek Final', SF: 'Yarı Final', TP: 'Üçüncülük', F: 'Final' };
+
+// Biten tüm maçlar: grup (skorlu) + eleme (bracket'te takımları belli ve skoru girilmiş).
+function finishedMatchesAll(actual) {
+  const out = [];
+  for (const m of GROUP_MATCHES) {
+    const a = actual.groupMatches?.[m.no];
+    if (a && a.home !== '' && a.home != null && a.away !== '' && a.away != null) out.push(m);
+  }
+  const A = resolveBracket(actual, actual.ko || {});
+  for (let no = 73; no <= 104; no++) {
+    const k = actual.ko?.[no];
+    if (!k || k.hs === '' || k.hs == null || k.as === '' || k.as == null) continue;
+    const am = A.matches?.[no];
+    if (!am?.home || !am?.away) continue;
+    const d = KO_DATES[no] || {};
+    out.push({ no, home: am.home, away: am.away, round: MATCH_BY_NO[no]?.round, roundTr: KO_ROUND_TR[MATCH_BY_NO[no]?.round] || 'Eleme', date: d.date, time: d.time });
+  }
+  return out.sort((a, b) => a.no - b.no);
+}
 
 const SUB = [
   { id: 'results', label: 'Sonuçlar' },
@@ -291,10 +313,7 @@ function HighlightAdmin({ store }) {
       else setProg(`HATA · ${j?.status || r.status} ${j?.reason || j?.error || ''} — ${j?.message || 'anahtar/izin sorunu'}`);
     } catch (e) { setProg('HATA · ağ/sunucu (' + String(e).slice(0, 80) + ')'); }
   };
-  const finished = GROUP_MATCHES.filter((m) => {
-    const a = actual.groupMatches?.[m.no];
-    return a && a.home !== '' && a.home != null && a.away !== '' && a.away != null;
-  });
+  const finished = finishedMatchesAll(actual);
   const missing = finished.filter((m) => !highlightsByNo[m.no]?.videoId);
 
   const run = async (list, force) => {
@@ -340,7 +359,7 @@ function HighlightAdmin({ store }) {
     const d = await diagnoseHighlight(m, {});
     if (!d.ok) { setDiag(`${shortName(m.home)}-${shortName(m.away)} · HATA ${d.status || ''} ${d.error || ''} ${d.detail?.reason || ''}`); return; }
     const lines = [
-      `Maç: ${shortName(m.home)}-${shortName(m.away)} (${m.group})`,
+      `Maç: ${shortName(m.home)}-${shortName(m.away)} (${m.group || m.roundTr})`,
       `Sorgu: ${d.q}`,
       `Dönen video: ${d.count}`,
       ...d.titles.slice(0, 6).map((t, i) => `${i + 1}. ${t}`),
@@ -393,10 +412,7 @@ function HighlightAdmin({ store }) {
 
 function HighlightManual({ store }) {
   const { actual, highlightsByNo = {}, writeHighlight, clearHighlight } = store;
-  const finished = GROUP_MATCHES.filter((m) => {
-    const a = actual.groupMatches?.[m.no];
-    return a && a.home !== '' && a.home != null && a.away !== '' && a.away != null;
-  });
+  const finished = finishedMatchesAll(actual);
   const [no, setNo] = useState('');
   const [url, setUrl] = useState('');
   const [msg, setMsg] = useState(null);
@@ -434,7 +450,7 @@ function HighlightManual({ store }) {
         <option value="">— maç seç —</option>
         {finished.map((x) => (
           <option key={x.no} value={x.no}>
-            {highlightsByNo[x.no]?.videoId ? '✓' : '•'} {x.no}. {shortName(x.home)} - {shortName(x.away)} ({x.group})
+            {highlightsByNo[x.no]?.videoId ? '✓' : '•'} {x.no}. {shortName(x.home)} - {shortName(x.away)} ({x.group || x.roundTr})
           </option>
         ))}
       </select>
