@@ -59,3 +59,53 @@ export function normalizeScorePayload(data) {
   const res = mapFixturesToScores(fixtures);
   return { ...res, ko: {} };
 }
+
+// ---- Knockout import -------------------------------------------------------
+// Matches finished knockout fixtures by team-pair against the *resolved* actual
+// bracket (A = resolveBracket(actual, actual.ko)). Only KO slots whose pairing
+// is already determined can match — so import R32 first, then R16, etc.
+// Returns { ko: { [no]: { hs, as, winner? } }, matched, unmatched: [...] }
+export function mapFixturesToKo(fixtures = [], A = { matches: {} }) {
+  const idx = {};
+  for (let no = 73; no <= 104; no++) {
+    const m = A.matches?.[no];
+    if (m?.home && m?.away) idx[pairKey(m.home, m.away)] = { no, home: m.home, away: m.away };
+  }
+  const ko = {};
+  const unmatched = [];
+  let matched = 0;
+  for (const f of fixtures) {
+    const hs = f.homeScore, as = f.awayScore;
+    if (hs == null || as == null) continue;
+    const ht = resolveTeam(f.homeTeam), at = resolveTeam(f.awayTeam);
+    if (!ht || !at) { unmatched.push({ ...f, reason: 'isim eşleşmedi' }); continue; }
+    const slot = idx[pairKey(ht, at)];
+    if (!slot) { unmatched.push({ ...f, reason: 'eleme eşleşmesi henüz belli değil' }); continue; }
+    const oriented = slot.home === ht ? { hs: String(hs), as: String(as) } : { hs: String(as), as: String(hs) };
+    let winner = null;
+    const w = String(f.winner || '').toUpperCase();
+    if (w === 'HOME_TEAM') winner = ht;
+    else if (w === 'AWAY_TEAM') winner = at;
+    else if (Number(hs) > Number(as)) winner = ht;
+    else if (Number(as) > Number(hs)) winner = at;
+    ko[slot.no] = { ...oriented, ...(winner ? { winner } : {}) };
+    matched++;
+  }
+  return { ko, matched, unmatched };
+}
+
+// Combined: group matches first, then knockout for the leftovers, against the
+// resolved actual bracket A. Returns { groupMatches, ko, matched, unmatched }.
+export function mapFixturesAll(fixtures = [], A = { matches: {} }) {
+  const gm = mapFixturesToScores(fixtures);
+  const leftovers = gm.unmatched.filter((u) => u.reason === 'grup maçı bulunamadı');
+  const kk = mapFixturesToKo(leftovers, A);
+  const nameMismatch = gm.unmatched.filter((u) => u.reason !== 'grup maçı bulunamadı');
+  return {
+    groupMatches: gm.groupMatches,
+    ko: kk.ko,
+    matched: gm.matched + kk.matched,
+    koMatched: kk.matched,
+    unmatched: [...nameMismatch, ...kk.unmatched],
+  };
+}

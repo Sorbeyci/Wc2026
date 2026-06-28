@@ -815,33 +815,110 @@ function koRefLabel(ref, tsg) {
   return '?';
 }
 
-function KoRow({ no, time, A, now }) {
+function koOutcome(hs, as) { hs = Number(hs); as = Number(as); if (hs > as) return 'H'; if (hs < as) return 'A'; return 'D'; }
+
+// Bir eleme maçı için: eşleşmeyi / sonucu / bir takımı tutturanlar.
+function koDistribution(no, lists, getPrediction, A, actualKo) {
+  const am = A.matches[no] || {};
+  const ah = am.home, aa = am.away;
+  const canon = (x, y) => [x, y].sort().join('|');
+  const aHas = !!(ah && aa);
+  const actCanon = aHas ? canon(ah, aa) : null;
+  const aSc = actualKo?.[no];
+  const aHasScore = aSc && aSc.hs !== '' && aSc.hs != null && aSc.as !== '' && aSc.as != null;
+  const ahsN = aHasScore ? Number(aSc.hs) : null, aasN = aHasScore ? Number(aSc.as) : null;
+  const aOut = aHasScore ? koOutcome(ahsN, aasN) : null;
+  const exactHit = [], resultHit = [], matchupOnly = [], oneTeam = [];
+  for (const l of lists) {
+    const pred = getPrediction(l.id);
+    const P = resolveBracket(pred, pred.ko || {});
+    const pm = P.matches[no] || {};
+    if (!pm.home || !pm.away || !aHas) continue;
+    const same = canon(pm.home, pm.away) === actCanon;
+    const inter = [pm.home, pm.away].filter((t) => t === ah || t === aa).length;
+    if (same) {
+      const pk = pred.ko?.[no];
+      const pkHas = pk && pk.hs !== '' && pk.hs != null && pk.as !== '' && pk.as != null;
+      if (aHasScore && pkHas) {
+        const ohs = pm.home === ah ? Number(pk.hs) : Number(pk.as);
+        const oas = pm.home === ah ? Number(pk.as) : Number(pk.hs);
+        const sc = `${ohs}-${oas}`;
+        if (ohs === ahsN && oas === aasN) exactHit.push({ name: l.name, sc });
+        else if (koOutcome(ohs, oas) === aOut) resultHit.push({ name: l.name, sc });
+        else matchupOnly.push(l.name);
+      } else matchupOnly.push(l.name);
+    } else if (inter === 1) {
+      oneTeam.push(l.name);
+    }
+  }
+  const tot = exactHit.length + resultHit.length + matchupOnly.length + oneTeam.length;
+  return { exactHit, resultHit, matchupOnly, oneTeam, tot, aHas };
+}
+
+function KoDistGroup({ icon, label, names, withSc, color }) {
+  if (!names.length) return null;
+  return (
+    <div className="mt-1.5">
+      <p className="text-[11px] font-semibold text-ink/60">{icon} {label} ({names.length})</p>
+      <div className="mt-1 flex flex-wrap gap-1">
+        {names.map((n, i) => (
+          <span key={i} className={`rounded-full px-2 py-0.5 text-[11px] ${color || 'bg-black/5 text-ink/70'}`}>
+            {withSc ? `${n.name} · ${n.sc}` : n}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function KoDist({ d }) {
+  if (!d.aHas) return <p className="text-xs text-ink/45">Eşleşme henüz belli değil.</p>;
+  if (d.tot === 0) return <p className="text-xs text-ink/45">Kimse bu eşleşmeyi/takımı tutturamadı.</p>;
+  return (
+    <div>
+      <KoDistGroup icon="🎯" label="Tam skoru bilen" names={d.exactHit} withSc color="bg-pitch/15 text-pitch-dark font-semibold" />
+      <KoDistGroup icon="✅" label="Doğru galibi bilen" names={d.resultHit} withSc color="bg-gold/20 text-gold-dark font-semibold" />
+      <KoDistGroup icon="🤝" label="Eşleşmeyi tutturan" names={d.matchupOnly} />
+      <KoDistGroup icon="1️⃣" label="Bir takımı tutturan" names={d.oneTeam} />
+    </div>
+  );
+}
+
+function KoRow({ no, time, A, now, lists, getPrediction, actualKo, open, onToggle }) {
   const def = MATCH_BY_NO[no] || {};
   const mm = A.matches[no] || {};
   const tsg = A.thirdSlotGroup;
   const homeT = mm.home, awayT = mm.away, win = mm.winner;
   const homeLab = homeT ? shortName(homeT) : koRefLabel(def.home, tsg);
   const awayLab = awayT ? shortName(awayT) : koRefLabel(def.away, tsg);
+  const sc = actualKo?.[no];
+  const hasSc = sc && sc.hs !== '' && sc.hs != null && sc.as !== '' && sc.as != null;
   const lb = liveBadge({ date: KO_DATES[no].date, time }, now);
+  const d = open ? koDistribution(no, lists, getPrediction, A, actualKo) : null;
   return (
-    <div className="px-4 py-2.5"
-      style={homeT || awayT ? { backgroundImage: `linear-gradient(90deg, ${homeT ? teamColor(homeT) : '#999'}10, transparent 26%, transparent 74%, ${awayT ? teamColor(awayT) : '#999'}10)` } : undefined}>
-      <div className="text-[11px] text-ink/45 mb-1 flex items-center gap-2">
-        <span>{no}. maç · {KO_ROUND_TR[def.round] || 'Eleme'} · {time}</span>
-        {lb && lb.type === 'count' && <span className="inline-flex items-center gap-1 rounded-full bg-gold/20 text-gold-dark px-1.5 py-0.5 text-[10px] font-bold">⏱ {lb.text}</span>}
-        {lb && lb.type === 'live' && <span className="inline-flex items-center gap-1 rounded-full bg-black/10 text-ink/60 px-1.5 py-0.5 text-[10px] font-bold">⏱ başladı</span>}
-      </div>
-      <div className="flex items-center gap-2">
-        <div className="flex-1 min-w-0 flex items-center justify-end gap-1.5">
-          <span className={`truncate text-sm ${win && win === homeT ? 'font-bold text-pitch' : homeT ? 'font-semibold' : 'text-ink/45 italic'}`}>{homeLab}</span>
-          {homeT && <Flag team={homeT} size={18} className="shrink-0" />}
+    <div style={homeT || awayT ? { backgroundImage: `linear-gradient(90deg, ${homeT ? teamColor(homeT) : '#999'}10, transparent 26%, transparent 74%, ${awayT ? teamColor(awayT) : '#999'}10)` } : undefined}>
+      <button className="w-full px-4 py-2.5 text-left" onClick={onToggle}>
+        <div className="text-[11px] text-ink/45 mb-1 flex items-center gap-2">
+          <span>{no}. maç · {KO_ROUND_TR[def.round] || 'Eleme'} · {time}</span>
+          {lb && lb.type === 'count' && <span className="inline-flex items-center gap-1 rounded-full bg-gold/20 text-gold-dark px-1.5 py-0.5 text-[10px] font-bold">⏱ {lb.text}</span>}
+          {lb && lb.type === 'live' && <span className="inline-flex items-center gap-1 rounded-full bg-black/10 text-ink/60 px-1.5 py-0.5 text-[10px] font-bold">⏱ başladı</span>}
         </div>
-        <span className="shrink-0 w-10 text-center font-display text-ink/40 text-xs">{win ? '✓' : 'vs'}</span>
-        <div className="flex-1 min-w-0 flex items-center gap-1.5">
-          {awayT && <Flag team={awayT} size={18} className="shrink-0" />}
-          <span className={`truncate text-sm ${win && win === awayT ? 'font-bold text-pitch' : awayT ? 'font-semibold' : 'text-ink/45 italic'}`}>{awayLab}</span>
+        <div className="flex items-center gap-2">
+          <div className="flex-1 min-w-0 flex items-center justify-end gap-1.5">
+            <span className={`truncate text-sm ${win && win === homeT ? 'font-bold text-pitch' : homeT ? 'font-semibold' : 'text-ink/45 italic'}`}>{homeLab}</span>
+            {homeT && <Flag team={homeT} size={18} className="shrink-0" />}
+          </div>
+          <span className={`shrink-0 w-12 text-center font-display tabular-nums ${hasSc ? 'text-ink/70' : 'text-ink/40 text-xs'}`}>
+            {hasSc ? `${sc.hs}-${sc.as}` : win ? '✓' : 'vs'}
+          </span>
+          <div className="flex-1 min-w-0 flex items-center gap-1.5">
+            {awayT && <Flag team={awayT} size={18} className="shrink-0" />}
+            <span className={`truncate text-sm ${win && win === awayT ? 'font-bold text-pitch' : awayT ? 'font-semibold' : 'text-ink/45 italic'}`}>{awayLab}</span>
+          </div>
+          <span className={`shrink-0 text-ink/30 transition ${open ? 'rotate-180' : ''}`}>▾</span>
         </div>
-      </div>
+      </button>
+      {open && <div className="px-4 pb-3"><KoDist d={d} /></div>}
     </div>
   );
 }
@@ -958,7 +1035,9 @@ function DayBrowser({ lists, getPrediction, actual, myPred, liveScores }) {
             );
           })}
           {kos.map(({ no, time }) => (
-            <KoRow key={`ko${no}`} no={no} time={time} A={A} now={now} />
+            <KoRow key={`ko${no}`} no={no} time={time} A={A} now={now}
+              lists={lists} getPrediction={getPrediction} actualKo={actual.ko || {}}
+              open={openNo === no} onToggle={() => setOpenNo(openNo === no ? null : no)} />
           ))}
         </div>
       )}

@@ -82,7 +82,7 @@ export const KO_ORDER = [
 // Saatler TR (yaklaşık). Tarih biçimi GROUP_MATCHES ile aynı: "Haz/Tem GG, 2026".
 export const KO_DATES = {
   // Son 32 — 28 Haz – 3 Tem
-  73: { date: 'Haz 28, 2026', time: '20:00' }, 74: { date: 'Haz 28, 2026', time: '23:00' },
+  73: { date: 'Haz 28, 2026', time: '22:00' }, 74: { date: 'Haz 29, 2026', time: '23:30' },
   75: { date: 'Haz 29, 2026', time: '20:00' }, 76: { date: 'Haz 29, 2026', time: '23:00' },
   77: { date: 'Haz 30, 2026', time: '20:00' }, 78: { date: 'Haz 30, 2026', time: '23:00' },
   79: { date: 'Tem 1, 2026', time: '20:00' }, 80: { date: 'Tem 1, 2026', time: '23:00' },

@@ -24,6 +24,7 @@ export default async function handler(req, res) {
       awayTeam: m.awayTeam?.name || m.awayTeam?.shortName,
       homeScore: m.score?.fullTime?.home ?? null,
       awayScore: m.score?.fullTime?.away ?? null,
+      winner: m.score?.winner ?? null, // HOME_TEAM | AWAY_TEAM | DRAW (penaltı dahil)
       status: m.status,
       stage: m.stage,
       minute: m.minute ?? null,

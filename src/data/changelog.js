@@ -1,6 +1,14 @@
 // Uygulama sürüm geçmişi (changelog).
 export const CHANGELOG = [
   {
+    v: '6.4', date: 'Haziran 2026', items: [
+      'Eleme skorları da otomatik içe aktarılır (Aktar): Son 32’den itibaren biten eleme maçları gerçek brackete göre eşleştirilip Sonuçlar’a yazılır — skor + kazanan (penaltı galibi dahil).',
+      '“Maçlar” takviminde eleme maçları artık tıklanınca açılıyor; o eşleşmeyi tutturan, skoru/galibi bilen ve bir takımı tutturan kişiler listeleniyor.',
+      'Eleme puanlaması düzeltildi: +5 (tam skor) ve +3 (doğru galip) artık yalnızca doğru eşleşmeyi (iki takımı) tutturana verilir; skor, ev/deplasman sırasından bağımsız takımlara göre hizalanır.',
+      'Ana sayfada eleme maçının gerçek skoru gösteriliyor (ör. 0-1); önceden yalnızca ✓ görünüyordu.',
+    ],
+  },
+  {
     v: '6.3', date: 'Haziran 2026', items: [
       '“Maçlar” takvimine eleme turu fikstürleri eklendi (Son 32, Son 16, Çeyrek, Yarı, Üçüncülük, Final) — tarih ve saatleriyle. Takımlar netleştikçe yazılır; belli değilse “1A / 2B / 74. galibi” gibi kaynak gösterilir.',
     ],

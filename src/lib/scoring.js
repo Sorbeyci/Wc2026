@@ -215,6 +215,7 @@ export function scoreBracketKnockout(P, A, predKo = {}, actualKo = {}, opts = {}
   let advancePts = 0, scorePts = 0, matchupPts = 0, matchupHits = 0;
   const counts = { R32: 0, R16: 0, QF: 0, SF: 0 };
   let scored = 0, exact = 0, result = 0;
+  const canon = (x, y) => [x, y].sort().join('|');
 
   // correct-winner (advance) points: R32 → SF
   for (const [id, from, to] of KO_GROUPS) {
@@ -225,7 +226,6 @@ export function scoreBracketKnockout(P, A, predKo = {}, actualKo = {}, opts = {}
   }
   // correct-matchup points: the two teams of a pairing are right — regardless of
   // home/away order AND regardless of which slot they land in within that round.
-  const canon = (x, y) => [x, y].sort().join('|');
   for (const [from, to] of KO_ALL) {
     if (from === 73 && !r32Final) continue; // Son 32 eşleşmeleri grup aşaması bitene kadar puanlanmaz
     const actualPairs = new Set();
@@ -241,13 +241,22 @@ export function scoreBracketKnockout(P, A, predKo = {}, actualKo = {}, opts = {}
       if (actualPairs.has(key) && !seen.has(key)) { seen.add(key); matchupPts += SCORING.knockout.matchup; matchupHits++; }
     }
   }
-  // scoreline points: every knockout match (73–104)
+  // scoreline points: ONLY when the predicted matchup (both teams) matches the
+  // actual matchup for that match. Predicted score is oriented to the actual
+  // home/away by team, so order doesn't matter. (3 = doğru galip, 5 = tam skor.)
   for (const [from, to] of KO_ALL) {
     for (let no = from; no <= to; no++) {
       const a = actualKo[no];
       if (num(a?.hs) == null || num(a?.as) == null) continue;
+      const am = A.matches[no];
+      if (!am?.home || !am?.away) continue;
       scored++;
-      const got = scoreKoPair(predKo[no], a);
+      const pm = P.matches[no];
+      const pk = predKo[no];
+      if (!pm?.home || !pm?.away || num(pk?.hs) == null || num(pk?.as) == null) continue;
+      if (canon(pm.home, pm.away) !== canon(am.home, am.away)) continue; // eşleşme yanlış → puan yok
+      const oriented = pm.home === am.home ? { hs: pk.hs, as: pk.as } : { hs: pk.as, as: pk.hs };
+      const got = scoreKoPair(oriented, a);
       if (got === SCORING.knockout.match.exact) exact++;
       else if (got === SCORING.knockout.match.result) result++;
       scorePts += got;
