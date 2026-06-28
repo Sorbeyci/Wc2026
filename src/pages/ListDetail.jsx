@@ -188,11 +188,18 @@ function grpPts(p, a) {
   if (outc(ph, pa) === outc(ah, aa)) return SCORING.match.result;
   return 0;
 }
-function koScorePts(p, a) {
+// KO skor puanı: yalnızca tahmin edilen eşleşme (iki takım) gerçek eşleşmeyle
+// aynıysa verilir; skor gerçek ev/deplasmana göre yönlendirilir.
+function koScorePts(p, a, pm, am) {
   const ph = numv(p?.hs), pa = numv(p?.as), ah = numv(a?.hs), aa = numv(a?.as);
   if (ph == null || pa == null || ah == null || aa == null) return null;
-  if (ph === ah && pa === aa) return SCORING.knockout.match.exact;
-  if (outc(ph, pa) === outc(ah, aa)) return SCORING.knockout.match.result;
+  if (!pm?.home || !pm?.away || !am?.home || !am?.away) return null;
+  const canon = (x, y) => [x, y].sort().join('|');
+  if (canon(pm.home, pm.away) !== canon(am.home, am.away)) return null; // eşleşme yanlış → skor puanı yok
+  const ohs = pm.home === am.home ? ph : pa;
+  const oas = pm.home === am.home ? pa : ph;
+  if (ohs === ah && oas === aa) return SCORING.knockout.match.exact;
+  if (outc(ohs, oas) === outc(ah, aa)) return SCORING.knockout.match.result;
   return 0;
 }
 const advanceOf = (no) => (no <= 88 ? SCORING.knockout.advance.R32 : no <= 96 ? SCORING.knockout.advance.R16 : no <= 100 ? SCORING.knockout.advance.QF : no <= 102 ? SCORING.knockout.advance.SF : 0);
@@ -272,8 +279,9 @@ export function Picks({ pred, actual }) {
               {rows.map((m) => {
                 const sc = pred.ko?.[m.no] || {};
                 const hasSc = sc.hs !== '' && sc.hs != null && sc.as !== '' && sc.as != null;
-                const spts = koScorePts(sc, actual?.ko?.[m.no]);
-                const aw = bA.matches?.[m.no]?.winner;
+                const amatch = bA.matches?.[m.no];
+                const spts = koScorePts(sc, actual?.ko?.[m.no], m, amatch);
+                const aw = amatch?.winner;
                 const advHit = aw && m.winner === aw && advanceOf(m.no) > 0;
                 return (
                   <div key={m.no} className="flex items-center gap-2 px-3 py-2 text-sm"

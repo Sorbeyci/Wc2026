@@ -1,6 +1,11 @@
 // Uygulama sürüm geçmişi (changelog).
 export const CHANGELOG = [
   {
+    v: '6.5', date: 'Haziran 2026', items: [
+      'Eleme maçı puan rozetleri düzeltildi (liste inceleme): +5 (tam skor) / +3 (doğru galip) artık yalnızca doğru eşleşmeyi (iki takımı) tutturana gösterilir. Yanlış eşleşmede (ör. tahmin G. Kore, gerçek G. Afrika) sadece ✓20 (doğru tur atlatan) kalır; skor gerçek ev/deplasmana göre hizalanır.',
+    ],
+  },
+  {
     v: '6.4', date: 'Haziran 2026', items: [
       'Eleme skorları da otomatik içe aktarılır (Aktar): Son 32’den itibaren biten eleme maçları gerçek brackete göre eşleştirilip Sonuçlar’a yazılır — skor + kazanan (penaltı galibi dahil).',
       '“Maçlar” takviminde eleme maçları artık tıklanınca açılıyor; o eşleşmeyi tutturan, skoru/galibi bilen ve bir takımı tutturan kişiler listeleniyor.',
