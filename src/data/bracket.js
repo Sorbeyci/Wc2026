@@ -83,15 +83,15 @@ export const KO_ORDER = [
 export const KO_DATES = {
   // Son 32 — 28 Haz – 3 Tem
   73: { date: 'Haz 28, 2026', time: '22:00' }, 74: { date: 'Haz 29, 2026', time: '23:30' },
-  75: { date: 'Haz 29, 2026', time: '20:00' }, 76: { date: 'Haz 29, 2026', time: '23:00' },
-  77: { date: 'Haz 30, 2026', time: '20:00' }, 78: { date: 'Haz 30, 2026', time: '23:00' },
-  79: { date: 'Tem 1, 2026', time: '20:00' }, 80: { date: 'Tem 1, 2026', time: '23:00' },
-  81: { date: 'Tem 2, 2026', time: '20:00' }, 82: { date: 'Tem 2, 2026', time: '23:00' },
-  83: { date: 'Tem 3, 2026', time: '20:00' }, 84: { date: 'Tem 3, 2026', time: '23:00' },
-  85: { date: 'Haz 29, 2026', time: '02:00' }, 86: { date: 'Haz 30, 2026', time: '02:00' },
-  87: { date: 'Tem 1, 2026', time: '02:00' }, 88: { date: 'Tem 2, 2026', time: '02:00' },
+  75: { date: 'Haz 30, 2026', time: '04:00' }, 76: { date: 'Haz 29, 2026', time: '20:00' },
+  77: { date: 'Tem 1, 2026', time: '00:00' }, 78: { date: 'Haz 30, 2026', time: '20:00' },
+  79: { date: 'Tem 1, 2026', time: '04:00' }, 80: { date: 'Tem 1, 2026', time: '19:00' },
+  81: { date: 'Tem 2, 2026', time: '03:00' }, 82: { date: 'Tem 1, 2026', time: '23:00' },
+  83: { date: 'Tem 3, 2026', time: '02:00' }, 84: { date: 'Tem 2, 2026', time: '22:00' },
+  85: { date: 'Tem 3, 2026', time: '06:00' }, 86: { date: 'Tem 4, 2026', time: '01:00' },
+  87: { date: 'Tem 4, 2026', time: '04:30' }, 88: { date: 'Tem 3, 2026', time: '21:00' },
   // Son 16 — 4–7 Tem
-  89: { date: 'Tem 4, 2026', time: '20:00' }, 90: { date: 'Tem 4, 2026', time: '23:00' },
+  89: { date: 'Tem 4, 2026', time: '20:00' }, 90: { date: 'Tem 4, 2026', time: '20:00' },
   91: { date: 'Tem 5, 2026', time: '20:00' }, 92: { date: 'Tem 5, 2026', time: '23:00' },
   93: { date: 'Tem 6, 2026', time: '20:00' }, 94: { date: 'Tem 6, 2026', time: '23:00' },
   95: { date: 'Tem 7, 2026', time: '20:00' }, 96: { date: 'Tem 7, 2026', time: '23:00' },
