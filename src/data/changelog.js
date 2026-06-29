@@ -1,6 +1,17 @@
 // Uygulama sürüm geçmişi (changelog).
 export const CHANGELOG = [
   {
+    v: '6.9', date: 'Haziran 2026', items: [
+      'Sıralama’dan bir kişiye girince doğrudan “Tahminler” sekmesi açılır ve o an oynanan eleme turuna (Son 32 / Son 16 …) kaydırır.',
+      'Tahminler üst gezinme çubuğu artık iki satıra sığıyor (yatay kaymıyor), daha canlı ve aktif tur vurgulu.',
+      'Sıralama’da bir kişiye girip geri dönünce liste kaldığın yerden devam eder — en başa atmaz.',
+      'Kişi sayfasında “Excel olarak dışa aktar” artık paylaş butonunun yanında ikon olarak.',
+      'Enteresan istatistikler artık eleme turlarını da kapsıyor (eşleşme, tur atlatan, sürpriz vb.).',
+      'Puan Durumu’nda gruplar ve “En iyi 3.’ler” katlanır oldu (varsayılan kapalı); eleme ağacı açık gelir ve sayfa açılınca doğrudan oraya kaydırır.',
+      'Yeni: puana etkisiz “Kim yener?” bahsi — Maçlar’da her eleme maçı için. Maç başlamadan 1 saat önce kapanır, oy yüzdesini (% dilim) gösterir.',
+    ],
+  },
+  {
     v: '6.8', date: 'Haziran 2026', items: [
       'Sıralama’da bir kişiye girince sayfa en baştan (yukarıdan) açılıyor.',
       '“Yukarı çık” butonu daha fazla sayfada: kişi detayı, Listeler, Tahmin formu (Ana sayfa, Sıralama ve Puan Durumu’nda zaten vardı).',

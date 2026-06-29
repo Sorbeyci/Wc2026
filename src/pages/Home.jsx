@@ -8,7 +8,7 @@ import { Dot, Flag, Avatar, CountUp, ScrollTopFab } from '../components/ui.jsx';
 import { shortName, teamColor } from '../data/flags.js';
 import { QUIZ } from '../data/quiz.js';
 import { CHANGELOG } from '../data/changelog.js';
-import { attemptHighlight } from '../lib/highlights.js';
+import { attemptHighlight, matchStartMs } from '../lib/highlights.js';
 
 const TR_MON = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
 const todayStr = () => { const n = new Date(); return `${TR_MON[n.getMonth()]} ${n.getDate()}, ${n.getFullYear()}`; };
@@ -937,6 +937,45 @@ function KoSide({ team, slot, A, tsg, winner, align }) {
   return <span className={`truncate text-sm text-ink/45 italic ${align === 'right' ? 'text-right' : ''}`}>{koRefLabel(slot, tsg)}</span>;
 }
 
+// Puana etkisiz "kim yener" bahsi. Maç başlamadan 1 saat önce kapanır; % dağılım gösterir.
+function KoBet({ no, home, away, now }) {
+  const { betsByNo = {}, setBet, user } = useStore();
+  const picks = betsByNo[no] || {};
+  const my = user ? picks[user.uid] : null;
+  let cH = 0, cA = 0;
+  for (const uid in picks) { const t = picks[uid]; if (t === home) cH++; else if (t === away) cA++; }
+  const tot = cH + cA;
+  const pH = tot ? Math.round((cH / tot) * 100) : 0;
+  const pA = tot ? 100 - pH : 0;
+  const startMs = matchStartMs({ date: KO_DATES[no]?.date, time: KO_DATES[no]?.time });
+  const closed = startMs ? now >= startMs - 3600000 : false;
+  const choose = (t) => { if (closed || !user) return; setBet(no, my === t ? '' : t); };
+  const Cell = ({ t, pct, sel }) => (
+    <button disabled={closed || !user} onClick={() => choose(t)}
+      className={`relative overflow-hidden rounded-lg border px-2 py-1.5 text-left transition ${sel ? 'border-pitch bg-pitch/10' : 'border-black/10 bg-black/[0.02]'} ${closed || !user ? '' : 'active:scale-[.98]'}`}>
+      <div className="absolute inset-y-0 left-0 bg-pitch/15" style={{ width: `${pct}%` }} />
+      <div className="relative flex items-center gap-1.5">
+        <Flag team={t} size={14} className="shrink-0" />
+        <span className="truncate text-xs font-semibold flex-1">{shortName(t)}</span>
+        <span className="text-xs font-display tabular-nums">{pct}%</span>
+      </div>
+    </button>
+  );
+  return (
+    <div className="px-4 pb-2.5 pt-0.5">
+      <div className="flex items-center justify-between text-[11px] mb-1">
+        <span className="text-ink/45">Kim yener? <span className="text-ink/30">· puana etkisiz</span></span>
+        {closed ? <span className="text-ink/40">oylama kapandı</span> : <span className="text-pitch font-semibold">{tot} oy{my ? ' · oyun ✓' : ''}</span>}
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <Cell t={home} pct={pH} sel={my === home} />
+        <Cell t={away} pct={pA} sel={my === away} />
+      </div>
+      {!user && <p className="text-[10px] text-ink/35 mt-1">Oy vermek için giriş yap.</p>}
+    </div>
+  );
+}
+
 function KoRow({ no, time, A, now, lists, getPrediction, actualKo, myMatch, open, onToggle }) {
   const def = MATCH_BY_NO[no] || {};
   const mm = A.matches[no] || {};
@@ -975,6 +1014,7 @@ function KoRow({ no, time, A, now, lists, getPrediction, actualKo, myMatch, open
           <span className={`shrink-0 text-ink/30 transition ${open ? 'rotate-180' : ''}`}>▾</span>
         </div>
       </button>
+      {!hasSc && homeT && awayT && <KoBet no={no} home={homeT} away={awayT} now={now} />}
       {open && <div className="px-4 pb-3"><KoDist d={d} /></div>}
     </div>
   );
@@ -1244,9 +1284,43 @@ function seededShuffle(arr, seed) {
   return a;
 }
 
+// Eleme turu için "enteresan istatistikler" (grup aşaması bittikçe bunlar devreye girer).
+function koFunStats(lists, getPrediction, actual) {
+  const out = [];
+  const A = resolveBracket(actual, actual.ko || {});
+  const canon = (x, y) => [x, y].sort().join('|');
+  const brackets = lists.map((l) => { const pr = getPrediction(l.id); return { P: resolveBracket(pr, pr.ko || {}), pred: pr }; });
+  for (let no = 73; no <= 104; no++) {
+    const am = A.matches?.[no], ak = actual.ko?.[no];
+    if (!am?.home || !am?.away || !am?.winner) continue;
+    if (!ak || ak.hs === '' || ak.hs == null || ak.as === '' || ak.as == null) continue;
+    const pairC = canon(am.home, am.away);
+    let matchup = 0, advHit = 0, advTot = 0, exact = 0, wrongAdv = 0;
+    for (const b of brackets) {
+      const pm = b.P.matches?.[no];
+      if (!pm?.home || !pm?.away || canon(pm.home, pm.away) !== pairC) continue;
+      matchup++;
+      if (pm.winner) { advTot++; if (pm.winner === am.winner) advHit++; else wrongAdv++; }
+      const pk = b.pred.ko?.[no];
+      if (pk && pk.hs !== '' && pk.hs != null && pk.as !== '' && pk.as != null) {
+        const ohs = pm.home === am.home ? +pk.hs : +pk.as;
+        const oas = pm.home === am.home ? +pk.as : +pk.hs;
+        if (ohs === +ak.hs && oas === +ak.as) exact++;
+      }
+    }
+    const rnd = KO_ROUND_TR[MATCH_BY_NO[no]?.round] || 'Eleme';
+    if (matchup > 0) out.push({ icon: '🤝', text: `${rnd}: ${shortName(am.home)}–${shortName(am.away)} eşleşmesini ${matchup} kişi tutturdu.` });
+    if (advTot > 0 && advHit > 0) out.push({ icon: '✅', text: `${shortName(am.winner)} turu geçti; ${advHit}/${advTot} kişi bunu bilmişti.` });
+    if (exact > 0) out.push({ icon: '🔮', text: `${shortName(am.home)}–${shortName(am.away)} eleme skorunu (${ak.hs}-${ak.as}) ${exact} kişi tam bildi.` });
+    if (advTot >= 3 && advHit > 0 && advHit <= Math.max(1, Math.floor(advTot * 0.25))) out.push({ icon: '🤯', text: `Sürpriz! ${shortName(am.winner)} turu geçer diyen ${advTot} kişiden yalnızca ${advHit} kişiydi.` });
+    if (wrongAdv > 0) { const loser = am.winner === am.home ? am.away : am.home; out.push({ icon: '🙈', text: `${wrongAdv} kişi ${shortName(loser)} turu geçer demişti ama ${shortName(am.winner)} geçti.` }); }
+  }
+  return dedupe(out);
+}
+
 function FunStats({ lists, getPrediction, actual, seed }) {
   const facts = useMemo(() => {
-    const all = dedupe([...funStats(lists, getPrediction, actual), ...predStats(lists, getPrediction)]);
+    const all = dedupe([...funStats(lists, getPrediction, actual), ...koFunStats(lists, getPrediction, actual), ...predStats(lists, getPrediction)]);
     return seededShuffle(all, seed).slice(0, 3);
   }, [lists, actual, seed]);
 

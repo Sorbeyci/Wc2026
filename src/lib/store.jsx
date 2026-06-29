@@ -44,6 +44,7 @@ export function StoreProvider({ children }) {
   const [activity, setActivity] = useState([]);
   const [badges, setBadges] = useState([]);
   const [highlights, setHighlights] = useState([]);
+  const [bets, setBets] = useState([]);
   const [, setTick] = useState(0);
   useEffect(() => { const iv = setInterval(() => setTick((t) => t + 1), 30000); return () => clearInterval(iv); }, []);
   const [adminMode, setAdminModeState] = useState(() => {
@@ -101,6 +102,9 @@ export function StoreProvider({ children }) {
     const unsubHl = onSnapshot(collection(db, 'highlights'),
       (snap) => setHighlights(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), () => {});
     subs.push(unsubHl);
+    const unsubBets = onSnapshot(collection(db, 'bets'),
+      (snap) => setBets(snap.docs.map((d) => ({ id: d.id, data: d.data() }))), () => {});
+    subs.push(unsubBets);
     return () => subs.forEach((fn) => fn());
   }, [user]);
 
@@ -419,6 +423,12 @@ export function StoreProvider({ children }) {
     clearHighlight(no) {
       if (!user) return Promise.resolve();
       return deleteDoc(doc(db, 'highlights', String(no))).catch(() => {});
+    },
+    // Puana etkisiz "kim yener" bahsi: bets/{no} dokümanı { uid: takımAdı } eşlemesi.
+    betsByNo: Object.fromEntries((bets || []).map((b) => [b.id, b.data || {}])),
+    setBet(no, team) {
+      if (!user) return Promise.resolve();
+      return setDoc(doc(db, 'bets', String(no)), { [user.uid]: team || '' }, { merge: true }).catch(() => {});
     },
     // Bir günlük quiz kazanımını kaydeder. Günde en fazla 1 kez sayılır (lastDate guard).
     async recordQuizWin() {

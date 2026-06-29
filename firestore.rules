@@ -59,6 +59,16 @@ service cloud.firestore {
       allow write: if signedIn();
     }
 
+    // No-points "who wins" bets: doc per match no, a map { uid: teamName }.
+    // Everyone signed in reads (for the % split); you may only create/modify your own field.
+    match /bets/{no} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly([request.auth.uid]);
+      allow update: if signedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([request.auth.uid]);
+    }
+
     // Admin action log: only admins can read; admins append (no edits/deletes).
     match /logs/{id} {
       allow read: if isAdmin();

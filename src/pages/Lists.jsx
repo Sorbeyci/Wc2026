@@ -15,7 +15,8 @@ export default function Lists({ viewListId, setViewListId, clearList, onEdit, go
     const crumbs = [
       { label: fromBoard ? 'Sıralama' : 'Listeler', onClick: back },
     ];
-    return <ListDetail listId={viewListId} onBack={back} crumbs={crumbs} onEdit={onEdit} />;
+    return <ListDetail listId={viewListId} onBack={back} crumbs={crumbs} onEdit={onEdit}
+      initialSub={fromBoard ? 'picks' : 'standings'} autoRound={fromBoard} />;
   }
 
   const submit = async () => {

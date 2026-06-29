@@ -148,7 +148,7 @@ function useFlip() {
 }
 
 // Görünüm durumu sayfadan ayrılınca da hatırlansın (gezmeye kaldığı yerden devam).
-const boardMem = { sub: 'board', view: 'detay', proj: false, sortKey: 'total', onlyOnline: false, query: '', filtersOpen: false, showOnline: false };
+const boardMem = { scrollY: 0, sub: 'board', view: 'detay', proj: false, sortKey: 'total', onlyOnline: false, query: '', filtersOpen: false, showOnline: false };
 
 // Bir kullanıcının Son 32'ye (R32) soktuğu takımlar: tahmin bracketindeki 73-88
 // ev/deplasman takımları ile gerçek R32 takımlarının kesişimi.
@@ -169,6 +169,12 @@ function r32Sets(res) {
 }
 
 export default function Board({ onOpenList, goHome }) {
+  // Bir kişiye girmeden önce kaydırma konumunu sakla; Sıralama'ya dönünce geri yükle.
+  const openWithScroll = (id) => { boardMem.scrollY = window.scrollY; onOpenList(id); };
+  useLayoutEffect(() => {
+    const y = boardMem.scrollY || 0;
+    if (y > 0) requestAnimationFrame(() => window.scrollTo(0, y));
+  }, []);
   const { lists, actual, getPrediction, isOnline, onlineCount, onlineUsers, user } = useStore();
   const [sub, setSub] = useState(boardMem.sub);
   const [view, setView] = useState(boardMem.view);
@@ -269,7 +275,7 @@ export default function Board({ onOpenList, goHome }) {
         <RankRace lists={lists} actual={actual} getPrediction={getPrediction} user={user} />
       ) : sub === 'board' ? (
         <div className="space-y-5">
-          <Podium rows={rows} onOpenList={onOpenList} />
+          <Podium rows={rows} onOpenList={openWithScroll} />
           <button onClick={() => setProj(!proj)}
             className={`w-full flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold border transition ${
               proj ? 'bg-gold text-ink border-gold-dark shadow-sm' : 'bg-gold/15 text-gold-dark border-gold/40 hover:bg-gold/25'
@@ -320,11 +326,11 @@ export default function Board({ onOpenList, goHome }) {
           {displayRows.length === 0 ? (
             <p className="text-sm text-ink/45 text-center py-6">Eşleşen kişi yok.</p>
           ) : view === 'detay' ? (
-            <Leaderboard rows={displayRows} onOpenList={onOpenList} isOnline={isOnline} actual={actual} proj={proj} metric={sortKey} />
+            <Leaderboard rows={displayRows} onOpenList={openWithScroll} isOnline={isOnline} actual={actual} proj={proj} metric={sortKey} />
           ) : view === 'liste' ? (
-            <CompactList rows={displayRows} onOpenList={onOpenList} isOnline={isOnline} metric={sortKey} />
+            <CompactList rows={displayRows} onOpenList={openWithScroll} isOnline={isOnline} metric={sortKey} />
           ) : (
-            <GridView rows={displayRows} onOpenList={onOpenList} isOnline={isOnline} metric={sortKey} />
+            <GridView rows={displayRows} onOpenList={openWithScroll} isOnline={isOnline} metric={sortKey} />
           )}
         </div>
       ) : (

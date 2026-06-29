@@ -43,7 +43,7 @@ function candidates(team) {
 }
 
 // "Haz 14, 2026" + "23:00" -> ms (TR yerel ~UTC+3 kabul edip UTC'ye çevirir).
-function matchStartMs(m) {
+export function matchStartMs(m) {
   try {
     const mo = norm(m.date).match(/([a-z]+) (\d+) (\d{4})/);
     if (!mo) return null;

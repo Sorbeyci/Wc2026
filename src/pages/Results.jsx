@@ -7,7 +7,7 @@ import { shortName } from '../data/flags.js';
 import { GROUP_NAMES } from '../data/tournament.js';
 import ResultBracket from '../components/ResultBracket.jsx';
 
-function ResultGroup({ g, actual, compareOrder }) {
+function ResultGroup({ g, actual, compareOrder, open, onToggle }) {
   const scores = actual.groupMatches || {};
   const rows = computeStandings(g, scores);
   const byTeam = Object.fromEntries(rows.map((r) => [r.team, r]));
@@ -17,10 +17,11 @@ function ResultGroup({ g, actual, compareOrder }) {
   const played = rows.reduce((n, r) => n + r.P, 0) > 0;
   return (
     <div className="card overflow-hidden">
-      <div className="px-4 py-2.5 border-b border-black/5 flex items-center justify-between">
-        <span className="font-display text-xl text-ink">{g} Grubu</span>
-        {!played && <span className="text-[11px] text-ink/40">skor girilmedi</span>}
-      </div>
+      <button onClick={onToggle} className="w-full px-4 py-2.5 border-b border-black/5 flex items-center justify-between gap-2 text-left">
+        <span className="font-display text-xl text-ink flex items-center gap-2">{g} Grubu{!played && <span className="text-[11px] font-normal text-ink/40">skor girilmedi</span>}</span>
+        <span className={`text-ink/30 transition ${open ? 'rotate-180' : ''}`}>▾</span>
+      </button>
+      {open && (<>
       <div className="divide-y divide-black/5 px-2">
         {order.map((t, i) => {
           const r = byTeam[t] || { Pts: 0, GD: 0, GF: 0 };
@@ -52,21 +53,23 @@ function ResultGroup({ g, actual, compareOrder }) {
         })}
       </div>
       <p className="px-4 py-1.5 text-[11px] text-ink/40 border-t border-black/5">İlk 2 üst tura çıkar · 3. en iyi 8 üçüncüye girebilir.</p>
+      </>)}
     </div>
   );
 }
 
-function ThirdsTable({ actual }) {
+function ThirdsTable({ actual, open, onToggle }) {
   const ranked = rankedThirds(actual).filter((r) => r.team);
   if (ranked.length === 0) {
     return <p className="text-xs text-ink/45 px-1">Henüz 3.’lük sıralaması için yeterli sonuç girilmedi.</p>;
   }
   return (
     <div className="card overflow-hidden">
-      <div className="px-4 py-2.5 border-b border-black/5 flex items-center justify-between">
+      <button onClick={onToggle} className="w-full px-4 py-2.5 border-b border-black/5 flex items-center justify-between gap-2 text-left">
         <span className="font-display text-xl text-ink">En iyi 3.’ler</span>
-        <span className="text-[11px] text-ink/40">ilk 8 üst tura çıkar</span>
-      </div>
+        <span className="flex items-center gap-2"><span className="text-[11px] text-ink/40">ilk 8 üst tura çıkar</span><span className={`text-ink/30 transition ${open ? 'rotate-180' : ''}`}>▾</span></span>
+      </button>
+      {open && (<>
       <div className="divide-y divide-black/5 px-2">
         {ranked.map((r, i) => {
           const adv = i < 8;
@@ -85,6 +88,7 @@ function ThirdsTable({ actual }) {
         })}
       </div>
       <p className="px-4 py-1.5 text-[11px] text-ink/40 border-t border-black/5">12 grubun 3.’sü puan → averaj → atılan gole göre sıralanır; ilk 8’i eleme turuna kalır.</p>
+      </>)}
     </div>
   );
 }
@@ -96,16 +100,24 @@ export default function Results({ goHome }) {
   const topRef = useRef(null);
   const groupRefs = useRef({});
   const [compare, setCompare] = useState(false);
-  const [bracketOpen, setBracketOpen] = useState(false);
+  const [bracketOpen, setBracketOpen] = useState(true);
+  const [openGroups, setOpenGroups] = useState({});
+  const [thirdsOpen, setThirdsOpen] = useState(false);
   const [showTop, setShowTop] = useState(false);
 
   const myList = lists.find((l) => l.ownerUid === user?.uid);
   const myPred = myList ? getPrediction(myList.id) : null;
 
-  const goThirds = () => thirdsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  const goGroup = (g) => groupRefs.current[g]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const goThirds = () => { setThirdsOpen(true); requestAnimationFrame(() => thirdsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })); };
+  const goGroup = (g) => { setOpenGroups((o) => ({ ...o, [g]: true })); requestAnimationFrame(() => groupRefs.current[g]?.scrollIntoView({ behavior: 'smooth', block: 'start' })); };
   const goBracket = () => { setBracketOpen(true); requestAnimationFrame(() => bracketRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })); };
   const goTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  // Sayfa açılınca doğrudan eleme ağacına kaydır (gruplar/3.ler kapalı başlar).
+  useEffect(() => {
+    const t = setTimeout(() => bracketRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 240);
+    return () => clearTimeout(t);
+  }, []);
 
   // Aşağı kayınca "yukarı" oku göster.
   useEffect(() => {
@@ -178,14 +190,15 @@ export default function Results({ goHome }) {
 
       {GROUP_NAMES.map((g) => (
         <div key={g} ref={(el) => { groupRefs.current[g] = el; }} className="scroll-mt-3">
-          <ResultGroup g={g} actual={actual} compareOrder={compare && myPred ? groupOrder(myPred, g) : null} />
+          <ResultGroup g={g} actual={actual} compareOrder={compare && myPred ? groupOrder(myPred, g) : null}
+            open={!!openGroups[g]} onToggle={() => setOpenGroups((o) => ({ ...o, [g]: !o[g] }))} />
         </div>
       ))}
 
       <div ref={thirdsRef} className="scroll-mt-3">
         <SectionTitle title="En iyi 3.’ler tablosu" />
       </div>
-      <ThirdsTable actual={actual} />
+      <ThirdsTable actual={actual} open={thirdsOpen} onToggle={() => setThirdsOpen((v) => !v)} />
 
       <div ref={bracketRef} className="scroll-mt-3">
         <SectionTitle title="Eleme ağacı (gerçek)" right={
