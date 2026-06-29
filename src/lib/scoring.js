@@ -5,7 +5,7 @@
 // picks who advances, which propagates round by round to the final.
 // ---------------------------------------------------------------------------
 import { GROUP_MATCHES, GROUPS, KO_ROUNDS } from '../data/tournament.js';
-import { resolveBracket, bestThirds, KO_DATES, MATCH_BY_NO } from '../data/bracket.js';
+import { resolveBracket, bestThirds } from '../data/bracket.js';
 
 export const DEFAULT_SCORING = {
   match: { exact: 5, result: 3 },
@@ -201,14 +201,11 @@ export function scoreThirds(predSource, actualSource, projection = false) {
 const KO_GROUPS = [['R32', 73, 88], ['R16', 89, 96], ['QF', 97, 100], ['SF', 101, 102]];
 const KO_ALL = [[73, 88], [89, 96], [97, 100], [101, 102], [103, 103], [104, 104]];
 
-function scoreKoPair(p, a, pWin, aWin) {
-  // p/a = { hs, as }; pWin/aWin = tahmin/gerçek tur atlatan (galip) takım
+function scoreKoPair(p, a) {
+  // p/a = { hs, as }
   const phs = num(p?.hs), pas = num(p?.as), ahs = num(a?.hs), aas = num(a?.as);
   if (phs == null || pas == null || ahs == null || aas == null) return 0;
-  if (phs === ahs && pas === aas) return SCORING.knockout.match.exact; // tam skor
-  // "Doğru sonuç": tur atlatanı (galibi) bildiyse — beraberlik + uzatma/penaltı dahil.
-  if (pWin && aWin) return pWin === aWin ? SCORING.knockout.match.result : 0;
-  // Galip bilinmiyorsa 1X2 sonucuna düş.
+  if (phs === ahs && pas === aas) return SCORING.knockout.match.exact;
   if (outcome(phs, pas) === outcome(ahs, aas)) return SCORING.knockout.match.result;
   return 0;
 }
@@ -259,7 +256,7 @@ export function scoreBracketKnockout(P, A, predKo = {}, actualKo = {}, opts = {}
       if (!pm?.home || !pm?.away || num(pk?.hs) == null || num(pk?.as) == null) continue;
       if (canon(pm.home, pm.away) !== canon(am.home, am.away)) continue; // eşleşme yanlış → puan yok
       const oriented = pm.home === am.home ? { hs: pk.hs, as: pk.as } : { hs: pk.as, as: pk.hs };
-      const got = scoreKoPair(oriented, a, pm.winner, am.winner);
+      const got = scoreKoPair(oriented, a);
       if (got === SCORING.knockout.match.exact) exact++;
       else if (got === SCORING.knockout.match.result) result++;
       scorePts += got;
@@ -344,109 +341,3 @@ export function leaderboard(lists, actual, getPrediction) {
     .map((l) => ({ list: l, ...scoreUser(getPrediction(l.id), actual) }))
     .sort((a, b) => b.total - a.total);
 }
-
-// ---------------------------------------------------------------------------
-// Puan log'u: bir kullanıcının puanlarını nereden/ne zaman aldığını madde madde
-// döndürür (gün ve maç bazlı). Toplamı scoreUser ile aynıdır.
-// entry: { phase:'group'|'ko'|'final', kind, no?, date, label, detail, tag?, pts }
-// ---------------------------------------------------------------------------
-const _TR_MON_IDX = { Oca: 0, 'Şub': 1, Mar: 2, Nis: 3, May: 4, Haz: 5, Tem: 6, 'Ağu': 7, Eyl: 8, Eki: 9, Kas: 10, Ara: 11 };
-export function logDateKey(d) {
-  const m = String(d || '').match(/(\S+)\s+(\d+),\s*(\d+)/);
-  if (!m) return 0;
-  return new Date(+m[3], _TR_MON_IDX[m[1]] ?? 0, +m[2]).getTime();
-}
-
-export function scoreLog(prediction, actual) {
-  const entries = [];
-  const n2 = (v) => (v === '' || v == null || isNaN(v) ? null : Number(v));
-  const canon = (x, y) => [x, y].sort().join('|');
-
-  // 1) grup maçları
-  for (const m of GROUP_MATCHES) {
-    const a = actual.groupMatches?.[m.no];
-    if (!a || n2(a.home) == null || n2(a.away) == null) continue;
-    const p = prediction?.groupMatches?.[m.no];
-    const got = scoreMatch(p ? { hs: p.home, as: p.away } : null, { hs: a.home, as: a.away });
-    if (got <= 0) continue;
-    entries.push({
-      phase: 'group', kind: 'match', no: m.no, date: m.date,
-      label: `${m.home} - ${m.away}`,
-      detail: `Tahmin ${p.home}-${p.away} · Sonuç ${a.home}-${a.away}`,
-      tag: got === SCORING.match.exact ? 'Tam skor' : 'Doğru sonuç', pts: got,
-    });
-  }
-
-  // 2) grup sıralaması (grup başına)
-  const adv = advancingTeams(actual, false);
-  const lastDateByGroup = {};
-  for (const m of GROUP_MATCHES) {
-    if (!lastDateByGroup[m.group] || logDateKey(m.date) > logDateKey(lastDateByGroup[m.group])) lastDateByGroup[m.group] = m.date;
-  }
-  for (const g of Object.keys(GROUPS)) {
-    if (!hasOrder(actual, g) || !hasOrder(prediction, g)) continue;
-    const predicted = groupOrder(prediction, g), real = groupOrder(actual, g);
-    let qn = 0, pn = 0, pts = 0;
-    predicted.forEach((t, idx) => {
-      if (!t) return;
-      if (idx < 2 && adv.has(t)) { pts += SCORING.groupTable.qualified; qn++; }
-      if (real[idx] === t) { pts += SCORING.groupTable.position; pn++; }
-    });
-    if (pts > 0) entries.push({ phase: 'group', kind: 'table', date: lastDateByGroup[g], label: `${g} Grubu sıralaması`, detail: `${qn} çıkan${pn ? ` + ${pn} tam sıra` : ''}`, pts });
-  }
-
-  // 3) en iyi 3.'ler
-  const th = scoreThirds(prediction, actual, false);
-  if (th.pts > 0) {
-    const endG = Object.values(lastDateByGroup).sort((a, b) => logDateKey(b) - logDateKey(a))[0];
-    entries.push({ phase: 'group', kind: 'thirds', date: endG, label: "En iyi 3.'ler", detail: `${th.correct} doğru`, pts: th.pts });
-  }
-
-  // 4) eleme maçları (maç başına: tur + eşleşme + skor)
-  const P = resolveBracket(prediction, prediction?.ko || {});
-  const A = resolveBracket(actual, actual?.ko || {});
-  const r32Final = allGroupsComplete(actual);
-  const roundOf = (no) => MATCH_BY_NO[no]?.round;
-  const predPairs = {};
-  for (let no = 73; no <= 104; no++) { const pm = P.matches[no]; if (pm?.home && pm?.away) (predPairs[roundOf(no)] ||= new Set()).add(canon(pm.home, pm.away)); }
-  const KO_R = { R32: 'Son 32', R16: 'Son 16', QF: 'Çeyrek Final', SF: 'Yarı Final', TP: 'Üçüncülük', F: 'Final' };
-  for (let no = 73; no <= 104; no++) {
-    const am = A.matches[no]; if (!am?.home || !am?.away) continue;
-    const pm = P.matches[no] || {};
-    const round = roundOf(no);
-    let pts = 0; const parts = [];
-    const advVal = SCORING.knockout.advance[round];
-    if (advVal && am.winner && pm.winner && pm.winner === am.winner) { pts += advVal; parts.push(`tur +${advVal}`); }
-    if (!(round === 'R32' && !r32Final) && predPairs[round]?.has(canon(am.home, am.away))) { pts += SCORING.knockout.matchup; parts.push(`eşleşme +${SCORING.knockout.matchup}`); }
-    const aKo = actual?.ko?.[no];
-    if (aKo && n2(aKo.hs) != null && n2(aKo.as) != null && pm.home && pm.away && canon(pm.home, pm.away) === canon(am.home, am.away)) {
-      const pk = prediction?.ko?.[no];
-      if (pk && n2(pk.hs) != null && n2(pk.as) != null) {
-        const ohs = pm.home === am.home ? n2(pk.hs) : n2(pk.as);
-        const oas = pm.home === am.home ? n2(pk.as) : n2(pk.hs);
-        let sp = 0, tg = '';
-        if (ohs === n2(aKo.hs) && oas === n2(aKo.as)) { sp = SCORING.knockout.match.exact; tg = 'tam skor'; }
-        else if ((pm.winner && am.winner) ? pm.winner === am.winner : outcome(ohs, oas) === outcome(n2(aKo.hs), n2(aKo.as))) { sp = SCORING.knockout.match.result; tg = 'doğru sonuç'; }
-        if (sp > 0) { pts += sp; parts.push(`${tg} +${sp}`); }
-      }
-    }
-    if (pts > 0) entries.push({ phase: 'ko', kind: 'ko', no, date: KO_DATES[no]?.date, label: `${am.home} - ${am.away}`, detail: parts.join(' · '), tag: KO_R[round] || 'Eleme', pts });
-  }
-
-  // 5) finaller
-  const finalDate = KO_DATES[104]?.date, tpDate = KO_DATES[103]?.date;
-  const pushF = (cond, label, detail, pts, date) => { if (cond && pts > 0) entries.push({ phase: 'final', kind: 'finals', date, label, detail, pts }); };
-  pushF(P.champion && P.champion === A.champion, 'Şampiyon', A.champion, SCORING.finals.champion, finalDate);
-  pushF(P.runnerUp && P.runnerUp === A.runnerUp, 'Finalist (2.)', A.runnerUp, SCORING.finals.runnerUp, finalDate);
-  pushF(P.third && P.third === A.third, '3.', A.third, SCORING.finals.third, tpDate);
-  pushF(P.fourth && P.fourth === A.fourth, '4.', A.fourth, SCORING.finals.fourth, tpDate);
-  const inMatch = [A.third, A.fourth].filter(Boolean);
-  [P.third, P.fourth].filter(Boolean).forEach((t) => { if (inMatch.includes(t)) entries.push({ phase: 'final', kind: 'finals', date: tpDate, label: 'Üçüncülük maçında', detail: shortNameSafe(t), pts: SCORING.finals.inThirdPlaceMatch }); });
-  const pTop = (prediction?.topScorer || '').trim().toLowerCase(), aTop = (actual?.topScorer || '').trim().toLowerCase();
-  pushF(pTop && aTop && pTop === aTop, 'Gol kralı', actual.topScorer, SCORING.finals.topScorer, finalDate);
-
-  entries.sort((a, b) => logDateKey(a.date) - logDateKey(b.date) || (a.no || 9999) - (b.no || 9999));
-  const total = entries.reduce((s, e) => s + e.pts, 0);
-  return { entries, total };
-}
-function shortNameSafe(t) { return t; }

@@ -1,12 +1,6 @@
 // Uygulama sürüm geçmişi (changelog).
 export const CHANGELOG = [
   {
-    v: '6.8', date: 'Haziran 2026', items: [
-      'Eleme skor puanı düzeltildi: beraberlik + uzatma/penaltı tahmininde “doğru sonuç” (+3) artık doğru veriliyor. Örn. beraberlik deyip Kanada’yı tur atlatan seçen +3 alır.',
-      'Yeni: Puan log’u — Sıralama’da her kişinin satırında 📋 Puan log butonu. Kim nereden, hangi gün, hangi maçtan kaç puan aldığı gün gün / maç maç listelenir; Tümü / Grup / Eleme / Final filtreleriyle.',
-    ],
-  },
-  {
     v: '6.7', date: 'Haziran 2026', items: [
       'Eleme dağılımında “Bir takımı tutturan” artık takıma göre gruplanıp bayraklı gösteriliyor (ör. 🇩🇪 Almanya başlığı altında o takımı tutanlar) — okumak daha kolay.',
       'Henüz belli olmayan eleme tarafı “75. galibi” yerine o eşleşmenin iki takımını bayraklı gösteriyor (ör. 🇳🇱 Hollanda / 🇲🇦 Fas).',
