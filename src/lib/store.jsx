@@ -428,7 +428,16 @@ export function StoreProvider({ children }) {
     betsByNo: Object.fromEntries((bets || []).map((b) => [b.id, b.data || {}])),
     setBet(no, team) {
       if (!user) return Promise.resolve();
-      return setDoc(doc(db, 'bets', String(no)), { [user.uid]: team || '' }, { merge: true }).catch(() => {});
+      const key = String(no);
+      // İyimser güncelleme: kendi oyunu anında göster (snapshot beklemeden).
+      setBets((prev) => {
+        const arr = prev.slice();
+        const i = arr.findIndex((b) => b.id === key);
+        if (i >= 0) arr[i] = { id: key, data: { ...arr[i].data, [user.uid]: team || '' } };
+        else arr.push({ id: key, data: { [user.uid]: team || '' } });
+        return arr;
+      });
+      return setDoc(doc(db, 'bets', key), { [user.uid]: team || '' }, { merge: true }).catch(() => {});
     },
     // Bir günlük quiz kazanımını kaydeder. Günde en fazla 1 kez sayılır (lastDate guard).
     async recordQuizWin() {

@@ -1,6 +1,13 @@
 // Uygulama sürüm geçmişi (changelog).
 export const CHANGELOG = [
   {
+    v: '6.10', date: 'Haziran 2026', items: [
+      '“Kim yener?” bahsinde verdiğin oy artık anında işleniyor — sonucu görmek için sayfayı yenilemeye gerek yok.',
+      'Enteresan istatistikler her yenilemede sıradakini gösteriyor: bir bilgi, sistemdeki tüm bilgiler dolaşılana (tam bir tur) kadar sana tekrar gelmiyor.',
+      'Bahis kutucuklarındaki bayraklar kaldırıldı (üstte zaten var) — göz yormasın.',
+    ],
+  },
+  {
     v: '6.9', date: 'Haziran 2026', items: [
       'Sıralama’dan bir kişiye girince doğrudan “Tahminler” sekmesi açılır ve o an oynanan eleme turuna (Son 32 / Son 16 …) kaydırır.',
       'Tahminler üst gezinme çubuğu artık iki satıra sığıyor (yatay kaymıyor), daha canlı ve aktif tur vurgulu.',

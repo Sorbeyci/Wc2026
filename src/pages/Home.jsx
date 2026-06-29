@@ -81,7 +81,6 @@ export default function Home({ setPage, goAdminImport }) {
   const myList = lists.find((l) => isMyList(l));
   const myPred = myList ? getPrediction(myList.id) : null;
   const [progMode, setProgMode] = useState('pct');
-  const funSeed = useMemo(() => `${Date.now()}:${user?.uid || 'anon'}`, [user?.uid]);
   const [scoringOpen, setScoringOpen] = useState(() => { try { return localStorage.getItem('wc_scoring_help_open') !== '0'; } catch { return true; } });
   const toggleScoring = () => setScoringOpen((o) => { const n = !o; try { localStorage.setItem('wc_scoring_help_open', n ? '1' : '0'); } catch (e) {} return n; });
 
@@ -242,7 +241,7 @@ export default function Home({ setPage, goAdminImport }) {
       <div ref={resultsRef} className="scroll-mt-3">
         <RecentResults actual={actual} />
       </div>
-      <FunStats lists={lists} getPrediction={getPrediction} actual={actual} seed={funSeed} />
+      <FunStats lists={lists} getPrediction={getPrediction} actual={actual} />
 
       <div ref={topRef} className="card p-4 scroll-mt-3">
         <div className="flex items-center justify-between">
@@ -952,10 +951,9 @@ function KoBet({ no, home, away, now }) {
   const choose = (t) => { if (closed || !user) return; setBet(no, my === t ? '' : t); };
   const Cell = ({ t, pct, sel }) => (
     <button disabled={closed || !user} onClick={() => choose(t)}
-      className={`relative overflow-hidden rounded-lg border px-2 py-1.5 text-left transition ${sel ? 'border-pitch bg-pitch/10' : 'border-black/10 bg-black/[0.02]'} ${closed || !user ? '' : 'active:scale-[.98]'}`}>
+      className={`relative overflow-hidden rounded-lg border px-2.5 py-1.5 text-left transition ${sel ? 'border-pitch bg-pitch/10' : 'border-black/10 bg-black/[0.02]'} ${closed || !user ? '' : 'active:scale-[.98]'}`}>
       <div className="absolute inset-y-0 left-0 bg-pitch/15" style={{ width: `${pct}%` }} />
       <div className="relative flex items-center gap-1.5">
-        <Flag team={t} size={14} className="shrink-0" />
         <span className="truncate text-xs font-semibold flex-1">{shortName(t)}</span>
         <span className="text-xs font-display tabular-nums">{pct}%</span>
       </div>
@@ -1318,11 +1316,45 @@ function koFunStats(lists, getPrediction, actual) {
   return dedupe(out);
 }
 
-function FunStats({ lists, getPrediction, actual, seed }) {
-  const facts = useMemo(() => {
-    const all = dedupe([...funStats(lists, getPrediction, actual), ...koFunStats(lists, getPrediction, actual), ...predStats(lists, getPrediction)]);
-    return seededShuffle(all, seed).slice(0, 3);
-  }, [lists, actual, seed]);
+// Enteresan istatistik rotasyonu: localStorage kuyruğu. Her yenilemede sıradaki
+// faktları gösterir; bir fakt, tüm sistem dolaşılana (tam bir loop) kadar tekrar gelmez.
+const FUNSTATS_QKEY = 'kymal_funstats_queue_v2';
+function pickRotatingFacts(all, n) {
+  const want = Math.min(n, all.length);
+  if (want === 0) return [];
+  const byText = new Map(all.map((f) => [f.text, f]));
+  let queue;
+  try { queue = JSON.parse(localStorage.getItem(FUNSTATS_QKEY) || '[]'); } catch { queue = []; }
+  if (!Array.isArray(queue)) queue = [];
+  queue = queue.filter((t) => byText.has(t));                 // artık geçersiz faktları at
+  const inQ = new Set(queue);
+  for (const f of all) if (!inQ.has(f.text)) queue.push(f.text); // yeni faktları kuyruğa ekle
+  const result = [], used = new Set();
+  let guard = 0;
+  while (result.length < want && guard++ < all.length * 2 + 5) {
+    if (queue.length === 0) {                                 // tur bitti → karıştırıp baştan
+      queue = all.map((f) => f.text);
+      for (let i = queue.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [queue[i], queue[j]] = [queue[j], queue[i]]; }
+    }
+    const t = queue.shift();
+    if (!used.has(t) && byText.has(t)) { used.add(t); result.push(byText.get(t)); }
+  }
+  try { localStorage.setItem(FUNSTATS_QKEY, JSON.stringify(queue)); } catch { /* yoksay */ }
+  return result;
+}
+
+function FunStats({ lists, getPrediction, actual }) {
+  const all = useMemo(
+    () => dedupe([...funStats(lists, getPrediction, actual), ...koFunStats(lists, getPrediction, actual), ...predStats(lists, getPrediction)]),
+    [lists, actual]
+  );
+  const [facts, setFacts] = useState([]);
+  const rolled = useRef(false);
+  useEffect(() => {
+    if (rolled.current || all.length === 0) return;
+    setFacts(pickRotatingFacts(all, 3));
+    rolled.current = true;
+  }, [all]);
 
   if (facts.length === 0) return null;
   return (
