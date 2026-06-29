@@ -843,8 +843,9 @@ function koDistribution(no, lists, getPrediction, A, actualKo) {
       if (aHasScore && pkHas) {
         const ohs = pm.home === ah ? Number(pk.hs) : Number(pk.as);
         const oas = pm.home === ah ? Number(pk.as) : Number(pk.hs);
+        const resultOk = (pm.winner && am.winner) ? pm.winner === am.winner : koOutcome(ohs, oas) === aOut;
         if (ohs === ahsN && oas === aasN) exactHit.push({ name: l.name, extra: sc });
-        else if (koOutcome(ohs, oas) === aOut) resultHit.push({ name: l.name, extra: sc });
+        else if (resultOk) resultHit.push({ name: l.name, extra: sc });
         else matchupOnly.push({ name: l.name, extra: sc }); // eşleşme doğru, skor yanlış
       } else matchupOnly.push({ name: l.name, extra: sc }); // skor yoksa null
     } else if (inter === 1) {

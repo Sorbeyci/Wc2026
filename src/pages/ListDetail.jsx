@@ -189,7 +189,8 @@ function grpPts(p, a) {
   return 0;
 }
 // KO skor puanı: yalnızca tahmin edilen eşleşme (iki takım) gerçek eşleşmeyle
-// aynıysa verilir; skor gerçek ev/deplasmana göre yönlendirilir.
+// aynıysa verilir; skor gerçek ev/deplasmana göre yönlendirilir. "Doğru sonuç"
+// (+3) = tur atlatanı (galibi) bilmek — beraberlik + uzatma/penaltı dahil.
 function koScorePts(p, a, pm, am) {
   const ph = numv(p?.hs), pa = numv(p?.as), ah = numv(a?.hs), aa = numv(a?.as);
   if (ph == null || pa == null || ah == null || aa == null) return null;
@@ -199,6 +200,7 @@ function koScorePts(p, a, pm, am) {
   const ohs = pm.home === am.home ? ph : pa;
   const oas = pm.home === am.home ? pa : ph;
   if (ohs === ah && oas === aa) return SCORING.knockout.match.exact;
+  if (pm.winner && am.winner) return pm.winner === am.winner ? SCORING.knockout.match.result : 0;
   if (outc(ohs, oas) === outc(ah, aa)) return SCORING.knockout.match.result;
   return 0;
 }

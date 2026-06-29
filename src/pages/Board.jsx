@@ -1,6 +1,6 @@
 import { useMemo, useState, useRef, useLayoutEffect, useEffect } from 'react';
 import { useStore } from '../lib/store.jsx';
-import { scoreUser, SCORING, allGroupsComplete, groupOrder, hasOrder, advancingTeams } from '../lib/scoring.js';
+import { scoreUser, scoreLog, logDateKey, SCORING, allGroupsComplete, groupOrder, hasOrder, advancingTeams } from '../lib/scoring.js';
 import { GROUP_MATCHES, GROUP_NAMES } from '../data/tournament.js';
 import { bestThirds } from '../data/bracket.js';
 import { shortName } from '../data/flags.js';
@@ -598,8 +598,9 @@ function Leaderboard({ rows, onOpenList, isOnline, actual, proj, metric }) {
 }
 
 function LbRow({ r, i, onOpenList, online, actual, proj, metric }) {
-  const { quizWinsByUid = {}, activeDaysByUid = {}, earnedBadgesByUid = {} } = useStore();
+  const { quizWinsByUid = {}, activeDaysByUid = {}, earnedBadgesByUid = {}, getPrediction } = useStore();
   const [cat, setCat] = useState(null);
+  const [logOpen, setLogOpen] = useState(false);
   const isTotal = !metric || metric === 'total';
   const leader = i === 0 && r.total > 0 && isTotal;
   const topBadge = topAchievement(r, {
@@ -643,7 +644,13 @@ function LbRow({ r, i, onOpenList, online, actual, proj, metric }) {
             🔥 En çok: {best.label} {best.value}p
           </span>
         )}
+        <button onClick={() => setLogOpen(true)}
+          className="ml-auto inline-flex items-center gap-1 rounded-full bg-ink/[0.06] hover:bg-ink/10 text-ink/70 px-2 py-0.5 text-xs font-semibold active:scale-95">
+          📋 Puan log
+        </button>
       </div>
+
+      {logOpen && <PointsLogModal list={r.list} total={r.total} getPrediction={getPrediction} actual={actual} onClose={() => setLogOpen(false)} />}
 
       <div className="mt-2 grid grid-cols-5 gap-1.5 text-center">
         {cats.map((c) => (
@@ -1019,6 +1026,68 @@ function RankRace({ lists, actual, getPrediction, user }) {
             </div>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+// Kişinin puanlarını gün ve maç bazında listeleyen, filtreli modal.
+function PointsLogModal({ list, total, getPrediction, actual, onClose }) {
+  const [filter, setFilter] = useState('all');
+  const { entries } = useMemo(() => scoreLog(getPrediction(list.id), actual), [list.id, actual]);
+  const FILTERS = [
+    { id: 'all', label: 'Tümü' },
+    { id: 'group', label: 'Grup' },
+    { id: 'ko', label: 'Eleme' },
+    { id: 'final', label: 'Final' },
+  ];
+  const shown = entries.filter((e) => filter === 'all' || e.phase === filter);
+  const byDay = {};
+  for (const e of shown) (byDay[e.date] ||= []).push(e);
+  const days = Object.keys(byDay).sort((a, b) => logDateKey(a) - logDateKey(b));
+  const shownTotal = shown.reduce((s, e) => s + e.pts, 0);
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center sm:p-4" onClick={onClose}>
+      <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="px-4 py-3 border-b border-black/5 flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <p className="font-display text-lg truncate">{list.name} · puan log</p>
+            <p className="text-xs text-ink/45">{shown.length} kayıt · {shownTotal} puan{filter !== 'all' ? ' (filtreli)' : ''} · toplam {total}</p>
+          </div>
+          <button onClick={onClose} className="shrink-0 h-8 w-8 rounded-full bg-black/5 text-ink/60 active:scale-95" aria-label="Kapat">✕</button>
+        </div>
+        <div className="px-3 py-2 border-b border-black/5 flex gap-1.5">
+          {FILTERS.map((f) => (
+            <button key={f.id} onClick={() => setFilter(f.id)}
+              className={`flex-1 rounded-full py-1.5 text-xs font-semibold transition ${filter === f.id ? 'bg-ink text-white' : 'bg-black/5 text-ink/60'}`}>{f.label}</button>
+          ))}
+        </div>
+        <div className="overflow-y-auto px-3 py-2">
+          {days.length === 0 ? (
+            <p className="text-sm text-ink/45 py-8 text-center">Bu filtrede puan kaydı yok.</p>
+          ) : days.map((d) => {
+            const dayPts = byDay[d].reduce((s, e) => s + e.pts, 0);
+            return (
+              <div key={d} className="mb-3">
+                <div className="flex items-center justify-between px-1 mb-1">
+                  <p className="text-xs font-semibold text-ink/55">{d}</p>
+                  <p className="text-xs font-bold text-pitch-dark">+{dayPts}</p>
+                </div>
+                <div className="space-y-1">
+                  {byDay[d].map((e, idx) => (
+                    <div key={idx} className="flex items-center gap-2 rounded-lg bg-black/[0.03] px-2.5 py-1.5">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{e.label}</p>
+                        <p className="text-[11px] text-ink/50 truncate">{e.tag ? `${e.tag} · ` : ''}{e.detail}</p>
+                      </div>
+                      <span className="shrink-0 font-display text-pitch-dark">+{e.pts}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
