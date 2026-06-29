@@ -150,6 +150,24 @@ function useFlip() {
 // Görünüm durumu sayfadan ayrılınca da hatırlansın (gezmeye kaldığı yerden devam).
 const boardMem = { sub: 'board', view: 'detay', proj: false, sortKey: 'total', onlyOnline: false, query: '', filtersOpen: false, showOnline: false };
 
+// Bir kullanıcının Son 32'ye (R32) soktuğu takımlar: tahmin bracketindeki 73-88
+// ev/deplasman takımları ile gerçek R32 takımlarının kesişimi.
+function r32Sets(res) {
+  const A = res.bracket?.actual, P = res.bracket?.pred;
+  const actualR32 = new Set();
+  for (let no = 73; no <= 88; no++) { const m = A?.matches?.[no]; if (m?.home) actualR32.add(m.home); if (m?.away) actualR32.add(m.away); }
+  const seen = new Set(), hit = [], miss = [];
+  for (let no = 73; no <= 88; no++) {
+    const m = P?.matches?.[no];
+    for (const t of [m?.home, m?.away]) {
+      if (!t || seen.has(t)) continue;
+      seen.add(t);
+      (actualR32.has(t) ? hit : miss).push(t);
+    }
+  }
+  return { n: hit.length, total: actualR32.size, hit, miss };
+}
+
 export default function Board({ onOpenList, goHome }) {
   const { lists, actual, getPrediction, isOnline, onlineCount, onlineUsers, user } = useStore();
   const [sub, setSub] = useState(boardMem.sub);
@@ -169,7 +187,7 @@ export default function Board({ onOpenList, goHome }) {
       .map((l) => {
         const pred = getPrediction(l.id);
         const res = scoreUser(pred, actual, { projection: proj });
-        return { list: l, ...res, pred, champion: res.bracket?.pred?.champion || null, topScorer: pred.topScorer || '' };
+        return { list: l, ...res, pred, r32: r32Sets(res), champion: res.bracket?.pred?.champion || null, topScorer: pred.topScorer || '' };
       })
       .sort((a, b) => b.total - a.total);
     const prevA = prevActualOf(actual);
@@ -615,6 +633,12 @@ function LbRow({ r, i, onOpenList, online, actual, proj, metric }) {
     { id: 'fn', label: 'Final', value: r.breakdown.finals },
   ];
   const best = cats.reduce((a, b) => (b.value > a.value ? b : a), cats[0]);
+  // Görünen ızgara: Eleme ile Final arasına "Son 32'ye soktuğun takım sayısı" eklenir.
+  const gridCats = [
+    cats[0], cats[1], cats[2], cats[3],
+    { id: 'r32', label: 'Son 32', value: r.r32?.n ?? 0, count: true },
+    cats[4],
+  ];
   return (
     <div className={`card p-4 ${leader ? 'ring-2 ring-gold' : ''}`}>
       <button className="w-full flex items-center gap-3 text-left active:scale-[.99] transition" onClick={() => onOpenList(r.list.id)}>
@@ -645,17 +669,17 @@ function LbRow({ r, i, onOpenList, online, actual, proj, metric }) {
         )}
       </div>
 
-      <div className="mt-2 grid grid-cols-5 gap-1.5 text-center">
-        {cats.map((c) => (
+      <div className="mt-2 grid grid-cols-6 gap-1 text-center">
+        {gridCats.map((c) => (
           <button key={c.id} onClick={() => setCat(cat === c.id ? null : c.id)}
-            className={`rounded-lg py-1.5 transition ${cat === c.id ? 'bg-ink text-white' : 'bg-black/[0.03] text-ink'}`}>
-            <div className="font-display text-lg leading-none">{c.value}</div>
-            <div className={`text-[10px] uppercase tracking-wide mt-0.5 ${cat === c.id ? 'text-white/70' : 'text-ink/45'}`}>{c.label}</div>
+            className={`rounded-lg py-1.5 transition ${cat === c.id ? (c.count ? 'bg-pitch text-white' : 'bg-ink text-white') : 'bg-black/[0.03] text-ink'}`}>
+            <div className="font-display text-base leading-none">{c.value}{c.count && <span className="text-[9px] align-top opacity-60">/32</span>}</div>
+            <div className={`text-[9px] uppercase tracking-tight mt-0.5 ${cat === c.id ? 'text-white/70' : 'text-ink/45'}`}>{c.label}</div>
           </button>
         ))}
       </div>
 
-      {cat && <CategoryDetail cat={cat} r={r} actual={actual} proj={proj} />}
+      {cat === 'r32' ? <R32Teams r={r} /> : cat && <CategoryDetail cat={cat} r={r} actual={actual} proj={proj} />}
     </div>
   );
 }
@@ -751,6 +775,42 @@ function CmpBox({ mine, real, fmt }) {
     <div className="mt-2 rounded-lg bg-white border border-black/5 p-2 text-xs space-y-1">
       <div className="flex justify-between"><span className="text-ink/45">Senin tahminin</span><span className="font-semibold">{mine ? f(mine) : '—'}</span></div>
       <div className="flex justify-between"><span className="text-ink/45">Gerçek</span><span className="font-semibold">{real ? f(real) : '—'}</span></div>
+    </div>
+  );
+}
+
+// "Son 32" kategorisi açılınca: kullanıcının R32'ye soktuğu takımlar (doğru) ve
+// sokamadıkları (tahmininde R32'deydi ama gerçekte çıkamadı).
+function R32Teams({ r }) {
+  const { hit = [], miss = [], total = 0 } = r.r32 || {};
+  return (
+    <div className="mt-2 rounded-xl bg-black/[0.02] border border-black/5 p-3">
+      <div className="flex justify-between text-xs font-bold uppercase tracking-wide text-ink/50 mb-2">
+        <span>Son 32'ye soktukların</span><span>{hit.length}/{total || 32}</span>
+      </div>
+      {hit.length === 0 ? (
+        <p className="text-xs text-ink/45">Henüz doğru takım yok.</p>
+      ) : (
+        <div className="flex flex-wrap gap-1.5">
+          {hit.map((t) => (
+            <span key={t} className="inline-flex items-center gap-1 rounded-full bg-pitch/10 text-pitch-dark px-2 py-1 text-xs font-semibold">
+              <Flag team={t} size={14} />{shortName(t)}
+            </span>
+          ))}
+        </div>
+      )}
+      {miss.length > 0 && (
+        <>
+          <p className="text-[11px] text-ink/45 mt-2.5 mb-1">Çıkaramadıkların ({miss.length})</p>
+          <div className="flex flex-wrap gap-1.5">
+            {miss.map((t) => (
+              <span key={t} className="inline-flex items-center gap-1 rounded-full bg-black/[0.04] text-ink/45 px-2 py-1 text-xs">
+                <Flag team={t} size={14} className="opacity-50" />{shortName(t)}
+              </span>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

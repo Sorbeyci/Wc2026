@@ -1,10 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useStore } from '../lib/store.jsx';
 import { scoreUser, SCORING } from '../lib/scoring.js';
 import { GROUP_MATCHES, GROUP_NAMES } from '../data/tournament.js';
 import { resolveBracket, bestThirds } from '../data/bracket.js';
 import { exportPredictionXlsx } from '../lib/excel.js';
-import { Flag, Dot, Avatar, Segmented, CountUp } from '../components/ui.jsx';
+import { Flag, Dot, Avatar, Segmented, CountUp, ScrollTopFab } from '../components/ui.jsx';
 import Standings from '../components/Standings.jsx';
 import BracketTree from '../components/BracketTree.jsx';
 import { shortName, teamColor } from '../data/flags.js';
@@ -31,6 +31,7 @@ const SUB = [
 export default function ListDetail({ listId, onBack, onEdit, crumbs }) {
   const { lists, getPrediction, actual, canEditList, isMyList, quizWinsByUid = {}, activeDaysByUid = {}, earnedBadgesByUid = {}, isOnline } = useStore();
   const [sub, setSub] = useState('standings');
+  useEffect(() => { window.scrollTo(0, 0); }, [listId]);
   const list = lists.find((l) => l.id === listId);
   if (!list) {
     return (
@@ -175,6 +176,7 @@ export default function ListDetail({ listId, onBack, onEdit, crumbs }) {
         {sub === 'picks' && <Picks pred={pred} actual={actual} />}
         {sub === 'tree' && <BracketTree pred={pred} actual={actual} />}
       </div>
+      <ScrollTopFab />
     </div>
   );
 }
@@ -215,40 +217,88 @@ export function Picks({ pred, actual }) {
   const bA = resolveBracket(actual || {}, actual?.ko || {});
   const thirds = bestThirds(pred);
   const anyGroupScore = GROUP_MATCHES.some((m) => hasScore(pred.groupMatches?.[m.no]));
+
+  const groupList = GROUP_NAMES.filter((g) => GROUP_MATCHES.some((m) => m.group === g && hasScore(pred.groupMatches?.[m.no])));
+  const koRounds = KO_VIEW.map((r) => {
+    const rows = [];
+    for (let no = r.from; no <= r.to; no++) { const m = b.matches[no]; if (m && m.home && m.away) rows.push(m); }
+    return { ...r, rows };
+  }).filter((r) => r.rows.length);
+
+  // Gruplar varsayılan kapalı; eleme turlarından R32 varsayılan açık.
+  const [openGroups, setOpenGroups] = useState({});
+  const [openRounds, setOpenRounds] = useState({ R32: true });
+  const allGroupsOpen = groupList.length > 0 && groupList.every((g) => openGroups[g]);
+  const toggleGroup = (g) => setOpenGroups((o) => ({ ...o, [g]: !o[g] }));
+  const setAllGroups = (val) => setOpenGroups(Object.fromEntries(groupList.map((g) => [g, val])));
+  const toggleRound = (id) => setOpenRounds((o) => ({ ...o, [id]: !o[id] }));
+
+  const groupsRef = useRef(null);
+  const roundRefs = useRef({});
+  const scrollTo = (el) => el && el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const gotoGroups = () => { if (groupList.length && !groupList.some((g) => openGroups[g])) toggleGroup(groupList[0]); setTimeout(() => scrollTo(groupsRef.current), 50); };
+  const gotoRound = (id) => { setOpenRounds((o) => ({ ...o, [id]: true })); setTimeout(() => scrollTo(roundRefs.current[id]), 60); };
+
   return (
     <div className="space-y-3">
-      {/* group match scores */}
-      {GROUP_NAMES.map((g) => {
+      {/* hızlı gezinme: bölümlere kaydırır */}
+      <div className="sticky top-0 z-20 -mx-4 px-4 py-2 bg-chalk/95 backdrop-blur border-b border-black/5 flex gap-1.5 overflow-x-auto">
+        {groupList.length > 0 && (
+          <button onClick={gotoGroups} className="shrink-0 rounded-full bg-black/[0.06] hover:bg-black/10 text-ink/70 px-3 py-1 text-xs font-semibold active:scale-95">Gruplar</button>
+        )}
+        {koRounds.map((r) => (
+          <button key={r.id} onClick={() => gotoRound(r.id)} className="shrink-0 rounded-full bg-black/[0.06] hover:bg-black/10 text-ink/70 px-3 py-1 text-xs font-semibold active:scale-95">{r.labelTr}</button>
+        ))}
+      </div>
+
+      {/* grup tahminleri başlık + tümünü aç/kapat */}
+      {groupList.length > 0 && (
+        <div ref={groupsRef} className="flex items-center justify-between px-1 pt-1 scroll-mt-16">
+          <p className="font-display text-lg text-ink/70">Grup tahminleri</p>
+          <button onClick={() => setAllGroups(!allGroupsOpen)} className="text-xs font-semibold text-pitch rounded-full bg-pitch/10 px-3 py-1 active:scale-95">
+            {allGroupsOpen ? 'Tümünü kapat' : 'Tümünü aç'}
+          </button>
+        </div>
+      )}
+
+      {/* grup kartları (collapsible, varsayılan kapalı) */}
+      {groupList.map((g) => {
         const matches = GROUP_MATCHES.filter((m) => m.group === g);
-        const any = matches.some((m) => hasScore(pred.groupMatches?.[m.no]));
-        if (!any) return null;
+        const open = !!openGroups[g];
+        const gpts = matches.reduce((s, m) => s + (grpPts(pred.groupMatches?.[m.no], actual?.groupMatches?.[m.no]) || 0), 0);
         return (
           <div key={g} className="card overflow-hidden">
-            <div className="px-4 py-2 border-b border-black/5 font-display text-lg">{g} Grubu</div>
-            <div className="divide-y divide-black/5">
-              {matches.map((m) => {
-                const s = pred.groupMatches?.[m.no] || {};
-                const pts = grpPts(s, actual?.groupMatches?.[m.no]);
-                return (
-                  <div key={m.no} className="flex items-center gap-2 px-3 py-2 text-sm"
-                    style={{ backgroundImage: `linear-gradient(90deg, ${teamColor(m.home)}12, transparent 24%, transparent 76%, ${teamColor(m.away)}12)` }}>
-                    <div className="w-10 shrink-0" />
-                    <div className="flex-1 min-w-0 flex items-center justify-end gap-1.5">
-                      <span className="truncate">{shortName(m.home)}</span>
-                      <Flag team={m.home} size={16} className="shrink-0" />
+            <button onClick={() => toggleGroup(g)} className="w-full px-4 py-2.5 border-b border-black/5 flex items-center gap-2 text-left">
+              <span className="font-display text-lg flex-1">{g} Grubu</span>
+              {gpts > 0 && <span className="chip bg-pitch/10 text-pitch-dark text-xs">{gpts}p</span>}
+              <span className={`text-ink/30 transition ${open ? 'rotate-180' : ''}`}>▾</span>
+            </button>
+            {open && (
+              <div className="divide-y divide-black/5">
+                {matches.map((m) => {
+                  const s = pred.groupMatches?.[m.no] || {};
+                  const pts = grpPts(s, actual?.groupMatches?.[m.no]);
+                  return (
+                    <div key={m.no} className="flex items-center gap-2 px-3 py-2 text-sm"
+                      style={{ backgroundImage: `linear-gradient(90deg, ${teamColor(m.home)}12, transparent 24%, transparent 76%, ${teamColor(m.away)}12)` }}>
+                      <div className="w-10 shrink-0" />
+                      <div className="flex-1 min-w-0 flex items-center justify-end gap-1.5">
+                        <span className="truncate">{shortName(m.home)}</span>
+                        <Flag team={m.home} size={16} className="shrink-0" />
+                      </div>
+                      <span className="font-display tabular-nums w-12 text-center shrink-0">
+                        {hasScore(s) ? `${s.home}-${s.away}` : '–'}
+                      </span>
+                      <div className="flex-1 min-w-0 flex items-center gap-1.5">
+                        <Flag team={m.away} size={16} className="shrink-0" />
+                        <span className="truncate">{shortName(m.away)}</span>
+                      </div>
+                      <div className="w-10 shrink-0 flex justify-end"><Pts n={pts} /></div>
                     </div>
-                    <span className="font-display tabular-nums w-12 text-center shrink-0">
-                      {hasScore(s) ? `${s.home}-${s.away}` : '–'}
-                    </span>
-                    <div className="flex-1 min-w-0 flex items-center gap-1.5">
-                      <Flag team={m.away} size={16} className="shrink-0" />
-                      <span className="truncate">{shortName(m.away)}</span>
-                    </div>
-                    <div className="w-10 shrink-0 flex justify-end"><Pts n={pts} /></div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         );
       })}
@@ -267,45 +317,49 @@ export function Picks({ pred, actual }) {
         </div>
       )}
 
-      {/* knockout bracket (auto matchups, picked winners in bold) */}
-      {KO_VIEW.map((r) => {
-        const rows = [];
-        for (let no = r.from; no <= r.to; no++) { const m = b.matches[no]; if (m && m.home && m.away) rows.push(m); }
-        if (!rows.length) return null;
+      {/* eleme turları (collapsible, R32 açık) */}
+      {koRounds.map((r) => {
+        const open = !!openRounds[r.id];
         return (
-          <div key={r.id} className="card overflow-hidden">
-            <div className="px-4 py-2 border-b border-black/5 font-display text-lg">{r.labelTr}</div>
-            <div className="divide-y divide-black/5">
-              {rows.map((m) => {
-                const sc = pred.ko?.[m.no] || {};
-                const hasSc = sc.hs !== '' && sc.hs != null && sc.as !== '' && sc.as != null;
-                const amatch = bA.matches?.[m.no];
-                const spts = koScorePts(sc, actual?.ko?.[m.no], m, amatch);
-                const aw = amatch?.winner;
-                const advHit = aw && m.winner === aw && advanceOf(m.no) > 0;
-                return (
-                  <div key={m.no} className="flex items-center gap-2 px-3 py-2 text-sm"
-                    style={{ backgroundImage: `linear-gradient(90deg, ${teamColor(m.home)}12, transparent 24%, transparent 76%, ${teamColor(m.away)}12)` }}>
-                    <div className="w-12 shrink-0" />
-                    <div className="flex-1 min-w-0 flex items-center justify-end gap-1.5">
-                      <span className={`truncate ${m.winner === m.home ? 'font-bold text-pitch-dark' : ''}`}>{shortName(m.home)}</span>
-                      <Flag team={m.home} size={16} className="shrink-0" />
+          <div key={r.id} ref={(el) => { roundRefs.current[r.id] = el; }} className="card overflow-hidden scroll-mt-16">
+            <button onClick={() => toggleRound(r.id)} className="w-full px-4 py-2.5 border-b border-black/5 flex items-center gap-2 text-left">
+              <span className="font-display text-lg flex-1">{r.labelTr}</span>
+              <span className="text-xs text-ink/40">{r.rows.length} maç</span>
+              <span className={`text-ink/30 transition ${open ? 'rotate-180' : ''}`}>▾</span>
+            </button>
+            {open && (
+              <div className="divide-y divide-black/5">
+                {r.rows.map((m) => {
+                  const sc = pred.ko?.[m.no] || {};
+                  const hasSc = sc.hs !== '' && sc.hs != null && sc.as !== '' && sc.as != null;
+                  const amatch = bA.matches?.[m.no];
+                  const spts = koScorePts(sc, actual?.ko?.[m.no], m, amatch);
+                  const aw = amatch?.winner;
+                  const advHit = aw && m.winner === aw && advanceOf(m.no) > 0;
+                  return (
+                    <div key={m.no} className="flex items-center gap-2 px-3 py-2 text-sm"
+                      style={{ backgroundImage: `linear-gradient(90deg, ${teamColor(m.home)}12, transparent 24%, transparent 76%, ${teamColor(m.away)}12)` }}>
+                      <div className="w-12 shrink-0" />
+                      <div className="flex-1 min-w-0 flex items-center justify-end gap-1.5">
+                        <span className={`truncate ${m.winner === m.home ? 'font-bold text-pitch-dark' : ''}`}>{shortName(m.home)}</span>
+                        <Flag team={m.home} size={16} className="shrink-0" />
+                      </div>
+                      <span className="shrink-0 w-12 text-center font-display tabular-nums text-ink/70">
+                        {hasSc ? `${sc.hs}-${sc.as}` : 'vs'}
+                      </span>
+                      <div className="flex-1 min-w-0 flex items-center gap-1.5">
+                        <Flag team={m.away} size={16} className="shrink-0" />
+                        <span className={`truncate ${m.winner === m.away ? 'font-bold text-pitch-dark' : ''}`}>{shortName(m.away)}</span>
+                      </div>
+                      <div className="w-12 shrink-0 flex flex-col items-end gap-0.5">
+                        {advHit && <span className="chip bg-gold/20 text-gold-dark text-[10px] px-1.5 py-0">✓{advanceOf(m.no)}</span>}
+                        <Pts n={spts} />
+                      </div>
                     </div>
-                    <span className="shrink-0 w-12 text-center font-display tabular-nums text-ink/70">
-                      {hasSc ? `${sc.hs}-${sc.as}` : 'vs'}
-                    </span>
-                    <div className="flex-1 min-w-0 flex items-center gap-1.5">
-                      <Flag team={m.away} size={16} className="shrink-0" />
-                      <span className={`truncate ${m.winner === m.away ? 'font-bold text-pitch-dark' : ''}`}>{shortName(m.away)}</span>
-                    </div>
-                    <div className="w-12 shrink-0 flex flex-col items-end gap-0.5">
-                      {advHit && <span className="chip bg-gold/20 text-gold-dark text-[10px] px-1.5 py-0">✓{advanceOf(m.no)}</span>}
-                      <Pts n={spts} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         );
       })}

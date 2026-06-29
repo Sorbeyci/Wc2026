@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useStore } from '../lib/store.jsx';
-import { SectionTitle, Dot, Empty, Avatar, BrandHeader } from '../components/ui.jsx';
+import { SectionTitle, Dot, Empty, Avatar, BrandHeader, ScrollTopFab } from '../components/ui.jsx';
 import ListDetail from './ListDetail.jsx';
 
 export default function Lists({ viewListId, setViewListId, clearList, onEdit, goHome, listOrigin, goBoard }) {
@@ -102,6 +102,7 @@ export default function Lists({ viewListId, setViewListId, clearList, onEdit, go
           })}
         </div>
       )}
+      <ScrollTopFab />
     </div>
   );
 }

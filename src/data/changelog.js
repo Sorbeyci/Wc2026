@@ -1,6 +1,14 @@
 // Uygulama sürüm geçmişi (changelog).
 export const CHANGELOG = [
   {
+    v: '6.8', date: 'Haziran 2026', items: [
+      'Sıralama’da bir kişiye girince sayfa en baştan (yukarıdan) açılıyor.',
+      '“Yukarı çık” butonu daha fazla sayfada: kişi detayı, Listeler, Tahmin formu (Ana sayfa, Sıralama ve Puan Durumu’nda zaten vardı).',
+      'Tahminler sekmesinde gruplar artık katlanır — varsayılan kapalı; tek tek aç/kapat veya “Tümünü aç/kapat”. Üstte hızlı gezinme linkleri (Gruplar · Son 32 · Son 16 · Çeyrek · Yarı · Final) ile bölümlere kayar; açılışta Son 32 turu açık gelir.',
+      'Sıralama kategori satırına Eleme ile Final arasına “Son 32” eklendi: kişinin Son 32’ye soktuğu takım sayısını gösterir; dokununca o takımlar (doğru çıkanlar + çıkaramadıkları) listelenir.',
+    ],
+  },
+  {
     v: '6.7', date: 'Haziran 2026', items: [
       'Eleme dağılımında “Bir takımı tutturan” artık takıma göre gruplanıp bayraklı gösteriliyor (ör. 🇩🇪 Almanya başlığı altında o takımı tutanlar) — okumak daha kolay.',
       'Henüz belli olmayan eleme tarafı “75. galibi” yerine o eşleşmenin iki takımını bayraklı gösteriyor (ör. 🇳🇱 Hollanda / 🇲🇦 Fas).',
