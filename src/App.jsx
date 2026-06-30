@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useLayoutEffect } from 'react';
 import { useStore } from './lib/store.jsx';
 import { firebaseReady } from './lib/firebase.js';
 import Nav from './components/Nav.jsx';
@@ -6,7 +6,7 @@ import SignIn from './pages/SignIn.jsx';
 import Home from './pages/Home.jsx';
 import Lists from './pages/Lists.jsx';
 import Predict from './pages/Predict.jsx';
-import Board from './pages/Board.jsx';
+import Board, { boardMem } from './pages/Board.jsx';
 import Results from './pages/Results.jsx';
 import Admin from './pages/Admin.jsx';
 import Changelog from './pages/Changelog.jsx';
@@ -20,6 +20,17 @@ export default function App() {
   const [adminSub, setAdminSub] = useState('results'); // initial Admin tab
   const [listOrigin, setListOrigin] = useState('lists'); // 'lists' | 'board' — where a list was opened from
 
+  // Sayfa değişince kaydırma konumu: Sıralama'ya kişiden DÖNÜLDÜYSE eski yere,
+  // alt menüden GİRİLDİYSE en başa. Ana Sayfa/diğer sayfalar her zaman en baştan.
+  useLayoutEffect(() => {
+    if (page === 'board') {
+      if (boardMem.restore) { const y = boardMem.scrollY || 0; boardMem.restore = false; requestAnimationFrame(() => window.scrollTo(0, y)); }
+      else window.scrollTo(0, 0);
+    } else if (page === 'home' || page === 'results' || page === 'predict' || page === 'changelog') {
+      window.scrollTo(0, 0);
+    }
+  }, [page]);
+
   if (!firebaseReady) return <ConfigNotice />;
   if (authLoading) return <Splash />;
   if (!user) return <div className="min-h-full"><SignIn /></div>;
@@ -30,7 +41,7 @@ export default function App() {
   const openFromLists = (id) => { setListOrigin('lists'); setViewListId(id); };               // from Lists listing
   const goBoard = () => { setViewListId(null); setPage('board'); };
   const editList = (id) => { setEditListId(id); setViewListId(null); setPage('predict'); };
-  const go = (p) => { setViewListId(null); if (p !== 'admin') setAdminSub('results'); setPage(p); };
+  const go = (p) => { setViewListId(null); if (p !== 'admin') setAdminSub('results'); if (p === 'board') boardMem.restore = false; setPage(p); };
   const goAdminImport = () => { setViewListId(null); setAdminSub('transfer'); setPage('admin'); };
 
   return (

@@ -148,7 +148,7 @@ function useFlip() {
 }
 
 // Görünüm durumu sayfadan ayrılınca da hatırlansın (gezmeye kaldığı yerden devam).
-const boardMem = { scrollY: 0, sub: 'board', view: 'detay', proj: false, sortKey: 'total', onlyOnline: false, query: '', filtersOpen: false, showOnline: false };
+export const boardMem = { scrollY: 0, restore: false, sub: 'board', view: 'detay', proj: false, sortKey: 'total', onlyOnline: false, query: '', filtersOpen: false, showOnline: false };
 
 // Bir kullanıcının Son 32'ye (R32) soktuğu takımlar: tahmin bracketindeki 73-88
 // ev/deplasman takımları ile gerçek R32 takımlarının kesişimi.
@@ -169,16 +169,12 @@ function r32Sets(res) {
 }
 
 export default function Board({ onOpenList, goHome }) {
-  // Bir kişiye girmeden önce kaydırma konumunu sakla; Sıralama'ya dönünce geri yükle.
-  const openWithScroll = (id) => { boardMem.scrollY = window.scrollY; onOpenList(id); };
-  useLayoutEffect(() => {
-    const y = boardMem.scrollY || 0;
-    if (y > 0) requestAnimationFrame(() => window.scrollTo(0, y));
-  }, []);
+  // Bir kişiye girmeden önce kaydırma konumunu sakla (App, Sıralama'ya dönünce geri yükler).
+  const openWithScroll = (id) => { boardMem.scrollY = window.scrollY; boardMem.restore = true; onOpenList(id); };
   const { lists, actual, getPrediction, isOnline, onlineCount, onlineUsers, user } = useStore();
   const [sub, setSub] = useState(boardMem.sub);
   const [view, setView] = useState(boardMem.view);
-  const [proj, setProj] = useState(boardMem.proj);
+  const [proj, setProj] = useState(() => { try { return localStorage.getItem('kymal_board_proj') === '1'; } catch { return boardMem.proj; } });
   const [sortKey, setSortKey] = useState(boardMem.sortKey);
   const [onlyOnline, setOnlyOnline] = useState(boardMem.onlyOnline);
   const [query, setQuery] = useState(boardMem.query);
@@ -186,6 +182,7 @@ export default function Board({ onOpenList, goHome }) {
   const [showOnline, setShowOnline] = useState(boardMem.showOnline);
   useEffect(() => {
     Object.assign(boardMem, { sub, view, proj, sortKey, onlyOnline, query, filtersOpen, showOnline });
+    try { localStorage.setItem('kymal_board_proj', proj ? '1' : '0'); } catch { /* yoksay */ }
   }, [sub, view, proj, sortKey, onlyOnline, query, filtersOpen, showOnline]);
 
   const rows = useMemo(() => {
@@ -231,40 +228,38 @@ export default function Board({ onOpenList, goHome }) {
       <BrandHeader onClick={goHome} />
       <SectionTitle title="Sıralama" />
 
-      {onlineCount > 0 && (
-        <div className="-mt-1">
+      {/* Sabit yükseklikli üst satır: solda çevrimiçi, sağda paylaş — güncellenince kaymaz */}
+      <div className="-mt-1 flex items-center justify-between gap-2 min-h-[32px]">
+        {onlineCount > 0 ? (
           <button onClick={() => setShowOnline((v) => !v)} className="flex items-center gap-1.5 text-xs font-semibold text-pitch">
             <span className="inline-block h-2 w-2 rounded-full bg-pitch animate-pulse" />
             {onlineCount} kişi çevrimiçi
             <span className={`text-ink/30 transition ${showOnline ? 'rotate-180' : ''}`}>▾</span>
           </button>
-          {showOnline && (
-            <div className="mt-2 card p-3 flex flex-wrap gap-1.5 fade-in">
-              {onlineUsers.length === 0 ? (
-                <span className="text-xs text-ink/45">Şu an kimse görünmüyor.</span>
-              ) : onlineUsers.map((u) => (
-                <span key={u.uid} className="inline-flex items-center gap-1.5 rounded-full bg-black/[0.04] pl-1 pr-2.5 py-0.5 text-xs font-semibold">
-                  <Avatar name={u.name} size={20} />
-                  <span className="truncate max-w-[120px]">{u.name}</span>
-                  {u.me && <span className="text-pitch-dark">· sen</span>}
-                </span>
-              ))}
-            </div>
-          )}
+        ) : <span />}
+        {lists.length > 0 && sub === 'board' && (
+          <button onClick={() => shareLeaderboard(rows, { title: 'Sıralama', subtitle: new Date().toLocaleDateString('tr-TR') })}
+            title="Sıralamayı paylaş (story)" aria-label="Sıralamayı paylaş (story)"
+            className="shrink-0 inline-flex items-center gap-1.5 rounded-full bg-ink text-white px-3 h-8 text-xs font-semibold active:scale-95 hover:opacity-90">
+            📲 Paylaş
+          </button>
+        )}
+      </div>
+      {onlineCount > 0 && showOnline && (
+        <div className="-mt-2 card p-3 flex flex-wrap gap-1.5 fade-in">
+          {onlineUsers.length === 0 ? (
+            <span className="text-xs text-ink/45">Şu an kimse görünmüyor.</span>
+          ) : onlineUsers.map((u) => (
+            <span key={u.uid} className="inline-flex items-center gap-1.5 rounded-full bg-black/[0.04] pl-1 pr-2.5 py-0.5 text-xs font-semibold">
+              <Avatar name={u.name} size={20} />
+              <span className="truncate max-w-[120px]">{u.name}</span>
+              {u.me && <span className="text-pitch-dark">· sen</span>}
+            </span>
+          ))}
         </div>
       )}
 
       <Segmented items={SUB} value={sub} onChange={setSub} />
-
-      {lists.length > 0 && sub === 'board' && (
-        <div className="flex justify-end -mt-2 -mb-1">
-          <button onClick={() => shareLeaderboard(rows, { title: 'Sıralama', subtitle: new Date().toLocaleDateString('tr-TR') })}
-            title="Sıralamayı paylaş (story)" aria-label="Sıralamayı paylaş (story)"
-            className="inline-flex items-center gap-1.5 rounded-full bg-ink text-white px-3 h-8 text-xs font-semibold active:scale-95 hover:opacity-90">
-            📲 Paylaş
-          </button>
-        </div>
-      )}
 
       <div key={sub} className="fade-in">
       {lists.length === 0 ? (
@@ -649,12 +644,14 @@ function LbRow({ r, i, onOpenList, online, actual, proj, metric }) {
     <div className={`card p-4 ${leader ? 'ring-2 ring-gold' : ''}`}>
       <button className="w-full flex items-center gap-3 text-left active:scale-[.99] transition" onClick={() => onOpenList(r.list.id)}>
         <span className={`font-display text-2xl w-7 ${leader ? 'text-gold-dark' : 'text-ink/30'}`}>{i + 1}</span>
-        <Avatar name={r.list.ownerName || r.list.name} color={r.list.color} src={r.list.ownerPhoto} size={38} />
+        <div className="relative shrink-0">
+          <Avatar name={r.list.ownerName || r.list.name} color={r.list.color} src={r.list.ownerPhoto} size={38} />
+          {online && <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-pitch ring-2 ring-white" title="Çevrimiçi" />}
+        </div>
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-ink truncate">
             {topBadge && <span title={topBadge.title} className="mr-1">{topBadge.icon}</span>}
             {r.list.name}{leader && <span className="ml-2 chip bg-gold/20 text-gold-dark">Lider</span>}
-            {online && <span className="ml-2 inline-flex items-center gap-1 text-[11px] font-bold text-pitch align-middle"><span className="inline-block h-2 w-2 rounded-full bg-pitch" />Online</span>}
           </p>
           <p className="text-xs text-ink/45 truncate flex items-center gap-1.5">{r.list.ownerName}<Delta d={r.delta} /></p>
         </div>

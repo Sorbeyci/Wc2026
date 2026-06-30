@@ -1,6 +1,17 @@
 // Uygulama sürüm geçmişi (changelog).
 export const CHANGELOG = [
   {
+    v: '6.11', date: 'Haziran 2026', items: [
+      '“Kim yener?” bahsi daha minimalist ve kompakt; oy yüzdeleri animasyonlu doluyor ve oyun anında işleniyor.',
+      'Ana Sayfa veya Sıralama’ya (alt menü) basınca sayfa en baştan açılır.',
+      'Sıralama’da bir kişiye girip geri dönünce liste kaldığın yerden devam eder (yalnızca geri dönüşte; alt menüden girişte baştan).',
+      'Çevrimiçi göstergesi artık avatarın köşesinde küçük nokta — güncellenince sayfa kaymıyor.',
+      'Paylaş butonu üste, “çevrimiçi” satırının yanına taşındı; sabit yükseklikli başlık ile kayma yok.',
+      'Geçici puanlar (canlı projeksiyon) tercihi artık hatırlanıyor (sayfa yenilense de açık kalır).',
+      'Enteresan istatistikler artık rastgele (sırayla değil) geliyor; bir bilgi, diğerlerinin tamamı gösterilene kadar tekrar gelmiyor.',
+    ],
+  },
+  {
     v: '6.10', date: 'Haziran 2026', items: [
       '“Kim yener?” bahsinde verdiğin oy artık anında işleniyor — sonucu görmek için sayfayı yenilemeye gerek yok.',
       'Enteresan istatistikler her yenilemede sıradakini gösteriyor: bir bilgi, sistemdeki tüm bilgiler dolaşılana (tam bir tur) kadar sana tekrar gelmiyor.',

@@ -63,6 +63,7 @@ function StatusRotator({ items, className = '' }) {
 
 export default function Home({ setPage, goAdminImport }) {
   const { lists, actual, getPrediction, user, isAdmin, adminEligible, adminMode, setAdminMode, logout, isMyList, theme, setTheme, onlineCount, ad, quizLeaders, recordQuizWin, locked } = useStore();
+  useEffect(() => { window.scrollTo(0, 0); }, []);
 
   const rows = useMemo(() => {
     return lists
@@ -951,25 +952,24 @@ function KoBet({ no, home, away, now }) {
   const choose = (t) => { if (closed || !user) return; setBet(no, my === t ? '' : t); };
   const Cell = ({ t, pct, sel }) => (
     <button disabled={closed || !user} onClick={() => choose(t)}
-      className={`relative overflow-hidden rounded-lg border px-2.5 py-1.5 text-left transition ${sel ? 'border-pitch bg-pitch/10' : 'border-black/10 bg-black/[0.02]'} ${closed || !user ? '' : 'active:scale-[.98]'}`}>
-      <div className="absolute inset-y-0 left-0 bg-pitch/15" style={{ width: `${pct}%` }} />
-      <div className="relative flex items-center gap-1.5">
-        <span className="truncate text-xs font-semibold flex-1">{shortName(t)}</span>
-        <span className="text-xs font-display tabular-nums">{pct}%</span>
+      className={`relative overflow-hidden rounded-md border text-left transition-colors duration-200 px-2 py-1 ${sel ? 'border-pitch/70 bg-pitch/10' : 'border-black/[0.08] bg-black/[0.015]'} ${closed || !user ? '' : 'active:scale-[.98]'}`}>
+      <div className="absolute inset-y-0 left-0 bg-pitch/15 transition-[width] duration-500 ease-out" style={{ width: `${pct}%` }} />
+      <div className="relative flex items-center justify-between gap-1">
+        <span className={`truncate text-[11px] ${sel ? 'font-bold text-pitch-dark' : 'font-semibold text-ink/75'}`}>{shortName(t)}</span>
+        <span className="text-[11px] font-display tabular-nums text-ink/60">{pct}%</span>
       </div>
     </button>
   );
   return (
-    <div className="px-4 pb-2.5 pt-0.5">
-      <div className="flex items-center justify-between text-[11px] mb-1">
-        <span className="text-ink/45">Kim yener? <span className="text-ink/30">· puana etkisiz</span></span>
-        {closed ? <span className="text-ink/40">oylama kapandı</span> : <span className="text-pitch font-semibold">{tot} oy{my ? ' · oyun ✓' : ''}</span>}
+    <div className="px-4 pb-2 pt-0">
+      <div className="flex items-center justify-between text-[10px] text-ink/40 mb-0.5">
+        <span>Kim yener? · puana etkisiz</span>
+        <span>{closed ? 'kapandı' : `${tot} oy${my ? ' · oyun ✓' : ''}`}</span>
       </div>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-1.5">
         <Cell t={home} pct={pH} sel={my === home} />
         <Cell t={away} pct={pA} sel={my === away} />
       </div>
-      {!user && <p className="text-[10px] text-ink/35 mt-1">Oy vermek için giriş yap.</p>}
     </div>
   );
 }
@@ -1316,30 +1316,32 @@ function koFunStats(lists, getPrediction, actual) {
   return dedupe(out);
 }
 
-// Enteresan istatistik rotasyonu: localStorage kuyruğu. Her yenilemede sıradaki
-// faktları gösterir; bir fakt, tüm sistem dolaşılana (tam bir loop) kadar tekrar gelmez.
-const FUNSTATS_QKEY = 'kymal_funstats_queue_v2';
+// Enteresan istatistik seçimi: RASTGELE (sırayla değil), ama gösterilen bir fakt,
+// diğerlerinin tamamı gösterilene (tam bir tur) kadar tekrar gelmez. İlerleme
+// localStorage'da "görülenler" kümesi olarak tutulur.
+const FUNSTATS_SEEN_KEY = 'kymal_funstats_seen_v3';
 function pickRotatingFacts(all, n) {
   const want = Math.min(n, all.length);
   if (want === 0) return [];
-  const byText = new Map(all.map((f) => [f.text, f]));
-  let queue;
-  try { queue = JSON.parse(localStorage.getItem(FUNSTATS_QKEY) || '[]'); } catch { queue = []; }
-  if (!Array.isArray(queue)) queue = [];
-  queue = queue.filter((t) => byText.has(t));                 // artık geçersiz faktları at
-  const inQ = new Set(queue);
-  for (const f of all) if (!inQ.has(f.text)) queue.push(f.text); // yeni faktları kuyruğa ekle
-  const result = [], used = new Set();
+  const texts = new Set(all.map((f) => f.text));
+  let seen;
+  try { seen = JSON.parse(localStorage.getItem(FUNSTATS_SEEN_KEY) || '[]'); } catch { seen = []; }
+  if (!Array.isArray(seen)) seen = [];
+  let seenSet = new Set(seen.filter((t) => texts.has(t)));   // artık geçersizleri at
+  const used = new Set();
+  const result = [];
   let guard = 0;
   while (result.length < want && guard++ < all.length * 2 + 5) {
-    if (queue.length === 0) {                                 // tur bitti → karıştırıp baştan
-      queue = all.map((f) => f.text);
-      for (let i = queue.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [queue[i], queue[j]] = [queue[j], queue[i]]; }
+    let pool = all.filter((f) => !seenSet.has(f.text) && !used.has(f.text));
+    if (pool.length === 0) {                                  // tur bitti → sıfırla (bu turda gösterilenler hariç)
+      seenSet = new Set(used);
+      pool = all.filter((f) => !used.has(f.text));
+      if (pool.length === 0) break;
     }
-    const t = queue.shift();
-    if (!used.has(t) && byText.has(t)) { used.add(t); result.push(byText.get(t)); }
+    const f = pool[(Math.random() * pool.length) | 0];        // RASTGELE seç
+    used.add(f.text); seenSet.add(f.text); result.push(f);
   }
-  try { localStorage.setItem(FUNSTATS_QKEY, JSON.stringify(queue)); } catch { /* yoksay */ }
+  try { localStorage.setItem(FUNSTATS_SEEN_KEY, JSON.stringify([...seenSet])); } catch { /* yoksay */ }
   return result;
 }
 
