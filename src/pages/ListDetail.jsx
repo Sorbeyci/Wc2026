@@ -242,6 +242,14 @@ export function Picks({ pred, actual, autoScroll }) {
     return { ...r, rows };
   }).filter((r) => r.rows.length);
 
+  // Tur atlatma rozeti takım-bazlı: bir turda gerçekten tur atlayan takımlar kümesi.
+  const actualWinnersByRound = {};
+  for (const r of KO_VIEW) {
+    const s = new Set();
+    for (let no = r.from; no <= r.to; no++) { const w = bA.matches?.[no]?.winner; if (w) s.add(w); }
+    actualWinnersByRound[r.id] = s;
+  }
+
   // Şu an oynanan (başlamış ama bitmemiş) ilk eleme turu — açılışta o açılır/kaydırılır.
   const activeRound = useMemo(() => activeKoRoundId(bA, actual?.ko || {}), [bA, actual]);
 
@@ -370,8 +378,9 @@ export function Picks({ pred, actual, autoScroll }) {
                   const hasSc = sc.hs !== '' && sc.hs != null && sc.as !== '' && sc.as != null;
                   const amatch = bA.matches?.[m.no];
                   const spts = koScorePts(sc, actual?.ko?.[m.no], m, amatch);
-                  const aw = amatch?.winner;
-                  const advHit = aw && m.winner === aw && advanceOf(m.no) > 0;
+                  // ✓ tur atlatma: senin tur atlatan seçtiğin takım gerçekten tur atladıysa
+                  // (eşleşmeden bağımsız, takım bazlı).
+                  const advHit = m.winner && advanceOf(m.no) > 0 && actualWinnersByRound[r.id]?.has(m.winner);
                   return (
                     <div key={m.no} className="flex items-center gap-2 px-3 py-2 text-sm"
                       style={{ backgroundImage: `linear-gradient(90deg, ${teamColor(m.home)}12, transparent 24%, transparent 76%, ${teamColor(m.away)}12)` }}>

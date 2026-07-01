@@ -1,6 +1,11 @@
 // Uygulama sürüm geçmişi (changelog).
 export const CHANGELOG = [
   {
+    v: '6.12', date: 'Temmuz 2026', items: [
+      'Eleme tur atlatma puanı düzeltildi: bir turda tur atlatan seçtiğin takım gerçekten tur atladıysa, EŞLEŞMEYİ tutturmasan da takım başına puanı alırsın (Son 32→Son 16 için +20). Örn. Paraguay’ı tur atlatan seçen herkes, hangi eşleşmede seçtiğine bakılmaksızın +20 alır.',
+    ],
+  },
+  {
     v: '6.11', date: 'Haziran 2026', items: [
       '“Kim yener?” bahsi daha minimalist ve kompakt; oy yüzdeleri animasyonlu doluyor ve oyun anında işleniyor.',
       'Ana Sayfa veya Sıralama’ya (alt menü) basınca sayfa en baştan açılır.',

@@ -217,11 +217,16 @@ export function scoreBracketKnockout(P, A, predKo = {}, actualKo = {}, opts = {}
   let scored = 0, exact = 0, result = 0;
   const canon = (x, y) => [x, y].sort().join('|');
 
-  // correct-winner (advance) points: R32 → SF
+  // Tur atlatma (advance) puanları: R32 → SF. EŞLEŞMEDEN BAĞIMSIZ, takım bazlı —
+  // bir turda kullanıcının tur atlatan seçtiği takım gerçekten tur atladıysa +puan
+  // (hangi slotta/eşleşmede olduğuna bakılmaz).
   for (const [id, from, to] of KO_GROUPS) {
-    for (let no = from; no <= to; no++) {
-      const aw = A.matches[no]?.winner;
-      if (aw && P.matches[no]?.winner === aw) { advancePts += SCORING.knockout.advance[id]; counts[id]++; }
+    const actualWinners = new Set();
+    for (let no = from; no <= to; no++) { const w = A.matches[no]?.winner; if (w) actualWinners.add(w); }
+    const predWinners = new Set();
+    for (let no = from; no <= to; no++) { const w = P.matches[no]?.winner; if (w) predWinners.add(w); }
+    for (const t of predWinners) {
+      if (actualWinners.has(t)) { advancePts += SCORING.knockout.advance[id]; counts[id]++; }
     }
   }
   // correct-matchup points: the two teams of a pairing are right — regardless of
