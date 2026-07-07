@@ -97,20 +97,48 @@ function matchupHitsOf(P, A, r32Final) {
   return hits;
 }
 
-function koHits(pred, actual, bracketActual) {
+const scoredKo = (s) => s && s.hs !== '' && s.hs != null && s.as !== '' && s.as != null;
+function koHits(pred, actual, bracketPred, bracketActual) {
   const hits = [];
-  for (let no = 73; no <= 104; no++) {
-    const p = pred.ko?.[no], a = actual.ko?.[no];
-    if (!p || !a || !scored(p) || !scored(a)) continue;
-    const ph = +p.hs, pa = +p.as, ah = +a.hs, aa = +a.as;
-    let pts = 0;
-    if (ph === ah && pa === aa) pts = 5; else if (sg(ph - pa) === sg(ah - aa)) pts = 3;
-    if (pts) {
-      const mm = bracketActual?.matches?.[no];
-      hits.push({ key: 'k' + no, no, home: mm?.home || '?', away: mm?.away || '?', pred: `${ph}-${pa}`, act: `${ah}-${aa}`, pts });
+  const canon = (x, y) => [x, y].sort().join('|');
+  const P = bracketPred, A = bracketActual;
+  for (const [from, to] of KO_ROUND_RANGES) {
+    const predByPair = new Map();
+    for (let no = from; no <= to; no++) {
+      const pm = P?.matches?.[no], pk = pred.ko?.[no];
+      if (pm?.home && pm?.away && scoredKo(pk)) { const k = canon(pm.home, pm.away); if (!predByPair.has(k)) predByPair.set(k, { pm, pk }); }
+    }
+    for (let no = from; no <= to; no++) {
+      const a = actual.ko?.[no], am = A?.matches?.[no];
+      if (!scoredKo(a) || !am?.home || !am?.away) continue;
+      const hit = predByPair.get(canon(am.home, am.away));
+      if (!hit) continue;
+      const ohs = hit.pm.home === am.home ? +hit.pk.hs : +hit.pk.as;
+      const oas = hit.pm.home === am.home ? +hit.pk.as : +hit.pk.hs;
+      const ah = +a.hs, aa = +a.as;
+      let pts = 0;
+      if (ohs === ah && oas === aa) pts = 5;
+      else if ((hit.pm.winner && am.winner) ? hit.pm.winner === am.winner : sg(ohs - oas) === sg(ah - aa)) pts = 3;
+      if (pts) hits.push({ key: 'k' + no, no, home: am.home, away: am.away, pred: `${ohs}-${oas}`, act: `${ah}-${aa}`, pts });
     }
   }
   return hits;
+}
+
+// Tur atlatma (advance) — takım bazlı: bir turda kullanıcının doğru bildiği tur atlatanlar.
+const KO_ADV_GROUPS = [['R32', 73, 88], ['R16', 89, 96], ['QF', 97, 100], ['SF', 101, 102]];
+function advanceHitsOf(P, A) {
+  const out = [];
+  for (const [id, from, to] of KO_ADV_GROUPS) {
+    const actualWinners = new Set();
+    for (let no = from; no <= to; no++) { const w = A?.matches?.[no]?.winner; if (w) actualWinners.add(w); }
+    const seen = new Set();
+    for (let no = from; no <= to; no++) {
+      const w = P?.matches?.[no]?.winner;
+      if (w && !seen.has(w)) { seen.add(w); if (actualWinners.has(w)) out.push({ key: id + '_' + w, roundId: id, team: w, pts: SCORING.knockout.advance[id] }); }
+    }
+  }
+  return out;
 }
 
 // FLIP animation: smoothly slides rows to new positions when ranking changes.
@@ -471,7 +499,7 @@ function CmpRow({ label, a, b, strong }) {
 // Bir kişinin eleme turundaki puan getiren isabetleri (eşleşme +10, tam skor +5, sonuç +3).
 function koDetail(r, actual) {
   const mh = matchupHitsOf(r.bracket?.pred, r.bracket?.actual, allGroupsComplete(actual)) || [];
-  const kh = koHits(r.pred, actual, r.bracket?.actual) || [];
+  const kh = koHits(r.pred, actual, r.bracket?.pred, r.bracket?.actual) || [];
   return [
     ...mh.map((h) => ({ ...h, round: koRoundLabel(h.no) })),
     ...kh.map((h) => ({ ...h, round: koRoundLabel(h.no) })),
@@ -762,9 +790,28 @@ function HitList({ hits }) {
       <div className="max-h-52 overflow-y-auto divide-y divide-black/5 rounded-lg bg-white">
         {hits.map((h) => (
           <div key={h.key} className="flex items-center gap-2 px-2 py-1.5 text-xs">
+            {h.no && <span className="w-8 shrink-0 text-ink/40 font-semibold">{koRoundLabel(h.no)}</span>}
             <span className="flex-1 min-w-0 truncate">{shortName(h.home)} - {shortName(h.away)}</span>
-            <span className="text-ink/45 tabular-nums">{h.pred}</span>
-            <span className={`chip ${h.pts === 5 ? 'bg-pitch/15 text-pitch-dark' : 'bg-gold/20 text-gold-dark'}`}>+{h.pts}</span>
+            <span className="shrink-0 text-ink/45 tabular-nums">sen {h.pred}{h.act && h.act !== h.pred ? ` · sonuç ${h.act}` : ''}</span>
+            <span className={`shrink-0 chip ${h.pts === 5 ? 'bg-pitch/15 text-pitch-dark' : 'bg-gold/20 text-gold-dark'}`}>+{h.pts}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TeamAdvanceList({ hits }) {
+  if (!hits || hits.length === 0) return <p className="mt-2 text-xs text-ink/45">Bu turda doğru tur atlatan yok.</p>;
+  return (
+    <div className="mt-2">
+      <div className="text-[11px] font-bold uppercase tracking-wide text-ink/45 mb-1">Tur atlatan takımlar ({hits.length})</div>
+      <div className="max-h-52 overflow-y-auto divide-y divide-black/5 rounded-lg bg-white">
+        {hits.map((h) => (
+          <div key={h.key} className="flex items-center gap-2 px-2 py-1.5 text-xs">
+            <Flag team={h.team} size={16} className="shrink-0" />
+            <span className="flex-1 min-w-0 truncate font-semibold">{shortName(h.team)}</span>
+            <span className="shrink-0 chip bg-gold/20 text-gold-dark">+{h.pts}</span>
           </div>
         ))}
       </div>
@@ -824,8 +871,9 @@ function CategoryDetail({ cat, r, actual, proj }) {
   const [open, setOpen] = useState(null);
 
   const gHits = groupHits(r.pred, actual);
-  const kHits = koHits(r.pred, actual, r.bracket?.actual);
+  const kHits = koHits(r.pred, actual, r.bracket?.pred, r.bracket?.actual);
   const mhits = matchupHitsOf(r.bracket?.pred, r.bracket?.actual, proj || allGroupsComplete(actual));
+  const advHits = advanceHitsOf(r.bracket?.pred, r.bracket?.actual);
   const roundHits = (lo, hi) => mhits.filter((h) => h.no >= lo && h.no <= hi);
   const bp = r.bracket?.pred || {}, ba = r.bracket?.actual || {};
 
@@ -847,10 +895,10 @@ function CategoryDetail({ cat, r, actual, proj }) {
       { label: 'Doğru eşleşme (her tur)', val: s.koMatchupHits, detail: () => <MatchupList hits={mhits} /> },
       { label: 'Tam skor (5p)', val: s.koExact, detail: () => <HitList hits={kHits.filter((h) => h.pts === 5)} /> },
       { label: 'Doğru sonuç (3p)', val: s.koResult, detail: () => <HitList hits={kHits.filter((h) => h.pts === 3)} /> },
-      { label: 'Son 32 doğru (20p)', val: s.koR32, detail: () => <MatchupList hits={roundHits(73, 88)} /> },
-      { label: 'Son 16 doğru (20p)', val: s.koR16, detail: () => <MatchupList hits={roundHits(89, 96)} /> },
-      { label: 'Çeyrek doğru (40p)', val: s.koQF, detail: () => <MatchupList hits={roundHits(97, 100)} /> },
-      { label: 'Yarı doğru (60p)', val: s.koSF, detail: () => <MatchupList hits={roundHits(101, 102)} /> },
+      { label: 'Son 32 doğru (20p)', val: s.koR32, detail: () => <TeamAdvanceList hits={advHits.filter((h) => h.roundId === 'R32')} /> },
+      { label: 'Son 16 doğru (20p)', val: s.koR16, detail: () => <TeamAdvanceList hits={advHits.filter((h) => h.roundId === 'R16')} /> },
+      { label: 'Çeyrek doğru (40p)', val: s.koQF, detail: () => <TeamAdvanceList hits={advHits.filter((h) => h.roundId === 'QF')} /> },
+      { label: 'Yarı doğru (60p)', val: s.koSF, detail: () => <TeamAdvanceList hits={advHits.filter((h) => h.roundId === 'SF')} /> },
     ],
     fn: [
       { label: 'Şampiyon (80p)', val: tick(s.finalsHit.champion), detail: () => <CmpBox mine={bp.champion} real={ba.champion} /> },

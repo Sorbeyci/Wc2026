@@ -1,6 +1,12 @@
 // Uygulama sürüm geçmişi (changelog).
 export const CHANGELOG = [
   {
+    v: '6.14', date: 'Temmuz 2026', items: [
+      'Eleme dökümü artık tam detaylı ve puanlamayla birebir tutarlı: “Tam skor” ve “Doğru sonuç” listeleri düzeldi (eskiden boş/yanlış görünüyordu) — her maçta tur, takımlar, senin skorun ve gerçek sonuç görünür.',
+      '“Son 32/16/Çeyrek/Yarı doğru” dökümü artık tur atlatan doğru TAKIMLARI (bayraklı) gösteriyor — eşleşme (+10) yerine tur atlatma (+20/+40/+60) puanının kaynağı net.',
+    ],
+  },
+  {
     v: '6.13', date: 'Temmuz 2026', items: [
       'Eleme skor puanı (tam skor +5 / doğru sonuç +3) düzeltildi: artık EŞLEŞME bazlı — o iki takımın maçını doğru sk/sonuçla bildiysen, bracketinde farklı bir slotta tahmin etmiş olsan bile puanı alırsın. Örn. Portekiz 3-1 Hırvatistan diyip gerçek Portekiz 2-1 olunca +3.',
       'Böylece elemede üç puan türü de artık eşleşmeden/slottan bağımsız: tur atlatma (takım bazlı), eşleşme (+10) ve skor (+5/+3).',
