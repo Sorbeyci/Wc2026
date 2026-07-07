@@ -246,22 +246,29 @@ export function scoreBracketKnockout(P, A, predKo = {}, actualKo = {}, opts = {}
       if (actualPairs.has(key) && !seen.has(key)) { seen.add(key); matchupPts += SCORING.knockout.matchup; matchupHits++; }
     }
   }
-  // scoreline points: ONLY when the predicted matchup (both teams) matches the
-  // actual matchup for that match. Predicted score is oriented to the actual
-  // home/away by team, so order doesn't matter. (3 = doğru galip, 5 = tam skor.)
+  // scoreline points: EŞLEŞME bazlı (slottan bağımsız). Kullanıcı bir turda o iki
+  // takımın eşleşmesini (farklı slotta olsa da) tahmin ettiyse, kendi skor tahmini
+  // gerçek maça göre yönlendirilip puanlanır. 5 = tam skor, 3 = doğru sonuç (galip).
   for (const [from, to] of KO_ALL) {
+    const predByPair = new Map();
+    for (let no = from; no <= to; no++) {
+      const pm = P.matches[no];
+      const pk = predKo[no];
+      if (pm?.home && pm?.away && num(pk?.hs) != null && num(pk?.as) != null) {
+        const key = canon(pm.home, pm.away);
+        if (!predByPair.has(key)) predByPair.set(key, { pm, pk });
+      }
+    }
     for (let no = from; no <= to; no++) {
       const a = actualKo[no];
       if (num(a?.hs) == null || num(a?.as) == null) continue;
       const am = A.matches[no];
       if (!am?.home || !am?.away) continue;
       scored++;
-      const pm = P.matches[no];
-      const pk = predKo[no];
-      if (!pm?.home || !pm?.away || num(pk?.hs) == null || num(pk?.as) == null) continue;
-      if (canon(pm.home, pm.away) !== canon(am.home, am.away)) continue; // eşleşme yanlış → puan yok
-      const oriented = pm.home === am.home ? { hs: pk.hs, as: pk.as } : { hs: pk.as, as: pk.hs };
-      const got = scoreKoPair(oriented, a);
+      const hit = predByPair.get(canon(am.home, am.away));
+      if (!hit) continue; // bu eşleşmeyi (skorlu) tahmin etmemiş → puan yok
+      const oriented = hit.pm.home === am.home ? { hs: hit.pk.hs, as: hit.pk.as } : { hs: hit.pk.as, as: hit.pk.hs };
+      const got = scoreKoPair(oriented, a, hit.pm.winner, am.winner);
       if (got === SCORING.knockout.match.exact) exact++;
       else if (got === SCORING.knockout.match.result) result++;
       scorePts += got;

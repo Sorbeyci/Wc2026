@@ -1,6 +1,12 @@
 // Uygulama sürüm geçmişi (changelog).
 export const CHANGELOG = [
   {
+    v: '6.13', date: 'Temmuz 2026', items: [
+      'Eleme skor puanı (tam skor +5 / doğru sonuç +3) düzeltildi: artık EŞLEŞME bazlı — o iki takımın maçını doğru sk/sonuçla bildiysen, bracketinde farklı bir slotta tahmin etmiş olsan bile puanı alırsın. Örn. Portekiz 3-1 Hırvatistan diyip gerçek Portekiz 2-1 olunca +3.',
+      'Böylece elemede üç puan türü de artık eşleşmeden/slottan bağımsız: tur atlatma (takım bazlı), eşleşme (+10) ve skor (+5/+3).',
+    ],
+  },
+  {
     v: '6.12', date: 'Temmuz 2026', items: [
       'Eleme tur atlatma puanı düzeltildi: bir turda tur atlatan seçtiğin takım gerçekten tur atladıysa, EŞLEŞMEYİ tutturmasan da takım başına puanı alırsın (Son 32→Son 16 için +20). Örn. Paraguay’ı tur atlatan seçen herkes, hangi eşleşmede seçtiğine bakılmaksızın +20 alır.',
     ],

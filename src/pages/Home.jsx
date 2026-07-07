@@ -818,38 +818,46 @@ function koRefLabel(ref, tsg) {
 function koOutcome(hs, as) { hs = Number(hs); as = Number(as); if (hs > as) return 'H'; if (hs < as) return 'A'; return 'D'; }
 
 // Bir eleme maçı için: eşleşmeyi / sonucu / bir takımı tutturanlar.
+const KO_DIST_RANGES = [[73, 88], [89, 96], [97, 100], [101, 102], [103, 103], [104, 104]];
 function koDistribution(no, lists, getPrediction, A, actualKo) {
   const am = A.matches[no] || {};
   const ah = am.home, aa = am.away;
   const canon = (x, y) => [x, y].sort().join('|');
   const aHas = !!(ah && aa);
   const actCanon = aHas ? canon(ah, aa) : null;
+  const range = KO_DIST_RANGES.find(([f, t]) => no >= f && no <= t) || [no, no];
   const aSc = actualKo?.[no];
   const aHasScore = aSc && aSc.hs !== '' && aSc.hs != null && aSc.as !== '' && aSc.as != null;
   const ahsN = aHasScore ? Number(aSc.hs) : null, aasN = aHasScore ? Number(aSc.as) : null;
   const aOut = aHasScore ? koOutcome(ahsN, aasN) : null;
   const exactHit = [], resultHit = [], matchupOnly = [], oneTeam = [];
   for (const l of lists) {
+    if (!aHas) continue;
     const pred = getPrediction(l.id);
     const P = resolveBracket(pred, pred.ko || {});
-    const pm = P.matches[no] || {};
-    if (!pm.home || !pm.away || !aHas) continue;
-    const same = canon(pm.home, pm.away) === actCanon;
-    const inter = [pm.home, pm.away].filter((t) => t === ah || t === aa).length;
-    if (same) {
-      const pk = pred.ko?.[no];
+    // Eşleşmeyi (slottan bağımsız) turun herhangi bir maçında tahmin etmiş mi?
+    let pm = null, pk = null;
+    const teamsInRound = new Set();
+    for (let n = range[0]; n <= range[1]; n++) {
+      const m = P.matches[n];
+      if (!m?.home || !m?.away) continue;
+      teamsInRound.add(m.home); teamsInRound.add(m.away);
+      if (!pm && canon(m.home, m.away) === actCanon) { pm = m; pk = pred.ko?.[n]; }
+    }
+    if (pm) {
       const pkHas = pk && pk.hs !== '' && pk.hs != null && pk.as !== '' && pk.as != null;
       const sc = pkHas ? `${pm.home === ah ? Number(pk.hs) : Number(pk.as)}-${pm.home === ah ? Number(pk.as) : Number(pk.hs)}` : null;
       if (aHasScore && pkHas) {
         const ohs = pm.home === ah ? Number(pk.hs) : Number(pk.as);
         const oas = pm.home === ah ? Number(pk.as) : Number(pk.hs);
+        const resultOk = (pm.winner && am.winner) ? pm.winner === am.winner : koOutcome(ohs, oas) === aOut;
         if (ohs === ahsN && oas === aasN) exactHit.push({ name: l.name, extra: sc });
-        else if (koOutcome(ohs, oas) === aOut) resultHit.push({ name: l.name, extra: sc });
-        else matchupOnly.push({ name: l.name, extra: sc }); // eşleşme doğru, skor yanlış
-      } else matchupOnly.push({ name: l.name, extra: sc }); // skor yoksa null
-    } else if (inter === 1) {
-      const right = [pm.home, pm.away].find((t) => t === ah || t === aa);
-      oneTeam.push({ name: l.name, team: right });
+        else if (resultOk) resultHit.push({ name: l.name, extra: sc });
+        else matchupOnly.push({ name: l.name, extra: sc });
+      } else matchupOnly.push({ name: l.name, extra: sc });
+    } else {
+      const got = [ah, aa].filter((t) => teamsInRound.has(t));
+      if (got.length === 1) oneTeam.push({ name: l.name, team: got[0] });
     }
   }
   const tot = exactHit.length + resultHit.length + matchupOnly.length + oneTeam.length;

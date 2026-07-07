@@ -249,6 +249,13 @@ export function Picks({ pred, actual, autoScroll }) {
     for (let no = r.from; no <= r.to; no++) { const w = bA.matches?.[no]?.winner; if (w) s.add(w); }
     actualWinnersByRound[r.id] = s;
   }
+  // Skor rozeti eşleşme-bazlı: gerçek maçı takım-çiftine göre bul (slottan bağımsız).
+  const pairKey = (a, b) => [a, b].sort().join('|');
+  const actualByPair = {};
+  for (let no = 73; no <= 104; no++) {
+    const am = bA.matches?.[no];
+    if (am?.home && am?.away) { const k = pairKey(am.home, am.away); if (!actualByPair[k]) actualByPair[k] = { am, ak: actual?.ko?.[no] }; }
+  }
 
   // Şu an oynanan (başlamış ama bitmemiş) ilk eleme turu — açılışta o açılır/kaydırılır.
   const activeRound = useMemo(() => activeKoRoundId(bA, actual?.ko || {}), [bA, actual]);
@@ -376,8 +383,8 @@ export function Picks({ pred, actual, autoScroll }) {
                 {r.rows.map((m) => {
                   const sc = pred.ko?.[m.no] || {};
                   const hasSc = sc.hs !== '' && sc.hs != null && sc.as !== '' && sc.as != null;
-                  const amatch = bA.matches?.[m.no];
-                  const spts = koScorePts(sc, actual?.ko?.[m.no], m, amatch);
+                  const hitP = actualByPair[pairKey(m.home, m.away)];
+                  const spts = hitP ? koScorePts(sc, hitP.ak, m, hitP.am) : null;
                   // ✓ tur atlatma: senin tur atlatan seçtiğin takım gerçekten tur atladıysa
                   // (eşleşmeden bağımsız, takım bazlı).
                   const advHit = m.winner && advanceOf(m.no) > 0 && actualWinnersByRound[r.id]?.has(m.winner);
