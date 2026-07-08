@@ -1,6 +1,12 @@
 // Uygulama sürüm geçmişi (changelog).
 export const CHANGELOG = [
   {
+    v: '6.15', date: 'Temmuz 2026', items: [
+      'Sıralama’daki “Son 32’ye soktukların” artık her tur için: Son 32 · Son 16 · Çeyrek · Yarı. Kategori hücresi o an oynanan turu (ör. Son 16 12/16) gösterir.',
+      'Hücreye basınca tur tur katlanır liste açılır; şu an oynanan tur açık gelir, diğerleri kapalı. Her turda soktuğun doğru takımlar (bayraklı) ve sokamadıkların listelenir.',
+    ],
+  },
+  {
     v: '6.14', date: 'Temmuz 2026', items: [
       'Eleme dökümü artık tam detaylı ve puanlamayla birebir tutarlı: “Tam skor” ve “Doğru sonuç” listeleri düzeldi (eskiden boş/yanlış görünüyordu) — her maçta tur, takımlar, senin skorun ve gerçek sonuç görünür.',
       '“Son 32/16/Çeyrek/Yarı doğru” dökümü artık tur atlatan doğru TAKIMLARI (bayraklı) gösteriyor — eşleşme (+10) yerine tur atlatma (+20/+40/+60) puanının kaynağı net.',

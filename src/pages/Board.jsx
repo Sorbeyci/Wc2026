@@ -180,20 +180,29 @@ export const boardMem = { scrollY: 0, restore: false, sub: 'board', view: 'detay
 
 // Bir kullanıcının Son 32'ye (R32) soktuğu takımlar: tahmin bracketindeki 73-88
 // ev/deplasman takımları ile gerçek R32 takımlarının kesişimi.
-function r32Sets(res) {
+// Her eleme turuna "soktuğun" takımlar: turdaki maçlarda yer alan takımlar (o turun
+// kadrosu) ile senin bracketinde aynı turda yer alan takımların kesişimi.
+const REACH_RANGES = { R32: [73, 88], R16: [89, 96], QF: [97, 100], SF: [101, 102] };
+const REACH_NAME = { R32: 'Son 32', R16: 'Son 16', QF: 'Çeyrek', SF: 'Yarı' };
+function roundReachSets(res) {
   const A = res.bracket?.actual, P = res.bracket?.pred;
-  const actualR32 = new Set();
-  for (let no = 73; no <= 88; no++) { const m = A?.matches?.[no]; if (m?.home) actualR32.add(m.home); if (m?.away) actualR32.add(m.away); }
-  const seen = new Set(), hit = [], miss = [];
-  for (let no = 73; no <= 88; no++) {
-    const m = P?.matches?.[no];
-    for (const t of [m?.home, m?.away]) {
-      if (!t || seen.has(t)) continue;
-      seen.add(t);
-      (actualR32.has(t) ? hit : miss).push(t);
+  const out = {};
+  for (const id of Object.keys(REACH_RANGES)) {
+    const [from, to] = REACH_RANGES[id];
+    const actualSet = new Set();
+    for (let no = from; no <= to; no++) { const m = A?.matches?.[no]; if (m?.home) actualSet.add(m.home); if (m?.away) actualSet.add(m.away); }
+    const seen = new Set(), hit = [], miss = [];
+    for (let no = from; no <= to; no++) {
+      const m = P?.matches?.[no];
+      for (const t of [m?.home, m?.away]) { if (!t || seen.has(t)) continue; seen.add(t); (actualSet.has(t) ? hit : miss).push(t); }
     }
+    out[id] = { n: hit.length, total: actualSet.size, hit, miss };
   }
-  return { n: hit.length, total: actualR32.size, hit, miss };
+  return out;
+}
+// Şu an oynanan/erişilen en ileri tur (takımı belli olan en yüksek tur).
+function currentReachRound(rounds) {
+  return ['SF', 'QF', 'R16', 'R32'].find((id) => (rounds?.[id]?.total || 0) > 0) || 'R32';
 }
 
 export default function Board({ onOpenList, goHome }) {
@@ -218,7 +227,7 @@ export default function Board({ onOpenList, goHome }) {
       .map((l) => {
         const pred = getPrediction(l.id);
         const res = scoreUser(pred, actual, { projection: proj });
-        return { list: l, ...res, pred, r32: r32Sets(res), champion: res.bracket?.pred?.champion || null, topScorer: pred.topScorer || '' };
+        return { list: l, ...res, pred, rounds: roundReachSets(res), champion: res.bracket?.pred?.champion || null, topScorer: pred.topScorer || '' };
       })
       .sort((a, b) => b.total - a.total);
     const prevA = prevActualOf(actual);
@@ -662,10 +671,13 @@ function LbRow({ r, i, onOpenList, online, actual, proj, metric }) {
     { id: 'fn', label: 'Final', value: r.breakdown.finals },
   ];
   const best = cats.reduce((a, b) => (b.value > a.value ? b : a), cats[0]);
-  // Görünen ızgara: Eleme ile Final arasına "Son 32'ye soktuğun takım sayısı" eklenir.
+  // Görünen ızgara: Eleme ile Final arasına "tura soktuğun takım" hücresi. Etiket ve
+  // sayı, şu an oynanan tura göre değişir (Son 32 → Son 16 → Çeyrek → Yarı).
+  const curRound = currentReachRound(r.rounds);
+  const curReach = r.rounds?.[curRound] || { n: 0, total: 0 };
   const gridCats = [
     cats[0], cats[1], cats[2], cats[3],
-    { id: 'r32', label: 'Son 32', value: r.r32?.n ?? 0, count: true },
+    { id: 'reach', label: REACH_NAME[curRound], value: curReach.n, count: true, total: curReach.total || 32 },
     cats[4],
   ];
   return (
@@ -704,13 +716,13 @@ function LbRow({ r, i, onOpenList, online, actual, proj, metric }) {
         {gridCats.map((c) => (
           <button key={c.id} onClick={() => setCat(cat === c.id ? null : c.id)}
             className={`rounded-lg py-1.5 transition ${cat === c.id ? (c.count ? 'bg-pitch text-white' : 'bg-ink text-white') : 'bg-black/[0.03] text-ink'}`}>
-            <div className="font-display text-base leading-none">{c.value}{c.count && <span className="text-[9px] align-top opacity-60">/32</span>}</div>
+            <div className="font-display text-base leading-none">{c.value}{c.count && <span className="text-[9px] align-top opacity-60">/{c.total}</span>}</div>
             <div className={`text-[9px] uppercase tracking-tight mt-0.5 ${cat === c.id ? 'text-white/70' : 'text-ink/45'}`}>{c.label}</div>
           </button>
         ))}
       </div>
 
-      {cat === 'r32' ? <R32Teams r={r} /> : cat && <CategoryDetail cat={cat} r={r} actual={actual} proj={proj} />}
+      {cat === 'reach' ? <RoundReach rounds={r.rounds} current={curRound} /> : cat && <CategoryDetail cat={cat} r={r} actual={actual} proj={proj} />}
     </div>
   );
 }
@@ -831,36 +843,56 @@ function CmpBox({ mine, real, fmt }) {
 
 // "Son 32" kategorisi açılınca: kullanıcının R32'ye soktuğu takımlar (doğru) ve
 // sokamadıkları (tahmininde R32'deydi ama gerçekte çıkamadı).
-function R32Teams({ r }) {
-  const { hit = [], miss = [], total = 0 } = r.r32 || {};
+// Her eleme turuna soktuğun takımlar — tur tur katlanır; şu an oynanan tur açık gelir.
+function RoundReach({ rounds, current }) {
+  const order = ['R32', 'R16', 'QF', 'SF'];
+  const present = order.filter((id) => (rounds?.[id]?.total || 0) > 0);
+  const [open, setOpen] = useState(present.includes(current) ? current : present[present.length - 1]);
+  if (present.length === 0) return <p className="mt-2 text-xs text-ink/45">Henüz eleme turu başlamadı.</p>;
   return (
-    <div className="mt-2 rounded-xl bg-black/[0.02] border border-black/5 p-3">
-      <div className="flex justify-between text-xs font-bold uppercase tracking-wide text-ink/50 mb-2">
-        <span>Son 32'ye soktukların</span><span>{hit.length}/{total || 32}</span>
-      </div>
-      {hit.length === 0 ? (
-        <p className="text-xs text-ink/45">Henüz doğru takım yok.</p>
-      ) : (
-        <div className="flex flex-wrap gap-1.5">
-          {hit.map((t) => (
-            <span key={t} className="inline-flex items-center gap-1 rounded-full bg-pitch/10 text-pitch-dark px-2 py-1 text-xs font-semibold">
-              <Flag team={t} size={14} />{shortName(t)}
-            </span>
-          ))}
-        </div>
-      )}
-      {miss.length > 0 && (
-        <>
-          <p className="text-[11px] text-ink/45 mt-2.5 mb-1">Çıkaramadıkların ({miss.length})</p>
-          <div className="flex flex-wrap gap-1.5">
-            {miss.map((t) => (
-              <span key={t} className="inline-flex items-center gap-1 rounded-full bg-black/[0.04] text-ink/45 px-2 py-1 text-xs">
-                <Flag team={t} size={14} className="opacity-50" />{shortName(t)}
+    <div className="mt-2 rounded-xl bg-black/[0.02] border border-black/5 p-2 space-y-1.5">
+      {present.map((id) => {
+        const d = rounds[id];
+        const isOpen = open === id;
+        return (
+          <div key={id} className="rounded-lg bg-white border border-black/5 overflow-hidden">
+            <button onClick={() => setOpen(isOpen ? null : id)} className="w-full flex items-center justify-between px-2.5 py-1.5 text-left">
+              <span className="text-sm font-semibold flex items-center gap-1.5">{REACH_NAME[id]}<span className="text-ink/35 font-normal">· soktukların</span></span>
+              <span className="flex items-center gap-2">
+                <span className="text-xs font-display tabular-nums text-pitch-dark">{d.n}/{d.total}</span>
+                <span className={`text-ink/30 text-[10px] transition ${isOpen ? 'rotate-180' : ''}`}>▾</span>
               </span>
-            ))}
+            </button>
+            {isOpen && (
+              <div className="px-2.5 pb-2">
+                {d.hit.length === 0 ? (
+                  <p className="text-xs text-ink/45">Doğru takım yok.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {d.hit.map((t) => (
+                      <span key={t} className="inline-flex items-center gap-1 rounded-full bg-pitch/10 text-pitch-dark px-2 py-1 text-xs font-semibold">
+                        <Flag team={t} size={14} />{shortName(t)}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {d.miss.length > 0 && (
+                  <>
+                    <p className="text-[11px] text-ink/45 mt-2 mb-1">Sokamadıkların ({d.miss.length})</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {d.miss.map((t) => (
+                        <span key={t} className="inline-flex items-center gap-1 rounded-full bg-black/[0.04] text-ink/45 px-2 py-1 text-xs">
+                          <Flag team={t} size={14} className="opacity-50" />{shortName(t)}
+                        </span>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
-        </>
-      )}
+        );
+      })}
     </div>
   );
 }
