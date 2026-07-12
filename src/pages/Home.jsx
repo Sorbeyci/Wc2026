@@ -1502,101 +1502,138 @@ function SurveyBanner({ setPage }) {
 
 
 // ---------------------------------------------------------------------------
-// Senaryolar: yarı finalden itibaren (YF1, YF2, Üçüncülük, Final) takımları belli
-// olup galibi girilmemiş her maç için "X kazanırsa" — kim kaç puan kazanır (gerçek
-// motor deltası) ve sıralama nasıl değişir.
+// Senaryo kurucu (yarı finalden itibaren): YF galiplerini seç -> final ve
+// üçüncülük eşleşmeleri otomatik kurulur -> şampiyonu ve 3.\'yü de seç.
+// Tüm seçimlerin birleşik etkisi: kim kaç puan kazanır (+Δ) ve yeni sıralama.
 // ---------------------------------------------------------------------------
 const SCEN_LABEL = { 101: 'Yarı Final 1', 102: 'Yarı Final 2', 103: 'Üçüncülük', 104: 'Final' };
 function FinalScenarios() {
   const { lists, actual, getPrediction } = useStore();
-  const A = useMemo(() => resolveBracket(actual, actual.ko || {}), [actual]);
-  const cands = useMemo(() => {
+  const [picks, setPicks] = useState({});
+
+  // Senaryo ko\'su: gerçek sonuçlar + kullanıcının seçtiği galipler.
+  const scenKo = useMemo(() => {
+    const ko = { ...(actual.ko || {}) };
+    for (const no of [101, 102, 103, 104]) {
+      if (picks[no] && !actual.ko?.[no]?.winner) ko[no] = { ...(ko[no] || {}), winner: picks[no] };
+    }
+    return ko;
+  }, [actual, picks]);
+  const scenA = useMemo(() => resolveBracket(actual, scenKo), [actual, scenKo]);
+
+  // Seçilebilir satırlar: gerçek galibi girilmemiş YF/TP/F maçları.
+  const rows = useMemo(() => {
     const out = [];
-    for (const no of [104, 103, 102, 101]) {
-      const m = A.matches?.[no];
-      if (m?.home && m?.away && !(actual.ko?.[no]?.winner)) out.push({ no, label: SCEN_LABEL[no], home: m.home, away: m.away });
+    for (const no of [101, 102, 104, 103]) {
+      if (actual.ko?.[no]?.winner) continue;
+      const m = scenA.matches?.[no] || {};
+      out.push({ no, label: SCEN_LABEL[no], home: m.home, away: m.away, pick: picks[no] });
     }
     return out;
-  }, [A, actual]);
-  const [selNo, setSelNo] = useState(null);
-  const [pickTeam, setPickTeam] = useState(null);
-  const cur = cands.find((c) => c.no === selNo) || cands[0] || null;
-  const team = cur && (pickTeam === cur.home || pickTeam === cur.away) ? pickTeam : cur?.home;
+  }, [scenA, actual, picks]);
+
+  const setPick = (no, t) => setPicks((p) => {
+    const n = { ...p, [no]: p[no] === t ? undefined : t };
+    if (no === 101 || no === 102) { delete n[103]; delete n[104]; } // finalist değişti -> alt seçimleri sıfırla
+    return n;
+  });
 
   const base = useMemo(() => {
-    if (!cands.length) return null;
-    const rows = lists.map((l) => ({ id: l.id, total: scoreUser(getPrediction(l.id), actual).total }));
-    const sorted = [...rows].sort((a, b) => b.total - a.total);
-    return { totals: new Map(rows.map((r) => [r.id, r.total])), rank: new Map(sorted.map((r, i) => [r.id, i + 1])) };
-  }, [cands.length > 0, lists, actual]);
+    if (!rows.length) return null;
+    const rs = lists.map((l) => ({ id: l.id, total: scoreUser(getPrediction(l.id), actual).total }));
+    const sorted = [...rs].sort((a, b) => b.total - a.total);
+    return { totals: new Map(rs.map((r) => [r.id, r.total])), rank: new Map(sorted.map((r, i) => [r.id, i + 1])) };
+  }, [rows.length > 0, lists, actual]);
 
+  const picked = rows.some((r) => r.pick);
   const scen = useMemo(() => {
-    if (!cur || !team || !base) return null;
-    const a2 = { ...actual, ko: { ...(actual.ko || {}), [cur.no]: { ...(actual.ko?.[cur.no] || {}), winner: team } } };
-    const rows = lists.map((l) => {
+    if (!base) return null;
+    const a2 = { ...actual, ko: scenKo };
+    const rs = lists.map((l) => {
       const total = scoreUser(getPrediction(l.id), a2).total;
       return { id: l.id, name: l.name, total, delta: total - (base.totals.get(l.id) || 0) };
     }).sort((a, b) => b.total - a.total);
-    return { rows, gains: rows.filter((r) => r.delta > 0).sort((a, b) => b.delta - a.delta) };
-  }, [cur, team, lists, actual, base]);
+    return { rows: rs, gains: rs.filter((r) => r.delta > 0).sort((a, b) => b.delta - a.delta) };
+  }, [base, lists, actual, scenKo]);
 
-  if (!cur || !scen) return null;
+  if (!rows.length || !rows.some((r) => r.home && r.away) || !scen) return null;
+
   const Delta = ({ d }) => d > 0
     ? <span className="text-pitch text-[11px] font-bold">↑{d}</span>
     : d < 0 ? <span className="text-red-500 text-[11px] font-bold">↓{-d}</span>
     : <span className="text-ink/30 text-[11px]">=</span>;
+
+  const iconFor = (no) => (no === 104 ? '🏆' : no === 103 ? '🥉' : '✓');
+  const hintFor = (no, r) => {
+    if (no === 104) return r.pick ? `${shortName(r.pick)} şampiyon · ${shortName(r.pick === r.home ? r.away : r.home)} 2.` : 'Şampiyonu seç';
+    if (no === 103) return r.pick ? `${shortName(r.pick)} 3. · ${shortName(r.pick === r.home ? r.away : r.home)} 4.` : '3.\'yü seç (diğeri 4. olur)';
+    return r.pick ? `${shortName(r.pick)} finale gider` : 'Galibi seç';
+  };
+
   return (
     <div className="card p-4">
-      <p className="font-display text-xl">🔮 Senaryolar</p>
-      <p className="text-[11px] text-ink/45 mt-0.5">Galibi seç; kim puan kazanır, sıralama nasıl değişir gör.</p>
-      {cands.length > 1 && (
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {cands.map((c) => (
-            <button key={c.no} onClick={() => { setSelNo(c.no); setPickTeam(null); }}
-              className={`rounded-full px-3 py-1 text-xs font-bold transition active:scale-95 ${cur.no === c.no ? 'bg-ink text-white' : 'bg-black/5 text-ink/60'}`}>{c.label}</button>
-          ))}
-        </div>
-      )}
-      {cands.length === 1 && <p className="mt-1 text-xs font-semibold text-ink/55">{cur.label}</p>}
-      <div className="mt-2 grid grid-cols-2 gap-1.5">
-        {[cur.home, cur.away].map((t) => (
-          <button key={t} onClick={() => setPickTeam(t)}
-            className={`flex items-center justify-center gap-1.5 rounded-xl border px-2 py-2 transition active:scale-[.98] ${team === t ? 'border-pitch bg-pitch/10' : 'border-black/10 bg-black/[0.02]'}`}>
-            <Flag team={t} size={18} className="shrink-0" />
-            <span className={`truncate text-sm ${team === t ? 'font-bold text-pitch-dark' : 'font-semibold'}`}>{shortName(t)}</span>
-            <span className="text-[10px] text-ink/40">{cur.no === 104 ? '🏆' : '✓'}</span>
-          </button>
+      <div className="flex items-center justify-between">
+        <p className="font-display text-xl">🔮 Senaryo kur</p>
+        {picked && <button onClick={() => setPicks({})} className="text-[11px] font-bold text-ink/45 rounded-full bg-black/5 px-2.5 py-1 active:scale-95">Sıfırla ↺</button>}
+      </div>
+      <p className="text-[11px] text-ink/45 mt-0.5">Yarı final galiplerini seç; final ve üçüncülük otomatik kurulur. Şampiyonu ve 3.\'yü de seçip sıralamayı gör.</p>
+
+      <div className="mt-2 space-y-2">
+        {rows.map((r) => (
+          <div key={r.no}>
+            <div className="flex items-baseline justify-between px-0.5">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-ink/50">{r.label}</p>
+              <p className="text-[10px] text-ink/40">{r.home && r.away ? hintFor(r.no, r) : ''}</p>
+            </div>
+            {r.home && r.away ? (
+              <div className="mt-1 grid grid-cols-2 gap-1.5">
+                {[r.home, r.away].map((t) => (
+                  <button key={t} onClick={() => setPick(r.no, t)}
+                    className={`flex items-center justify-center gap-1.5 rounded-xl border px-2 py-1.5 transition active:scale-[.98] ${r.pick === t ? 'border-pitch bg-pitch/10' : 'border-black/10 bg-black/[0.02]'}`}>
+                    <Flag team={t} size={16} className="shrink-0" />
+                    <span className={`truncate text-sm ${r.pick === t ? 'font-bold text-pitch-dark' : 'font-semibold'}`}>{shortName(t)}</span>
+                    {r.pick === t && <span className="text-[10px]">{iconFor(r.no)}</span>}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-1 rounded-xl border border-dashed border-black/10 px-3 py-2 text-[11px] text-ink/40">Önce yarı final galiplerini seç.</p>
+            )}
+          </div>
         ))}
       </div>
-      <div className="mt-3 space-y-2">
-        <div>
-          <p className="text-[11px] font-bold uppercase tracking-wide text-ink/45">💰 Puan kazananlar ({scen.gains.length})</p>
-          <div className="mt-1 flex flex-wrap gap-1">
-            {scen.gains.length
-              ? scen.gains.map((r) => (
-                  <span key={r.id} className="rounded-full bg-pitch/10 text-pitch-dark px-2 py-0.5 text-[11px] font-semibold">
-                    {r.name} <span className="font-display">+{r.delta}</span>
-                  </span>
-                ))
-              : <span className="text-xs text-ink/40">Bu sonuçtan kimse puan kazanmıyor.</span>}
+
+      {picked && (
+        <div className="mt-3 space-y-2 fade-in">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wide text-ink/45">💰 Puan kazananlar ({scen.gains.length})</p>
+            <div className="mt-1 flex flex-wrap gap-1">
+              {scen.gains.length
+                ? scen.gains.map((r) => (
+                    <span key={r.id} className="rounded-full bg-pitch/10 text-pitch-dark px-2 py-0.5 text-[11px] font-semibold">
+                      {r.name} <span className="font-display">+{r.delta}</span>
+                    </span>
+                  ))
+                : <span className="text-xs text-ink/40">Bu senaryodan kimse puan kazanmıyor.</span>}
+            </div>
           </div>
-        </div>
-        <div>
-          <p className="text-[11px] font-bold uppercase tracking-wide text-ink/45">Yeni sıralama (ilk 5)</p>
-          <div className="mt-1 divide-y divide-black/5 rounded-lg bg-black/[0.02]">
-            {scen.rows.slice(0, 5).map((r, i) => (
-              <div key={r.id} className="flex items-center gap-2 px-2.5 py-1.5 text-xs">
-                <span className="w-5 font-display text-ink/40">{i + 1}</span>
-                <span className="flex-1 min-w-0 truncate font-semibold">{r.name}</span>
-                {r.delta > 0 && <span className="text-[10px] text-pitch-dark font-bold">+{r.delta}</span>}
-                <Delta d={(base.rank.get(r.id) || i + 1) - (i + 1)} />
-                <span className="w-12 text-right font-display tabular-nums">{r.total}</span>
-              </div>
-            ))}
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wide text-ink/45">Yeni sıralama (ilk 5)</p>
+            <div className="mt-1 divide-y divide-black/5 rounded-lg bg-black/[0.02]">
+              {scen.rows.slice(0, 5).map((r, i) => (
+                <div key={r.id} className="flex items-center gap-2 px-2.5 py-1.5 text-xs">
+                  <span className="w-5 font-display text-ink/40">{i + 1}</span>
+                  <span className="flex-1 min-w-0 truncate font-semibold">{r.name}</span>
+                  {r.delta > 0 && <span className="text-[10px] text-pitch-dark font-bold">+{r.delta}</span>}
+                  <Delta d={(base.rank.get(r.id) || i + 1) - (i + 1)} />
+                  <span className="w-12 text-right font-display tabular-nums">{r.total}</span>
+                </div>
+              ))}
+            </div>
           </div>
+          <p className="text-[10px] text-ink/35">Not: senaryo yalnızca seçtiğin galipleri işler; maç skorları ve gol kralı puanları ayrıca eklenir.</p>
         </div>
-      </div>
-      <p className="mt-2 text-[10px] text-ink/35">Not: senaryo yalnızca seçilen maçın galibini işler; maç skoru ve gol kralı puanları ayrıca eklenir.</p>
+      )}
     </div>
   );
 }

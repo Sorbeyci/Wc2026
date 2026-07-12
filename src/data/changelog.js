@@ -1,6 +1,12 @@
 // Uygulama sürüm geçmişi (changelog).
 export const CHANGELOG = [
   {
+    v: '6.20', date: 'Temmuz 2026', items: [
+      '🔮 Senaryo kurucu: yarı final galiplerini seç — final ve üçüncülük eşleşmeleri otomatik kurulur; ardından şampiyonu ve 3.’yü (diğeri 4. olur) de seç.',
+      'Tüm seçimlerin birleşik etkisi tek tabloda: kim kaç puan kazanır (+Δ — YF turu, eşleşme, 3./4., şampiyon/finalist dahil her şey) ve yeni sıralama (↑/↓). “Sıfırla” ile baştan kur.',
+    ],
+  },
+  {
     v: '6.19', date: 'Temmuz 2026', items: [
       '🔮 Senaryolar artık yarı finalden itibaren: YF1, YF2, Üçüncülük ve Final için (takımları belli, galibi girilmemiş her maç). Üstteki çiplerden maçı, ardından galibi seç.',
       '“Puan kazananlar” artık gerçek motor farkıyla: seçilen sonuç kimin toplamını kaç puan artırıyorsa isim yanında +Δ olarak görünür (YF +60, üçüncülük +30/+20/+20’ler, final +80/+50 dahil her kombinasyon otomatik doğru).',
