@@ -1510,6 +1510,22 @@ const SCEN_LABEL = { 101: 'Yarı Final 1', 102: 'Yarı Final 2', 103: 'Üçünc�
 function FinalScenarios() {
   const { lists, actual, getPrediction } = useStore();
   const [picks, setPicks] = useState({});
+  const [pickTop, setPickTop] = useState('');
+
+  // Gol kralı adayları: kullanıcıların tahmin ettiği isimler (kaç kişi seçmiş).
+  // Gerçek gol kralı girilmemişse senaryoda seçilebilir.
+  const topCands = useMemo(() => {
+    if ((actual.topScorer || '').trim()) return [];
+    const m = new Map();
+    for (const l of lists) {
+      const t = (getPrediction(l.id)?.topScorer || '').trim();
+      if (!t) continue;
+      const k = t.toLowerCase();
+      if (!m.has(k)) m.set(k, { label: t, count: 0 });
+      m.get(k).count++;
+    }
+    return [...m.values()].sort((a, b) => b.count - a.count);
+  }, [lists, actual.topScorer]);
 
   // Senaryo ko\'su: gerçek sonuçlar + kullanıcının seçtiği galipler.
   const scenKo = useMemo(() => {
@@ -1545,16 +1561,16 @@ function FinalScenarios() {
     return { totals: new Map(rs.map((r) => [r.id, r.total])), rank: new Map(sorted.map((r, i) => [r.id, i + 1])) };
   }, [rows.length > 0, lists, actual]);
 
-  const picked = rows.some((r) => r.pick);
+  const picked = rows.some((r) => r.pick) || !!pickTop;
   const scen = useMemo(() => {
     if (!base) return null;
-    const a2 = { ...actual, ko: scenKo };
+    const a2 = { ...actual, ko: scenKo, topScorer: pickTop || actual.topScorer || '' };
     const rs = lists.map((l) => {
       const total = scoreUser(getPrediction(l.id), a2).total;
       return { id: l.id, name: l.name, total, delta: total - (base.totals.get(l.id) || 0) };
     }).sort((a, b) => b.total - a.total);
     return { rows: rs, gains: rs.filter((r) => r.delta > 0).sort((a, b) => b.delta - a.delta) };
-  }, [base, lists, actual, scenKo]);
+  }, [base, lists, actual, scenKo, pickTop]);
 
   if (!rows.length || !rows.some((r) => r.home && r.away) || !scen) return null;
 
@@ -1574,7 +1590,7 @@ function FinalScenarios() {
     <div className="card p-4">
       <div className="flex items-center justify-between">
         <p className="font-display text-xl">🔮 Senaryo kur</p>
-        {picked && <button onClick={() => setPicks({})} className="text-[11px] font-bold text-ink/45 rounded-full bg-black/5 px-2.5 py-1 active:scale-95">Sıfırla ↺</button>}
+        {picked && <button onClick={() => { setPicks({}); setPickTop(''); }} className="text-[11px] font-bold text-ink/45 rounded-full bg-black/5 px-2.5 py-1 active:scale-95">Sıfırla ↺</button>}
       </div>
       <p className="text-[11px] text-ink/45 mt-0.5">Yarı final galiplerini seç; final ve üçüncülük otomatik kurulur. Şampiyonu ve 3.\'yü de seçip sıralamayı gör.</p>
 
@@ -1602,6 +1618,23 @@ function FinalScenarios() {
           </div>
         ))}
       </div>
+
+      {topCands.length > 0 && (
+        <div className="mt-2">
+          <div className="flex items-baseline justify-between px-0.5">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-ink/50">⚽ Gol kralı</p>
+            <p className="text-[10px] text-ink/40">{pickTop ? `${pickTop} gol kralı olur` : 'Seç (opsiyonel)'}</p>
+          </div>
+          <div className="mt-1 flex flex-wrap gap-1.5">
+            {topCands.map((c) => (
+              <button key={c.label} onClick={() => setPickTop(pickTop === c.label ? '' : c.label)}
+                className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition active:scale-95 ${pickTop === c.label ? 'bg-pitch text-white' : 'bg-black/5 text-ink/70'}`}>
+                {c.label} <span className={pickTop === c.label ? 'opacity-70' : 'text-ink/40'}>×{c.count}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {picked && (
         <div className="mt-3 space-y-2 fade-in">
@@ -1631,7 +1664,7 @@ function FinalScenarios() {
               ))}
             </div>
           </div>
-          <p className="text-[10px] text-ink/35">Not: senaryo yalnızca seçtiğin galipleri işler; maç skorları ve gol kralı puanları ayrıca eklenir.</p>
+          <p className="text-[10px] text-ink/35">Not: senaryo seçtiğin galipleri ve gol kralını işler; maç skorları ayrıca eklenir.</p>
         </div>
       )}
     </div>

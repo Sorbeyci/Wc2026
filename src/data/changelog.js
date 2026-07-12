@@ -1,6 +1,11 @@
 // Uygulama sürüm geçmişi (changelog).
 export const CHANGELOG = [
   {
+    v: '6.21', date: 'Temmuz 2026', items: [
+      '🔮 Senaryo kurucuya ⚽ gol kralı eklendi: adaylar oyuncuların tahminlerinden gelir (kaç kişinin seçtiğiyle birlikte). Birini seçince +50’ler deltaya ve yeni sıralamaya yansır; galip seçimleriyle birleştirilebilir.',
+    ],
+  },
+  {
     v: '6.20', date: 'Temmuz 2026', items: [
       '🔮 Senaryo kurucu: yarı final galiplerini seç — final ve üçüncülük eşleşmeleri otomatik kurulur; ardından şampiyonu ve 3.’yü (diğeri 4. olur) de seç.',
       'Tüm seçimlerin birleşik etkisi tek tabloda: kim kaç puan kazanır (+Δ — YF turu, eşleşme, 3./4., şampiyon/finalist dahil her şey) ve yeni sıralama (↑/↓). “Sıfırla” ile baştan kur.',
