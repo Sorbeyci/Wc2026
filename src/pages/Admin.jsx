@@ -39,6 +39,7 @@ const SUB = [
   { id: 'people', label: 'Kişiler' },
   { id: 'transfer', label: 'Aktar' },
   { id: 'logs', label: 'Kayıtlar' },
+  { id: 'anket', label: 'Anket' },
   { id: 'settings', label: 'Ayarlar' },
 ];
 
@@ -82,6 +83,7 @@ export default function Admin({ initialSub = 'results' }) {
       {sub === 'people' && <ListAdmin store={store} />}
       {sub === 'transfer' && <ImportExport store={store} />}
       {sub === 'logs' && <AdminLogs store={store} />}
+      {sub === 'anket' && <SurveyResults />}
       {sub === 'settings' && <AdminSettings store={store} />}
     </div>
   );
@@ -647,4 +649,73 @@ function logColor(s) {
   let h = 0;
   for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
   return LOG_PALETTE[Math.abs(h) % LOG_PALETTE.length];
+}
+
+
+// ---------------------------------------------------------------------------
+// Anket sonuçları (yalnız admin okuyabilir — surveys koleksiyonu).
+// ---------------------------------------------------------------------------
+function SurveyResults() {
+  const { surveysAll = [] } = useStore();
+  const rs = surveysAll.filter((r) => r.q1);
+  if (rs.length === 0) return <p className="text-sm text-ink/50 p-4">Henüz anket cevabı yok (ya da okuma izni yalnız admin'de — rules yayınlandı mı?).</p>;
+  const avg = (k) => (rs.reduce((s, r) => s + (Number(r[k]) || 0), 0) / rs.length).toFixed(1);
+  const npsVals = rs.filter((r) => r.q7 != null);
+  const prom = npsVals.filter((r) => r.q7 >= 9).length, det = npsVals.filter((r) => r.q7 <= 6).length;
+  const nps = npsVals.length ? Math.round(((prom - det) / npsVals.length) * 100) : 0;
+  const freq = (k) => {
+    const m = {};
+    for (const r of rs) for (const o of (Array.isArray(r[k]) ? r[k] : r[k] ? [r[k]] : [])) m[o] = (m[o] || 0) + 1;
+    return Object.entries(m).sort((a, b) => b[1] - a[1]);
+  };
+  const Bar = ({ label, n, max }) => (
+    <div className="flex items-center gap-2 text-xs">
+      <span className="w-40 shrink-0 truncate">{label}</span>
+      <div className="flex-1 h-2.5 rounded-full bg-black/[0.05] overflow-hidden"><div className="h-full bg-pitch/60" style={{ width: `${(n / max) * 100}%` }} /></div>
+      <span className="w-6 text-right font-display tabular-nums">{n}</span>
+    </div>
+  );
+  const FreqCard = ({ title, k }) => {
+    const rows = freq(k); const max = Math.max(1, ...rows.map(([, n]) => n));
+    return (
+      <div className="card p-3">
+        <p className="font-display text-lg mb-2">{title}</p>
+        {rows.length === 0 ? <p className="text-xs text-ink/45">Veri yok.</p> : <div className="space-y-1.5">{rows.map(([o, n]) => <Bar key={o} label={o} n={n} max={max} />)}</div>}
+      </div>
+    );
+  };
+  const comments = rs.flatMap((r) => [
+    r.q2why && { name: r.name, tag: 'Puanlama', text: r.q2why },
+    r.q5other && { name: r.name, tag: 'Değişsin', text: r.q5other },
+    r.q6 && { name: r.name, tag: 'İstek', text: r.q6 },
+    r.q8 && { name: r.name, tag: 'Yorum', text: r.q8 },
+  ]).filter(Boolean);
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {[['Cevap', rs.length], ['Deneyim ⭐', avg('q1') + '/5'], ['Puanlama ⭐', avg('q2') + '/5'], ['NPS', nps]].map(([l, v]) => (
+          <div key={l} className="card p-3 text-center">
+            <p className="font-display text-2xl">{v}</p>
+            <p className="text-[10px] uppercase tracking-wide text-ink/45 mt-0.5">{l}</p>
+          </div>
+        ))}
+      </div>
+      <FreqCard title="En sık kullanılanlar" k="q3" />
+      <FreqCard title="En sevilen özellik" k="q4" />
+      <FreqCard title="Kafa karıştıran / değişsin" k="q5" />
+      <div className="card p-3">
+        <p className="font-display text-lg mb-2">Yorumlar ({comments.length})</p>
+        {comments.length === 0 ? <p className="text-xs text-ink/45">Yazılı yorum yok.</p> : (
+          <div className="space-y-2 max-h-96 overflow-y-auto">
+            {comments.map((c, i) => (
+              <div key={i} className="rounded-lg bg-black/[0.03] px-2.5 py-1.5 text-xs">
+                <p className="text-[10px] text-ink/45 mb-0.5">{c.name || 'Anonim'} · {c.tag}</p>
+                <p>{c.text}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }

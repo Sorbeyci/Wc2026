@@ -1,6 +1,12 @@
 // Uygulama sürüm geçmişi (changelog).
 export const CHANGELOG = [
   {
+    v: '6.17', date: 'Temmuz 2026', items: [
+      'Yeni: Final öncesi geri bildirim anketi 📝 — Ana Sayfa’daki karttan ≈2 dakikada doldur. Yıldızlı puanlama, dokunmatik seçimler, opsiyonel yorumlar; sonunda turnuva karnen. Cevaplarını istediğin zaman güncelleyebilirsin.',
+      'Anket cevapları kişiye özeldir; yalnızca yönetici toplu sonuçları görebilir (Yönetim > Anket: ortalamalar, NPS, özellik sıralamaları ve yorumlar).',
+    ],
+  },
+  {
     v: '6.16', date: 'Temmuz 2026', items: [
       'Yeni: Puan Detayı sekmesi (kişi sayfasında “Puan”). Toplam puanının nereden geldiğini tek sayfada eksiksiz gör: kategori kartları (grup maçları, grup sıralaması takım takım +10/+5, en iyi 3.’ler, eleme — tur atlatanlar/eşleşmeler/skorlar, finaller) ve her kartın altında puan kuralı.',
       '“Gün gün” görünümü: tüm puanların kronolojik günlüğü — her günün alt toplamı, Tümü/Grup/Eleme/Final filtreleri.',

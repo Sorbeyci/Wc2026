@@ -45,6 +45,8 @@ export function StoreProvider({ children }) {
   const [badges, setBadges] = useState([]);
   const [highlights, setHighlights] = useState([]);
   const [bets, setBets] = useState([]);
+  const [surveysAll, setSurveysAll] = useState([]);
+  const [mySurvey, setMySurvey] = useState(null);
   const [, setTick] = useState(0);
   useEffect(() => { const iv = setInterval(() => setTick((t) => t + 1), 30000); return () => clearInterval(iv); }, []);
   const [adminMode, setAdminModeState] = useState(() => {
@@ -105,6 +107,16 @@ export function StoreProvider({ children }) {
     const unsubBets = onSnapshot(collection(db, 'bets'),
       (snap) => setBets(snap.docs.map((d) => ({ id: d.id, data: d.data() }))), () => {});
     subs.push(unsubBets);
+    // Anket: koleksiyonu yalnız admin okuyabilir (kural reddederse sessizce boş kalır);
+    // herkes kendi cevabını (surveys/{uid}) okur/yazar.
+    const unsubSurveys = onSnapshot(collection(db, 'surveys'),
+      (snap) => setSurveysAll(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), () => {});
+    subs.push(unsubSurveys);
+    if (user?.uid) {
+      const unsubMySurvey = onSnapshot(doc(db, 'surveys', user.uid),
+        (snap) => setMySurvey(snap.exists() ? snap.data() : null), () => {});
+      subs.push(unsubMySurvey);
+    } else setMySurvey(null);
     return () => subs.forEach((fn) => fn());
   }, [user]);
 
@@ -439,6 +451,15 @@ export function StoreProvider({ children }) {
       });
       return setDoc(doc(db, 'bets', key), { [user.uid]: team || '' }, { merge: true }).catch(() => {});
     },
+    mySurvey,
+    surveysAll,
+    saveSurvey(data) {
+      if (!user) return Promise.resolve();
+      const payload = { ...data, name: user.displayName || user.email || '', updatedAt: Date.now() };
+      setMySurvey((prev) => ({ ...(prev || {}), ...payload })); // iyimser
+      return setDoc(doc(db, 'surveys', user.uid), payload, { merge: true }).catch(() => {});
+    },
+
     // Bir günlük quiz kazanımını kaydeder. Günde en fazla 1 kez sayılır (lastDate guard).
     async recordQuizWin() {
       if (!user) return { counted: false };

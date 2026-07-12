@@ -69,6 +69,13 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([request.auth.uid]);
     }
 
+    // Feedback survey: one doc per user (surveys/{uid}). A user reads/writes only
+    // their own answers; the admin can read all of them for the results screen.
+    match /surveys/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow create, update: if signedIn() && request.auth.uid == uid;
+    }
+
     // Admin action log: only admins can read; admins append (no edits/deletes).
     match /logs/{id} {
       allow read: if isAdmin();

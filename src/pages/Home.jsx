@@ -242,6 +242,8 @@ export default function Home({ setPage, goAdminImport }) {
       <div ref={resultsRef} className="scroll-mt-3">
         <RecentResults actual={actual} />
       </div>
+      <SurveyBanner setPage={setPage} />
+
       <FunStats lists={lists} getPrediction={getPrediction} actual={actual} />
 
       <div ref={topRef} className="card p-4 scroll-mt-3">
@@ -1472,6 +1474,26 @@ function RecentResults({ actual }) {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+
+// Final öncesi anket daveti: doldurmadıysa görünür; kapatılabilir (localStorage).
+function SurveyBanner({ setPage }) {
+  const { user, mySurvey } = useStore();
+  const [hidden, setHidden] = useState(() => { try { return localStorage.getItem('kymal_survey_dismiss') === '1'; } catch { return false; } });
+  if (!user || hidden || (mySurvey && mySurvey.q1)) return null;
+  const dismiss = () => { setHidden(true); try { localStorage.setItem('kymal_survey_dismiss', '1'); } catch { /* yoksay */ } };
+  return (
+    <div className="card p-3 flex items-center gap-3 bg-gradient-to-r from-pitch/10 to-gold/15 border border-pitch/15">
+      <span className="text-2xl shrink-0">📝</span>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold leading-tight">Final öncesi görüşünü söyle</p>
+        <p className="text-[11px] text-ink/50">≈2 dakika · uygulamayı birlikte geliştirelim</p>
+      </div>
+      <button onClick={() => setPage('survey')} className="shrink-0 rounded-full bg-pitch text-white px-3 py-1.5 text-xs font-bold active:scale-95">Ankete başla</button>
+      <button onClick={dismiss} aria-label="Kapat" className="shrink-0 h-7 w-7 grid place-items-center rounded-full bg-black/5 text-ink/50 text-xs">✕</button>
     </div>
   );
 }

@@ -10,6 +10,7 @@ import Board, { boardMem } from './pages/Board.jsx';
 import Results from './pages/Results.jsx';
 import Admin from './pages/Admin.jsx';
 import Changelog from './pages/Changelog.jsx';
+import Survey from './pages/Survey.jsx';
 import { Skeleton } from './components/ui.jsx';
 
 export default function App() {
@@ -26,7 +27,7 @@ export default function App() {
     if (page === 'board') {
       if (boardMem.restore) { const y = boardMem.scrollY || 0; boardMem.restore = false; requestAnimationFrame(() => window.scrollTo(0, y)); }
       else window.scrollTo(0, 0);
-    } else if (page === 'home' || page === 'results' || page === 'predict' || page === 'changelog') {
+    } else if (page === 'home' || page === 'results' || page === 'predict' || page === 'changelog' || page === 'survey') {
       window.scrollTo(0, 0);
     }
   }, [page]);
@@ -58,6 +59,7 @@ export default function App() {
         {safePage === 'results' && <Results goHome={() => go('home')} />}
         {safePage === 'board' && <Board onOpenList={openList} goHome={() => go('home')} />}
         {safePage === 'changelog' && <Changelog goHome={() => go('home')} />}
+        {safePage === 'survey' && <Survey goHome={() => go('home')} />}
         {safePage === 'admin' && isAdmin && <Admin initialSub={adminSub} />}
       </main>
       <Nav page={safePage} setPage={go} isAdmin={isAdmin} locked={locked} />
