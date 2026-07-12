@@ -1,39 +1,29 @@
-PUAN DETAYI SAYFASI (PLAN ADIM 1+2) — v6.16
-===========================================
+FİNAL SENARYOLARI + KARNE PAYLAŞIMI (PLAN ADIM 5) — v6.18
+=========================================================
 Değişen dosyalar:
-  src/lib/scoring.js       (scoreLog + logDateKey: madde madde puan motoru)
-  src/pages/ListDetail.jsx (yeni "Puan" sekmesi + PointsDetail bileşeni)
-  src/data/changelog.js    (v6.16)
+  src/pages/Home.jsx       (FinalScenarios kartı)
+  src/pages/ListDetail.jsx (Puan Detayı özetine "Karneyi paylaş")
+  src/pages/Survey.jsx     (anket teşekkür ekranına "Karneni paylaş")
+  src/lib/shareCard.js     (karne kartına ⚽ gol kralı — şampiyonla yan yana kutular)
+  src/data/changelog.js    (v6.18)
   (api / firestore.rules DEĞİŞMEDİ — yeni dosya yok, rules publish GEREKMEZ)
 
-NE GELDİ
-  Kişi sayfasında (Sıralama/Listeler -> kişi) yeni sekme: PUAN.
+1) 🔮 FİNAL SENARYOLARI (Ana Sayfa)
+   Görünme koşulu: final (104. maç) eşleşmesi belli VE galibi henüz girilmemiş.
+   İki takım butonundan senaryoyu seç:
+     - 🏆 Şampiyonu bilenler (+80) isim çipleriyle
+     - 🥈 Finalisti bilenler (+50)
+     - Yeni sıralama (ilk 5): yeni toplam + mevcut sıraya göre ↑/↓/= değişimi
+   Hesap gerçek motorla (scoreUser, senaryo actual'ına ko[104].winner eklenerek).
+   Test: birebir tahminli kullanıcı home-senaryosunda +130 (80+50), ters senaryoda +0.
+   Not satırı: final skoru ve gol kralı puanları senaryoya dahil değildir (ayrıca eklenir).
+   Maç galibi girilince kart otomatik kaybolur.
 
-  1) ÖZET ŞERİT: toplam puan + 5 kategorinin mini bar dağılımı.
-
-  2) KATEGORİLER görünümü (katlanır kartlar; en yüksek kategorin açık gelir):
-     - Grup maçları: 🎯 Tam skor / ✅ Doğru sonuç listeleri (maç, sen X · sonuç Y, puan)
-     - Grup sıralaması: grup grup; hangi TAKIMDAN +10 (üst tura çıktı) ve +5 (doğru
-       sıra) aldığın bayraklı çiplerle
-     - En iyi 3.'ler: doğru bildiğin 3.'ler (+10)
-     - Eleme: 🚀 Tur atlatanlar (tur tur takımlar +20/40/60) · 🤝 Doğru eşleşmeler (+10)
-       · 🎯 Skor puanların (+5/+3, sen X · sonuç Y) — v6.13 slot-bağımsız mantıkla birebir
-     - Finaller: şampiyon/finalist/3./4./üçüncülük maçında/gol kralı satırları
-     Her kartın altında ℹ️ o kategorinin puan kuralı (tek cümle).
-
-  3) GÜN GÜN görünümü: tüm puan kayıtları kronolojik; günün alt toplamı; filtreler
-     Tümü / Grup / Eleme / Final.
-
-TUTARLILIK GARANTİSİ
-  scoreLog, scoreUser ile aynı mantığı madde madde üretir. Testler:
-    - Tam turnuva (birebir tahmin): scoreUser 2430 = scoreLog 2430 (186 kayıt)
-    - Farklı bracket + beraberlik/penaltı: 825 = 825 (73 kayıt)
-    - Kısmi turnuva (grup yarıda): 180 = 180
-  Yani "Puan" sekmesindeki toplam, sıralamadaki puanla her zaman aynıdır.
-
-SONRAKİ ADIM (plandaki 3+4)
-  Anket sayfası + admin sonuç özeti. NOT: o adım firestore.rules değişikliği
-  (surveys koleksiyonu) ve Console'da publish gerektirecek.
+2) 📲 KARNE PAYLAŞIMI
+   - Puan Detayı sekmesi (kişi sayfası > Puan) özet kartında "Karneyi paylaş".
+   - Anket teşekkür ekranında "Karneni paylaş" (kendi listen + güncel sıran ile).
+   - Karne kartı (1080x1920 story): toplam, sıra, 5 kategori; artık 🏆 şampiyon ve
+     ⚽ gol kralı tahminleri yan yana iki kutuda.
 
 DEPLOY (sadece client)
-  git add -A && npm run build && git commit -m "v6.16 puan detay sayfasi (kategori + gun gun)" && git push
+  git add -A && npm run build && git commit -m "v6.18 final senaryolari + karne paylasimi" && git push
