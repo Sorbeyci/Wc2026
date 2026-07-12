@@ -1,6 +1,12 @@
 // Uygulama sürüm geçmişi (changelog).
 export const CHANGELOG = [
   {
+    v: '6.19', date: 'Temmuz 2026', items: [
+      '🔮 Senaryolar artık yarı finalden itibaren: YF1, YF2, Üçüncülük ve Final için (takımları belli, galibi girilmemiş her maç). Üstteki çiplerden maçı, ardından galibi seç.',
+      '“Puan kazananlar” artık gerçek motor farkıyla: seçilen sonuç kimin toplamını kaç puan artırıyorsa isim yanında +Δ olarak görünür (YF +60, üçüncülük +30/+20/+20’ler, final +80/+50 dahil her kombinasyon otomatik doğru).',
+    ],
+  },
+  {
     v: '6.18', date: 'Temmuz 2026', items: [
       'Yeni: 🔮 Final senaryoları (Ana Sayfa) — final eşleşmesi belli olunca, şampiyon adayını seçip “kim +80/+50 alır” ve sıralamanın nasıl değişeceğini (yeni ilk 5, ↑↓ değişim) maç oynanmadan gör.',
       'Karne paylaşımı yaygınlaştı: Puan Detayı sekmesinde ve anket teşekkür ekranında 📲 “Karneyi paylaş”. Karne kartına ⚽ gol kralı tahmini de eklendi (şampiyonla yan yana).',
