@@ -242,6 +242,8 @@ export default function Home({ setPage, goAdminImport }) {
       <div ref={resultsRef} className="scroll-mt-3">
         <RecentResults actual={actual} />
       </div>
+      <FinalScenarios />
+
       <SurveyBanner setPage={setPage} />
 
       <FunStats lists={lists} getPrediction={getPrediction} actual={actual} />
@@ -1494,6 +1496,87 @@ function SurveyBanner({ setPage }) {
       </div>
       <button onClick={() => setPage('survey')} className="shrink-0 rounded-full bg-pitch text-white px-3 py-1.5 text-xs font-bold active:scale-95">Ankete başla</button>
       <button onClick={dismiss} aria-label="Kapat" className="shrink-0 h-7 w-7 grid place-items-center rounded-full bg-black/5 text-ink/50 text-xs">✕</button>
+    </div>
+  );
+}
+
+
+// ---------------------------------------------------------------------------
+// Final senaryoları: final eşleşmesi belli olup maç henüz oynanmadıysa,
+// "X şampiyon olursa" için kim +80/+50 alır ve sıralama nasıl değişir gösterir.
+// ---------------------------------------------------------------------------
+function FinalScenarios() {
+  const { lists, actual, getPrediction } = useStore();
+  const A = useMemo(() => resolveBracket(actual, actual.ko || {}), [actual]);
+  const fm = A.matches?.[104] || {};
+  const ready = !!(fm.home && fm.away && !(actual.ko?.[104]?.winner));
+  const [pick, setPick] = useState(null);
+  const data = useMemo(() => {
+    if (!ready) return null;
+    const baseSorted = lists
+      .map((l) => ({ id: l.id, total: scoreUser(getPrediction(l.id), actual).total }))
+      .sort((a, b) => b.total - a.total);
+    const baseRank = new Map(baseSorted.map((r, i) => [r.id, i + 1]));
+    const mk = (t) => {
+      const loser = t === fm.home ? fm.away : fm.home;
+      const a2 = { ...actual, ko: { ...(actual.ko || {}), 104: { ...(actual.ko?.[104] || {}), winner: t } } };
+      const rows = lists.map((l) => {
+        const res = scoreUser(getPrediction(l.id), a2);
+        const P = res.bracket.pred;
+        return { id: l.id, name: l.name, total: res.total, champHit: P.champion === t, ruHit: P.runnerUp === loser };
+      }).sort((a, b) => b.total - a.total);
+      return { team: t, loser, rows,
+        plus80: rows.filter((r) => r.champHit).map((r) => r.name),
+        plus50: rows.filter((r) => r.ruHit).map((r) => r.name) };
+    };
+    return { baseRank, byTeam: { [fm.home]: mk(fm.home), [fm.away]: mk(fm.away) } };
+  }, [ready, lists, actual, fm.home, fm.away]);
+  if (!ready || !data) return null;
+  const selTeam = pick || fm.home;
+  const sc = data.byTeam[selTeam];
+  const Chip = ({ n }) => <span className="rounded-full bg-black/5 text-ink/70 px-2 py-0.5 text-[11px] font-semibold">{n}</span>;
+  const Delta = ({ d }) => d > 0
+    ? <span className="text-pitch text-[11px] font-bold">↑{d}</span>
+    : d < 0 ? <span className="text-red-500 text-[11px] font-bold">↓{-d}</span>
+    : <span className="text-ink/30 text-[11px]">=</span>;
+  return (
+    <div className="card p-4">
+      <p className="font-display text-xl">🔮 Final senaryoları</p>
+      <p className="text-[11px] text-ink/45 mt-0.5">Şampiyonu seç, sıralamanın nasıl değişeceğini gör.</p>
+      <div className="mt-2 grid grid-cols-2 gap-1.5">
+        {[fm.home, fm.away].map((t) => (
+          <button key={t} onClick={() => setPick(t)}
+            className={`flex items-center justify-center gap-1.5 rounded-xl border px-2 py-2 transition active:scale-[.98] ${selTeam === t ? 'border-pitch bg-pitch/10' : 'border-black/10 bg-black/[0.02]'}`}>
+            <Flag team={t} size={18} className="shrink-0" />
+            <span className={`truncate text-sm ${selTeam === t ? 'font-bold text-pitch-dark' : 'font-semibold'}`}>{shortName(t)}</span>
+            <span className="text-[10px] text-ink/40">🏆</span>
+          </button>
+        ))}
+      </div>
+      <div className="mt-3 space-y-2">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-wide text-ink/45">🏆 Şampiyonu bilenler · +80 ({sc.plus80.length})</p>
+          <div className="mt-1 flex flex-wrap gap-1">{sc.plus80.length ? sc.plus80.map((n) => <Chip key={n} n={n} />) : <span className="text-xs text-ink/40">Kimse yok.</span>}</div>
+        </div>
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-wide text-ink/45">🥈 Finalisti ({shortName(sc.loser)}) bilenler · +50 ({sc.plus50.length})</p>
+          <div className="mt-1 flex flex-wrap gap-1">{sc.plus50.length ? sc.plus50.map((n) => <Chip key={n} n={n} />) : <span className="text-xs text-ink/40">Kimse yok.</span>}</div>
+        </div>
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-wide text-ink/45">Yeni sıralama (ilk 5)</p>
+          <div className="mt-1 divide-y divide-black/5 rounded-lg bg-black/[0.02]">
+            {sc.rows.slice(0, 5).map((r, i) => (
+              <div key={r.id} className="flex items-center gap-2 px-2.5 py-1.5 text-xs">
+                <span className="w-5 font-display text-ink/40">{i + 1}</span>
+                <span className="flex-1 min-w-0 truncate font-semibold">{r.name}</span>
+                <Delta d={(data.baseRank.get(r.id) || i + 1) - (i + 1)} />
+                <span className="w-12 text-right font-display tabular-nums">{r.total}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      <p className="mt-2 text-[10px] text-ink/35">Not: senaryo yalnızca şampiyon/finalist puanlarını değiştirir; final skoru ve gol kralı ayrıca eklenir.</p>
     </div>
   );
 }

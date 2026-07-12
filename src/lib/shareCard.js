@@ -167,14 +167,20 @@ export function drawPersonCard(row, { rank } = {}) {
     y += 116;
   });
 
-  // champion pick
-  if (row.champion) {
-    ctx.fillStyle = 'rgba(244,198,74,.14)';
-    roundRect(ctx, 70, y, W - 140, 110, 22); ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.font = '600 40px system-ui, sans-serif';
-    ctx.fillText('🏆 Şampiyon tahmini', 110, y + 70);
-    ctx.textAlign = 'right'; ctx.fillStyle = '#f4c64a'; ctx.font = '800 44px system-ui, sans-serif';
-    ctx.fillText(row.champion, W - 110, y + 70);
+  // champion + top scorer picks (two half-width boxes)
+  if (row.champion || row.topScorer) {
+    const half = (W - 140 - 20) / 2;
+    const box = (x, icon, label, val, accent) => {
+      ctx.fillStyle = accent ? 'rgba(244,198,74,.14)' : 'rgba(255,255,255,.06)';
+      roundRect(ctx, x, y, half, 130, 22); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = '600 30px system-ui, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(`${icon} ${label}`, x + 30, y + 52);
+      ctx.fillStyle = accent ? '#f4c64a' : '#fff'; ctx.font = '800 40px system-ui, sans-serif';
+      ctx.fillText(String(val || '—').slice(0, 16), x + 30, y + 104);
+    };
+    box(70, '🏆', 'Şampiyon tahmini', row.champion, true);
+    box(70 + half + 20, '⚽', 'Gol kralı', row.topScorer, false);
     ctx.textAlign = 'left';
   }
   return canvas;

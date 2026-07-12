@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useStore } from '../lib/store.jsx';
 import { scoreUser } from '../lib/scoring.js';
 import { BrandHeader } from '../components/ui.jsx';
+import { sharePerson } from '../lib/shareCard.js';
 
 // ---------------------------------------------------------------------------
 // Geri bildirim anketi (final öncesi). Kişi başı 1 cevap (surveys/{uid}),
@@ -71,6 +72,16 @@ export default function Survey({ goHome }) {
 
   const myList = useMemo(() => lists.find((l) => l.ownerUid === user?.uid) || null, [lists, user]);
   const myRes = useMemo(() => (myList ? scoreUser(getPrediction(myList.id), actual) : null), [myList, actual]);
+  const myRank = useMemo(() => {
+    if (!myList) return null;
+    const rows = lists.map((l) => ({ id: l.id, total: scoreUser(getPrediction(l.id), actual).total })).sort((a, b) => b.total - a.total);
+    const i = rows.findIndex((r) => r.id === myList.id);
+    return i >= 0 ? i + 1 : null;
+  }, [myList, lists, actual]);
+  const shareCard = () => myList && myRes && sharePerson({
+    list: myList, total: myRes.total, breakdown: myRes.breakdown,
+    champion: myRes.bracket?.pred?.champion || '', topScorer: getPrediction(myList.id)?.topScorer || '',
+  }, { rank: myRank });
   const bestCat = useMemo(() => {
     if (!myRes) return null;
     const m = { groupMatches: 'Grup maçları', groupTables: 'Grup sıralaması', thirds: "3.'ler", knockout: 'Eleme', finals: 'Finaller' };
@@ -115,7 +126,10 @@ export default function Survey({ goHome }) {
             <p className="text-sm mt-1">Toplam <span className="font-display text-pitch-dark">{myRes.total}</span> puan{bestCat ? <> · en güçlü kategorin <span className="font-semibold">{bestCat}</span></> : null}</p>
           </div>
         )}
-        <div className="mt-4 flex gap-2">
+        {myRes && (
+          <button onClick={shareCard} className="mt-3 w-full rounded-full bg-ink text-white py-2 text-sm font-bold active:scale-[.98]">📲 Karneni paylaş</button>
+        )}
+        <div className="mt-3 flex gap-2">
           <button className="btn btn-ghost flex-1" onClick={() => { setStep(0); setDone(false); }}>Cevapları düzenle</button>
           <button className="btn btn-primary flex-1" onClick={goHome}>Ana sayfa</button>
         </div>

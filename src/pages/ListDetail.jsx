@@ -193,7 +193,7 @@ export default function ListDetail({ listId, onBack, onEdit, crumbs, initialSub,
         {sub === 'stats' && <FullStats result={result} />}
         {sub === 'picks' && <Picks pred={pred} actual={actual} autoScroll={autoRound} />}
         {sub === 'tree' && <BracketTree pred={pred} actual={actual} />}
-        {sub === 'points' && <PointsDetail pred={pred} actual={actual} result={result} />}
+        {sub === 'points' && <PointsDetail pred={pred} actual={actual} result={result} onShare={onShare} />}
       </div>
       <ScrollTopFab />
     </div>
@@ -533,7 +533,7 @@ function PdTeamChips({ teams }) {
   );
 }
 
-export function PointsDetail({ pred, actual, result }) {
+export function PointsDetail({ pred, actual, result, onShare }) {
   const { entries, total } = useMemo(() => scoreLog(pred, actual), [pred, actual]);
   const bd = result.breakdown;
   const CATS = [
@@ -569,6 +569,11 @@ export function PointsDetail({ pred, actual, result }) {
           <p className="font-display text-lg">Toplam puanın</p>
           <p className="font-display text-3xl text-pitch-dark tabular-nums">{total}</p>
         </div>
+        {onShare && (
+          <button onClick={onShare} className="mt-2 w-full rounded-full bg-ink text-white py-1.5 text-xs font-bold active:scale-[.98]">
+            📲 Karneyi paylaş
+          </button>
+        )}
         <div className="mt-2 space-y-1">
           {CATS.map((c) => (
             <div key={c.id} className="flex items-center gap-2 text-[11px]">

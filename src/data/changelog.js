@@ -1,6 +1,12 @@
 // Uygulama sürüm geçmişi (changelog).
 export const CHANGELOG = [
   {
+    v: '6.18', date: 'Temmuz 2026', items: [
+      'Yeni: 🔮 Final senaryoları (Ana Sayfa) — final eşleşmesi belli olunca, şampiyon adayını seçip “kim +80/+50 alır” ve sıralamanın nasıl değişeceğini (yeni ilk 5, ↑↓ değişim) maç oynanmadan gör.',
+      'Karne paylaşımı yaygınlaştı: Puan Detayı sekmesinde ve anket teşekkür ekranında 📲 “Karneyi paylaş”. Karne kartına ⚽ gol kralı tahmini de eklendi (şampiyonla yan yana).',
+    ],
+  },
+  {
     v: '6.17', date: 'Temmuz 2026', items: [
       'Yeni: Final öncesi geri bildirim anketi 📝 — Ana Sayfa’daki karttan ≈2 dakikada doldur. Yıldızlı puanlama, dokunmatik seçimler, opsiyonel yorumlar; sonunda turnuva karnen. Cevaplarını istediğin zaman güncelleyebilirsin.',
       'Anket cevapları kişiye özeldir; yalnızca yönetici toplu sonuçları görebilir (Yönetim > Anket: ortalamalar, NPS, özellik sıralamaları ve yorumlar).',
