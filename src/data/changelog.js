@@ -1,6 +1,13 @@
 // Uygulama sürüm geçmişi (changelog).
 export const CHANGELOG = [
   {
+    v: '6.16', date: 'Temmuz 2026', items: [
+      'Yeni: Puan Detayı sekmesi (kişi sayfasında “Puan”). Toplam puanının nereden geldiğini tek sayfada eksiksiz gör: kategori kartları (grup maçları, grup sıralaması takım takım +10/+5, en iyi 3.’ler, eleme — tur atlatanlar/eşleşmeler/skorlar, finaller) ve her kartın altında puan kuralı.',
+      '“Gün gün” görünümü: tüm puanların kronolojik günlüğü — her günün alt toplamı, Tümü/Grup/Eleme/Final filtreleri.',
+      'Detay toplamı, sıralamadaki puanınla her zaman birebir aynıdır (aynı motor).',
+    ],
+  },
+  {
     v: '6.15', date: 'Temmuz 2026', items: [
       'Sıralama’daki “Son 32’ye soktukların” artık her tur için: Son 32 · Son 16 · Çeyrek · Yarı. Kategori hücresi o an oynanan turu (ör. Son 16 12/16) gösterir.',
       'Hücreye basınca tur tur katlanır liste açılır; şu an oynanan tur açık gelir, diğerleri kapalı. Her turda soktuğun doğru takımlar (bayraklı) ve sokamadıkların listelenir.',

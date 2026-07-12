@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useStore } from '../lib/store.jsx';
-import { scoreUser, SCORING } from '../lib/scoring.js';
+import { scoreUser, SCORING, scoreLog, logDateKey } from '../lib/scoring.js';
 import { GROUP_MATCHES, GROUP_NAMES } from '../data/tournament.js';
 import { resolveBracket, bestThirds } from '../data/bracket.js';
 import { exportPredictionXlsx } from '../lib/excel.js';
@@ -26,6 +26,7 @@ const SUB = [
   { id: 'stats', label: 'İstatistik' },
   { id: 'picks', label: 'Tahminler' },
   { id: 'tree', label: 'Ağaç' },
+  { id: 'points', label: 'Puan' },
 ];
 
 // Şu an oynanan ilk eleme turu (takımları belli olmuş ama tüm maçları bitmemiş).
@@ -192,6 +193,7 @@ export default function ListDetail({ listId, onBack, onEdit, crumbs, initialSub,
         {sub === 'stats' && <FullStats result={result} />}
         {sub === 'picks' && <Picks pred={pred} actual={actual} autoScroll={autoRound} />}
         {sub === 'tree' && <BracketTree pred={pred} actual={actual} />}
+        {sub === 'points' && <PointsDetail pred={pred} actual={actual} result={result} />}
       </div>
       <ScrollTopFab />
     </div>
@@ -469,6 +471,227 @@ function PickRow({ label, team }) {
     <div className="flex items-center justify-between px-4 py-2 text-sm" style={{ boxShadow: `inset 3px 0 0 ${teamColor(team)}` }}>
       <span className="text-ink/60">{label}</span>
       <span className="flex items-center gap-1.5 font-semibold"><Flag team={team} size={16} />{shortName(team)}</span>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Puan Detayı: "Bu puanı neden aldım?" — tüm puanların tek sayfada, kategori
+// kartları veya gün gün kronolojik dökümü. Motor: scoreLog (toplam = scoreUser).
+// ---------------------------------------------------------------------------
+const PD_RULES = {
+  match: 'Grup maçında tam skor +5 · doğru sonuç (galip/beraberlik) +3.',
+  table: 'Grubun ilk 2’sine yazdığın takım üst tura çıktıysa +10 (sırası fark etmez, en iyi 3. olarak çıksa bile) · bir takımı doğru sırada bildiysen +5.',
+  thirds: 'En iyi 8 üçüncü olarak öngördüğün takım üst tura çıktıysa +10.',
+  ko: 'Tur atlatan: doğru takım Son 32’de +20, Son 16’da +20, Çeyrek’te +40, Yarı’da +60 — eşleşmeden bağımsız. Eşleşmeyi tutturmak +10. Skorda tam skor +5, doğru galip +3 (uzatma/penaltı dahil) — eşleşmeyi tutturduysan slot fark etmez.',
+  finals: 'Şampiyon +80 · Finalist +50 · 3. +30 · 4. +20 · Üçüncülük maçında takım +20 · Gol kralı +50.',
+};
+const PD_KO_ORDER = ['Son 32', 'Son 16', 'Çeyrek Final', 'Yarı Final', 'Üçüncülük', 'Final'];
+
+function PdRow({ e, showTag }) {
+  return (
+    <div className="flex items-center gap-2 px-2.5 py-1.5 text-xs">
+      <div className="flex-1 min-w-0">
+        <p className="font-medium truncate">{e.team ? <span className="inline-flex items-center gap-1"><Flag team={e.team} size={14} /> {shortName(e.team)}</span> : e.label}</p>
+        {(e.detail || (showTag && e.tag)) && <p className="text-[11px] text-ink/50 truncate">{showTag && e.tag ? `${e.tag} · ` : ''}{e.detail}</p>}
+      </div>
+      <span className={`shrink-0 font-display tabular-nums ${e.pts >= 20 ? 'text-gold-dark' : 'text-pitch-dark'}`}>+{e.pts}</span>
+    </div>
+  );
+}
+
+function PdCard({ title, pts, count, open, onToggle, rule, children }) {
+  return (
+    <div className="card overflow-hidden">
+      <button onClick={onToggle} className="w-full px-4 py-2.5 flex items-center gap-2 text-left">
+        <span className="font-display text-lg flex-1">{title}</span>
+        {count != null && <span className="text-[11px] text-ink/40">{count} kayıt</span>}
+        <span className="chip bg-pitch/10 text-pitch-dark font-bold">{pts}p</span>
+        <span className={`text-ink/30 transition ${open ? 'rotate-180' : ''}`}>▾</span>
+      </button>
+      {open && (
+        <div className="border-t border-black/5">
+          {children}
+          <p className="px-3 py-2 text-[11px] leading-snug text-ink/40 border-t border-black/5 bg-black/[0.015]">ℹ️ {rule}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PdTeamChips({ teams }) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {teams.map((t, i) => (
+        <span key={i} className="inline-flex items-center gap-1 rounded-full bg-pitch/10 text-pitch-dark px-2 py-1 text-[11px] font-semibold">
+          <Flag team={t.team} size={13} />{shortName(t.team)}
+          <span className="text-ink/40 font-normal">{t.why}</span>
+          <span className="font-display">+{t.pts}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+export function PointsDetail({ pred, actual, result }) {
+  const { entries, total } = useMemo(() => scoreLog(pred, actual), [pred, actual]);
+  const bd = result.breakdown;
+  const CATS = [
+    { id: 'match', label: 'Grup maçları', pts: bd.groupMatches },
+    { id: 'table', label: 'Grup sıralaması', pts: bd.groupTables },
+    { id: 'thirds', label: "En iyi 3.'ler", pts: bd.thirds },
+    { id: 'ko', label: 'Eleme', pts: bd.knockout },
+    { id: 'finals', label: 'Finaller', pts: bd.finals },
+  ];
+  const [view, setView] = useState('cat');
+  const biggest = CATS.reduce((a, b) => (b.pts > a.pts ? b : a), CATS[0]).id;
+  const [open, setOpen] = useState({ [biggest]: true });
+  const toggle = (id) => setOpen((o) => ({ ...o, [id]: !o[id] }));
+  const [filter, setFilter] = useState('all');
+
+  const of = (kind) => entries.filter((e) => e.kind === kind);
+  const koAdv = of('ko-adv'), koMu = of('ko-matchup'), koSc = of('ko-score');
+  const advByRound = {};
+  for (const e of koAdv) (advByRound[e.tag] ||= []).push(e);
+  const maxCat = Math.max(1, ...CATS.map((c) => c.pts));
+
+  const FILTERS = [{ id: 'all', label: 'Tümü' }, { id: 'group', label: 'Grup' }, { id: 'ko', label: 'Eleme' }, { id: 'final', label: 'Final' }];
+  const shown = entries.filter((e) => filter === 'all' || e.phase === filter);
+  const byDay = {};
+  for (const e of shown) (byDay[e.date] ||= []).push(e);
+  const days = Object.keys(byDay).sort((a, b) => logDateKey(a) - logDateKey(b));
+
+  return (
+    <div className="space-y-3">
+      {/* özet şerit */}
+      <div className="card p-4">
+        <div className="flex items-baseline justify-between">
+          <p className="font-display text-lg">Toplam puanın</p>
+          <p className="font-display text-3xl text-pitch-dark tabular-nums">{total}</p>
+        </div>
+        <div className="mt-2 space-y-1">
+          {CATS.map((c) => (
+            <div key={c.id} className="flex items-center gap-2 text-[11px]">
+              <span className="w-24 shrink-0 text-ink/55">{c.label}</span>
+              <div className="flex-1 h-2 rounded-full bg-black/[0.05] overflow-hidden">
+                <div className="h-full rounded-full bg-pitch/60" style={{ width: `${(c.pts / maxCat) * 100}%` }} />
+              </div>
+              <span className="w-10 shrink-0 text-right font-display tabular-nums">{c.pts}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* görünüm anahtarı */}
+      <div className="flex gap-1.5">
+        {[{ id: 'cat', label: '🗂 Kategoriler' }, { id: 'daily', label: '📅 Gün gün' }].map((v) => (
+          <button key={v.id} onClick={() => setView(v.id)}
+            className={`flex-1 rounded-full py-1.5 text-xs font-semibold transition ${view === v.id ? 'bg-ink text-white' : 'bg-black/5 text-ink/60'}`}>{v.label}</button>
+        ))}
+      </div>
+
+      {view === 'cat' ? (
+        <>
+          {/* Grup maçları */}
+          <PdCard title="Grup maçları" pts={bd.groupMatches} count={of('match').length} open={!!open.match} onToggle={() => toggle('match')} rule={PD_RULES.match}>
+            {['Tam skor', 'Doğru sonuç'].map((tag) => {
+              const list = of('match').filter((e) => e.tag === tag);
+              if (!list.length) return null;
+              return (
+                <div key={tag}>
+                  <p className="px-3 pt-2 text-[11px] font-bold uppercase tracking-wide text-ink/45">{tag === 'Tam skor' ? '🎯' : '✅'} {tag} ({list.length})</p>
+                  <div className="divide-y divide-black/5 max-h-56 overflow-y-auto">{list.map((e, i) => <PdRow key={i} e={e} />)}</div>
+                </div>
+              );
+            })}
+            {of('match').length === 0 && <p className="px-3 py-2 text-xs text-ink/45">Henüz puan yok.</p>}
+          </PdCard>
+
+          {/* Grup sıralaması */}
+          <PdCard title="Grup sıralaması" pts={bd.groupTables} count={of('table').length} open={!!open.table} onToggle={() => toggle('table')} rule={PD_RULES.table}>
+            {of('table').length === 0 ? <p className="px-3 py-2 text-xs text-ink/45">Henüz puan yok (grup bitince hesaplanır).</p> : (
+              <div className="divide-y divide-black/5">
+                {of('table').map((e, i) => (
+                  <div key={i} className="px-2.5 py-2">
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <span className="font-semibold">{e.label}</span>
+                      <span className="font-display text-pitch-dark">+{e.pts}</span>
+                    </div>
+                    <PdTeamChips teams={e.teams || []} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </PdCard>
+
+          {/* 3.'ler */}
+          <PdCard title="En iyi 3.'ler" pts={bd.thirds} count={of('thirds')[0]?.teams?.length || 0} open={!!open.thirds} onToggle={() => toggle('thirds')} rule={PD_RULES.thirds}>
+            {of('thirds').length === 0 ? <p className="px-3 py-2 text-xs text-ink/45">Henüz puan yok.</p> : (
+              <div className="px-2.5 py-2"><PdTeamChips teams={of('thirds')[0].teams || []} /></div>
+            )}
+          </PdCard>
+
+          {/* Eleme */}
+          <PdCard title="Eleme" pts={bd.knockout} count={koAdv.length + koMu.length + koSc.length} open={!!open.ko} onToggle={() => toggle('ko')} rule={PD_RULES.ko}>
+            {koAdv.length + koMu.length + koSc.length === 0 && <p className="px-3 py-2 text-xs text-ink/45">Henüz puan yok.</p>}
+            {koAdv.length > 0 && (
+              <div className="px-2.5 py-2">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-ink/45 mb-1">🚀 Tur atlatanlar ({koAdv.length})</p>
+                {PD_KO_ORDER.filter((rn) => advByRound[rn]?.length).map((rn) => (
+                  <div key={rn} className="mb-1.5">
+                    <p className="text-[11px] text-ink/50 mb-1">{rn}</p>
+                    <PdTeamChips teams={advByRound[rn].map((e) => ({ team: e.team, why: '', pts: e.pts }))} />
+                  </div>
+                ))}
+              </div>
+            )}
+            {koMu.length > 0 && (
+              <div>
+                <p className="px-3 pt-1 text-[11px] font-bold uppercase tracking-wide text-ink/45">🤝 Doğru eşleşmeler ({koMu.length})</p>
+                <div className="divide-y divide-black/5 max-h-56 overflow-y-auto">{koMu.map((e, i) => <PdRow key={i} e={e} showTag />)}</div>
+              </div>
+            )}
+            {koSc.length > 0 && (
+              <div>
+                <p className="px-3 pt-1 text-[11px] font-bold uppercase tracking-wide text-ink/45">🎯 Skor puanların ({koSc.length})</p>
+                <div className="divide-y divide-black/5 max-h-56 overflow-y-auto">{koSc.map((e, i) => <PdRow key={i} e={e} showTag />)}</div>
+              </div>
+            )}
+          </PdCard>
+
+          {/* Finaller */}
+          <PdCard title="Finaller" pts={bd.finals} count={of('finals').length} open={!!open.finals} onToggle={() => toggle('finals')} rule={PD_RULES.finals}>
+            {of('finals').length === 0 ? <p className="px-3 py-2 text-xs text-ink/45">Henüz puan yok (turnuva sonunda hesaplanır).</p> : (
+              <div className="divide-y divide-black/5">{of('finals').map((e, i) => <PdRow key={i} e={e} />)}</div>
+            )}
+          </PdCard>
+        </>
+      ) : (
+        <>
+          <div className="flex gap-1.5">
+            {FILTERS.map((f) => (
+              <button key={f.id} onClick={() => setFilter(f.id)}
+                className={`flex-1 rounded-full py-1.5 text-xs font-semibold transition ${filter === f.id ? 'bg-pitch text-white' : 'bg-black/5 text-ink/60'}`}>{f.label}</button>
+            ))}
+          </div>
+          {days.length === 0 ? (
+            <p className="text-sm text-ink/45 py-6 text-center">Bu filtrede puan kaydı yok.</p>
+          ) : days.map((d) => {
+            const dayPts = byDay[d].reduce((s, e) => s + e.pts, 0);
+            return (
+              <div key={d} className="card overflow-hidden">
+                <div className="flex items-center justify-between px-3 py-2 border-b border-black/5 bg-black/[0.015]">
+                  <p className="text-xs font-bold text-ink/60">{d}</p>
+                  <p className="text-xs font-display font-bold text-pitch-dark">+{dayPts}</p>
+                </div>
+                <div className="divide-y divide-black/5">
+                  {byDay[d].map((e, i) => <PdRow key={i} e={e} showTag />)}
+                </div>
+              </div>
+            );
+          })}
+        </>
+      )}
     </div>
   );
 }

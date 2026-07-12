@@ -1,0 +1,39 @@
+PUAN DETAYI SAYFASI (PLAN ADIM 1+2) — v6.16
+===========================================
+Değişen dosyalar:
+  src/lib/scoring.js       (scoreLog + logDateKey: madde madde puan motoru)
+  src/pages/ListDetail.jsx (yeni "Puan" sekmesi + PointsDetail bileşeni)
+  src/data/changelog.js    (v6.16)
+  (api / firestore.rules DEĞİŞMEDİ — yeni dosya yok, rules publish GEREKMEZ)
+
+NE GELDİ
+  Kişi sayfasında (Sıralama/Listeler -> kişi) yeni sekme: PUAN.
+
+  1) ÖZET ŞERİT: toplam puan + 5 kategorinin mini bar dağılımı.
+
+  2) KATEGORİLER görünümü (katlanır kartlar; en yüksek kategorin açık gelir):
+     - Grup maçları: 🎯 Tam skor / ✅ Doğru sonuç listeleri (maç, sen X · sonuç Y, puan)
+     - Grup sıralaması: grup grup; hangi TAKIMDAN +10 (üst tura çıktı) ve +5 (doğru
+       sıra) aldığın bayraklı çiplerle
+     - En iyi 3.'ler: doğru bildiğin 3.'ler (+10)
+     - Eleme: 🚀 Tur atlatanlar (tur tur takımlar +20/40/60) · 🤝 Doğru eşleşmeler (+10)
+       · 🎯 Skor puanların (+5/+3, sen X · sonuç Y) — v6.13 slot-bağımsız mantıkla birebir
+     - Finaller: şampiyon/finalist/3./4./üçüncülük maçında/gol kralı satırları
+     Her kartın altında ℹ️ o kategorinin puan kuralı (tek cümle).
+
+  3) GÜN GÜN görünümü: tüm puan kayıtları kronolojik; günün alt toplamı; filtreler
+     Tümü / Grup / Eleme / Final.
+
+TUTARLILIK GARANTİSİ
+  scoreLog, scoreUser ile aynı mantığı madde madde üretir. Testler:
+    - Tam turnuva (birebir tahmin): scoreUser 2430 = scoreLog 2430 (186 kayıt)
+    - Farklı bracket + beraberlik/penaltı: 825 = 825 (73 kayıt)
+    - Kısmi turnuva (grup yarıda): 180 = 180
+  Yani "Puan" sekmesindeki toplam, sıralamadaki puanla her zaman aynıdır.
+
+SONRAKİ ADIM (plandaki 3+4)
+  Anket sayfası + admin sonuç özeti. NOT: o adım firestore.rules değişikliği
+  (surveys koleksiyonu) ve Console'da publish gerektirecek.
+
+DEPLOY (sadece client)
+  git add -A && npm run build && git commit -m "v6.16 puan detay sayfasi (kategori + gun gun)" && git push
