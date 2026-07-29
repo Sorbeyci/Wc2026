@@ -9,6 +9,7 @@ import Standings from '../components/Standings.jsx';
 import BracketTree from '../components/BracketTree.jsx';
 import { shortName, teamColor } from '../data/flags.js';
 import { sharePerson } from '../lib/shareCard.js';
+import Reels from '../components/Reels.jsx';
 import { achievements, topAchievement } from '../lib/achievements.js';
 import FullStats from '../components/FullStats.jsx';
 
@@ -47,6 +48,7 @@ function activeKoRoundId(bA, actualKo) {
 export default function ListDetail({ listId, onBack, onEdit, crumbs, initialSub, autoRound }) {
   const { lists, getPrediction, actual, canEditList, isMyList, quizWinsByUid = {}, activeDaysByUid = {}, earnedBadgesByUid = {}, isOnline } = useStore();
   const [sub, setSub] = useState(initialSub || 'standings');
+  const [reelsOpen, setReelsOpen] = useState(false);
   useEffect(() => { setSub(initialSub || 'standings'); if (!autoRound) window.scrollTo(0, 0); }, [listId, initialSub, autoRound]);
   const list = lists.find((l) => l.id === listId);
   if (!list) {
@@ -123,6 +125,8 @@ export default function ListDetail({ listId, onBack, onEdit, crumbs, initialSub,
           <p className="font-display text-2xl text-ink leading-tight truncate">{topBadge && <span title={topBadge.title} className="mr-1">{topBadge.icon}</span>}{list.name}</p>
           <p className="text-xs text-ink/45 truncate">{list.ownerName}{owned ? ' · senin listen' : ''} · {rank}. sıra</p>
         </div>
+        <button onClick={() => setReelsOpen(true)} title="Turnuva hikayesi"
+          className="h-10 w-10 shrink-0 grid place-items-center rounded-full bg-black/5 text-ink/70 active:scale-95 transition text-sm" aria-label="Turnuva hikayesi">▶</button>
         <button onClick={() => exportPredictionXlsx(list.name || list.ownerName || 'tahmin', pred)} title="Excel olarak dışa aktar"
           className="h-10 w-10 shrink-0 grid place-items-center rounded-full bg-black/5 text-ink/70 active:scale-95 transition" aria-label="Excel olarak dışa aktar">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -195,6 +199,7 @@ export default function ListDetail({ listId, onBack, onEdit, crumbs, initialSub,
         {sub === 'tree' && <BracketTree pred={pred} actual={actual} />}
         {sub === 'points' && <PointsDetail pred={pred} actual={actual} result={result} onShare={onShare} />}
       </div>
+      {reelsOpen && <Reels list={list} onClose={() => setReelsOpen(false)} />}
       <ScrollTopFab />
     </div>
   );

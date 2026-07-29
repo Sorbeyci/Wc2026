@@ -14,12 +14,19 @@ import Survey from './pages/Survey.jsx';
 import { Skeleton } from './components/ui.jsx';
 
 export default function App() {
-  const { user, authLoading, isAdmin, locked } = useStore();
+  const { user, authLoading, isAdmin, locked, mySurvey, mySurveyLoaded } = useStore();
   const [page, setPage] = useState('home');
   const [viewListId, setViewListId] = useState(null); // open in Lists detail
   const [editListId, setEditListId] = useState(null); // preselect in Predict
   const [adminSub, setAdminSub] = useState('results'); // initial Admin tab
   const [listOrigin, setListOrigin] = useState('lists'); // 'lists' | 'board' — where a list was opened from
+  // Zorunlu anket kapısı: karar oturum başına bir kez verilir (iyimser kayıt q1'i
+  // anında doldursa da teşekkür ekranı görünür); çıkışı Survey'deki buton yapar.
+  const [surveyGate, setSurveyGate] = useState(null); // null=karar bekleniyor
+  useEffect(() => { setSurveyGate(null); }, [user?.uid]);
+  useEffect(() => {
+    if (surveyGate === null && user && mySurveyLoaded) setSurveyGate(!isAdmin && !(mySurvey && mySurvey.q1));
+  }, [surveyGate, user, mySurveyLoaded, isAdmin, mySurvey]);
 
   // Sayfa değişince kaydırma konumu: Sıralama'ya kişiden DÖNÜLDÜYSE eski yere,
   // alt menüden GİRİLDİYSE en başa. Ana Sayfa/diğer sayfalar her zaman en baştan.
@@ -33,8 +40,15 @@ export default function App() {
   }, [page]);
 
   if (!firebaseReady) return <ConfigNotice />;
+
+  // Zorunlu anket kapısı: giriş yapmış (admin olmayan) kullanıcı anketi doldurmadan
+  // uygulamada dolaşamaz. Doldurunca (mySurvey.q1) kapı kendiliğinden açılır.
+  // eslint-disable-next-line no-use-before-define
+
   if (authLoading) return <Splash />;
   if (!user) return <div className="min-h-full"><SignIn /></div>;
+  if (surveyGate === null) return <Splash />;
+  if (surveyGate) return <div className="min-h-full pb-10"><Survey forced onExit={() => setSurveyGate(false)} /></div>;
 
   const safePage = page === 'admin' && !isAdmin ? 'home' : page;
 

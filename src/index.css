@@ -91,3 +91,7 @@ input[type=number] { -moz-appearance: textfield; }
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
 .blink { animation: blink 1s ease-in-out infinite; }
 .flip-row { transition: transform .32s cubic-bezier(.4,0,.2,1); }
+
+/* Reels ilerleme çubuğu dolumu */
+@keyframes reelFill { from { width: 0; } to { width: 100%; } }
+.reel-fill { animation: reelFill linear forwards; }

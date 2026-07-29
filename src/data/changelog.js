@@ -1,6 +1,16 @@
 // Uygulama sürüm geçmişi (changelog).
 export const CHANGELOG = [
   {
+    v: '6.22', date: 'Temmuz 2026', items: [
+      '▶ Turnuva hikayen (reels): kupa yolculuğun story tarzında — toplam & sıra, en iyi günün, tam skorların, tur atlatanların, şampiyon ve gol kralı tahminin, sonunda paylaşılabilir karne. Kendi hikayen kapanış ekranından, herkesinki kişi sayfasındaki ▶ ile.',
+      '🎉 Turnuva bitince özel karşılama: şampiyona 🥇, 2.’ye 🥈, 3.’ye 🥉 tam ekran kutlama; herkese kendi sırasıyla kapanış ekranı (bir kez gösterilir).',
+      '🏅 Sıralama’ya “En’ler” sekmesi: Tam skor kralı · Eleme ustası · Tur kâhini · En istikrarlı · Bahis kralı · Quiz kralı.',
+      '📝 Anket artık zorunlu: giriş sonrası anket doldurulmadan uygulamada gezilemez; dolduranlar (ve daha önce doldurmuş olanlar) serbestçe dolaşır.',
+      '🏁 Arşiv modu: turnuva tamamlanınca (final + üçüncülük + gol kralı) Sıralama “NİHAİ” rozeti alır; Ana Sayfa’da kapanış kartı çıkar.',
+      '📊 Kapanış istatistik kartı: şampiyon & gol kralı, 104 maç, oyuncu sayısı, toplam bahis oyu, quiz galibiyetleri, zirvedeki isim — ve 2030’a selam 👋.',
+    ],
+  },
+  {
     v: '6.21', date: 'Temmuz 2026', items: [
       '🔮 Senaryo kurucuya ⚽ gol kralı eklendi: adaylar oyuncuların tahminlerinden gelir (kaç kişinin seçtiğiyle birlikte). Birini seçince +50’ler deltaya ve yeni sıralamaya yansır; galip seçimleriyle birleştirilebilir.',
     ],

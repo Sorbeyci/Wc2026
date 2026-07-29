@@ -1,8 +1,8 @@
 import { useMemo, useState, useRef, useLayoutEffect, useEffect } from 'react';
 import { useStore } from '../lib/store.jsx';
-import { scoreUser, SCORING, allGroupsComplete, groupOrder, hasOrder, advancingTeams } from '../lib/scoring.js';
+import { scoreUser, SCORING, allGroupsComplete, groupOrder, hasOrder, advancingTeams, scoreLog, tournamentComplete } from '../lib/scoring.js';
 import { GROUP_MATCHES, GROUP_NAMES } from '../data/tournament.js';
-import { bestThirds } from '../data/bracket.js';
+import { bestThirds, resolveBracket } from '../data/bracket.js';
 import { shortName } from '../data/flags.js';
 import { SectionTitle, Dot, Empty, Avatar, Flag, CountUp, Segmented, BrandHeader, ScrollTopFab } from '../components/ui.jsx';
 import { shareLeaderboard } from '../lib/shareCard.js';
@@ -12,6 +12,7 @@ import FullStats from '../components/FullStats.jsx';
 const SUB = [
   { id: 'board', label: 'Sıralama' },
   { id: 'grafik', label: 'Grafik' },
+  { id: 'enler', label: "En'ler" },
   { id: 'stats', label: 'İstatistik' },
   { id: 'h2h', label: 'Karşılaştır' },
 ];
@@ -208,7 +209,7 @@ function currentReachRound(rounds) {
 export default function Board({ onOpenList, goHome }) {
   // Bir kişiye girmeden önce kaydırma konumunu sakla (App, Sıralama'ya dönünce geri yükler).
   const openWithScroll = (id) => { boardMem.scrollY = window.scrollY; boardMem.restore = true; onOpenList(id); };
-  const { lists, actual, getPrediction, isOnline, onlineCount, onlineUsers, user } = useStore();
+  const { lists, actual, getPrediction, isOnline, onlineCount, onlineUsers, user, betsByNo = {}, quizWinsByUid = {} } = useStore();
   const [sub, setSub] = useState(boardMem.sub);
   const [view, setView] = useState(boardMem.view);
   const [proj, setProj] = useState(() => { try { return localStorage.getItem('kymal_board_proj') === '1'; } catch { return boardMem.proj; } });
@@ -296,11 +297,16 @@ export default function Board({ onOpenList, goHome }) {
         </div>
       )}
 
+      {tournamentComplete(actual) && (
+        <div className="rounded-xl bg-ink text-white px-3 py-2 text-xs font-bold flex items-center gap-2">🏁 Turnuva tamamlandı — sıralama NİHAİ</div>
+      )}
       <Segmented items={SUB} value={sub} onChange={setSub} />
 
       <div key={sub} className="fade-in">
       {lists.length === 0 ? (
         <Empty title="Henüz liste yok">Tabloyu görmek için liste ve tahmin ekle.</Empty>
+      ) : sub === 'enler' ? (
+        <EnlerTab lists={lists} actual={actual} getPrediction={getPrediction} betsByNo={betsByNo} quizWinsByUid={quizWinsByUid} onOpenList={openWithScroll} />
       ) : sub === 'h2h' ? (
         <H2H rows={h2hOfficial} projRows={h2hProj} actual={actual} />
       ) : sub === 'grafik' ? (
@@ -1165,4 +1171,65 @@ function RankRace({ lists, actual, getPrediction, user }) {
       </div>
     </div>
   );
+}
+
+// ---------------------------------------------------------------------------
+// Turnuvanın en'leri: farklı metriklerde zirvedekiler (reels/kapanış beslemesi).
+// ---------------------------------------------------------------------------
+function EnlerTab({ lists, actual, getPrediction, betsByNo, quizWinsByUid, onOpenList }) {
+  const data = useMemo(() => {
+    const A = resolveBracketSafe(actual);
+    const per = lists.map((l) => {
+      const pred = getPrediction(l.id);
+      const res = scoreUser(pred, actual);
+      const { entries } = scoreLog(pred, actual);
+      const exact = entries.filter((e) => e.tag === 'Tam skor').length;
+      const advs = entries.filter((e) => e.kind === 'ko-adv').length;
+      const days = new Set(entries.filter((e) => e.date).map((e) => e.date)).size;
+      // bahis isabeti
+      let bOk = 0, bTot = 0;
+      for (const no in betsByNo) {
+        const pick = l.ownerUid ? betsByNo[no][l.ownerUid] : null;
+        const w = A?.matches?.[no]?.winner;
+        if (pick && w) { bTot++; if (pick === w) bOk++; }
+      }
+      return { l, total: res.total, ko: res.breakdown.knockout, exact, advs, days,
+        bOk, bTot, bPct: bTot >= 3 ? Math.round((bOk / bTot) * 100) : -1,
+        quiz: Number(quizWinsByUid[l.ownerUid] || 0) };
+    });
+    const top = (arr, key) => { const m = [...arr].sort((a, b) => b[key] - a[key])[0]; return m && m[key] > 0 ? m : null; };
+    return {
+      exact: top(per, 'exact'), ko: top(per, 'ko'), advs: top(per, 'advs'),
+      days: top(per, 'days'), quiz: top(per, 'quiz'),
+      bet: [...per].filter((p) => p.bPct >= 0).sort((a, b) => b.bPct - a.bPct || b.bTot - a.bTot)[0] || null,
+    };
+  }, [lists, actual, betsByNo, quizWinsByUid]);
+  const rows = [
+    data.exact && { icon: '🎯', title: 'Tam skor kralı', who: data.exact.l, val: `${data.exact.exact} tam skor` },
+    data.ko && { icon: '🚀', title: 'Eleme ustası', who: data.ko.l, val: `${data.ko.ko} eleme puanı` },
+    data.advs && { icon: '🧭', title: 'Tur kâhini', who: data.advs.l, val: `${data.advs.advs} tur atlatan` },
+    data.days && { icon: '📅', title: 'En istikrarlı', who: data.days.l, val: `${data.days.days} gün puan` },
+    data.bet && { icon: '👑', title: 'Bahis kralı', who: data.bet.l, val: `%${data.bet.bPct} isabet (${data.bet.bOk}/${data.bet.bTot})` },
+    data.quiz && { icon: '🧠', title: 'Quiz kralı', who: data.quiz.l, val: `${data.quiz.quiz} galibiyet` },
+  ].filter(Boolean);
+  if (rows.length === 0) return <Empty title="Henüz yeterli veri yok">Turnuva ilerledikçe en'ler burada belirir.</Empty>;
+  return (
+    <div className="space-y-2">
+      <p className="text-xs text-ink/45 px-1">Turnuvanın en'leri — satıra dokunup kişiye git.</p>
+      {rows.map((r) => (
+        <button key={r.title} onClick={() => onOpenList(r.who.id)}
+          className="w-full card px-3 py-2.5 flex items-center gap-3 text-left active:scale-[.99] transition">
+          <span className="text-2xl shrink-0">{r.icon}</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-ink/45">{r.title}</p>
+            <p className="font-semibold truncate">{r.who.name}</p>
+          </div>
+          <span className="shrink-0 chip bg-gold/20 text-gold-dark font-bold">{r.val}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+function resolveBracketSafe(actual) {
+  try { return resolveBracket(actual, actual.ko || {}); } catch { return null; }
 }

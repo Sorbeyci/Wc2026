@@ -59,7 +59,7 @@ function Txt({ value, onChange, placeholder }) {
   );
 }
 
-export default function Survey({ goHome }) {
+export default function Survey({ goHome, forced, onExit }) {
   const { user, mySurvey, saveSurvey, lists, actual, getPrediction } = useStore();
   const [f, setF] = useState(() => ({
     q1: mySurvey?.q1 || 0, q2: mySurvey?.q2 || 0, q2why: mySurvey?.q2why || '',
@@ -131,7 +131,7 @@ export default function Survey({ goHome }) {
         )}
         <div className="mt-3 flex gap-2">
           <button className="btn btn-ghost flex-1" onClick={() => { setStep(0); setDone(false); }}>Cevapları düzenle</button>
-          <button className="btn btn-primary flex-1" onClick={goHome}>Ana sayfa</button>
+          <button className="btn btn-primary flex-1" onClick={() => (onExit ? onExit() : goHome ? goHome() : window.scrollTo(0, 0))}>{forced ? 'Uygulamaya geç →' : 'Ana sayfa'}</button>
         </div>
       </div>
     </div>
@@ -141,7 +141,9 @@ export default function Survey({ goHome }) {
     <div className="p-4 max-w-md mx-auto">
       <BrandHeader />
       <div className="mt-3 flex items-center justify-between">
-        <button onClick={goHome} className="text-xs font-semibold text-ink/50">‹ Ana sayfa</button>
+        {forced
+          ? <span className="text-xs font-semibold text-ink/50">📝 Devam etmek için anketi doldur</span>
+          : <button onClick={goHome} className="text-xs font-semibold text-ink/50">‹ Ana sayfa</button>}
         <span className="text-[11px] text-ink/40">≈2 dk · {step + 1}/{steps.length}</span>
       </div>
       <div className="mt-2 h-1.5 rounded-full bg-black/[0.06] overflow-hidden">

@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
 import { useStore } from '../lib/store.jsx';
 import { GROUP_MATCHES } from '../data/tournament.js';
-import { scoreUser, SCORING } from '../lib/scoring.js';
+import { scoreUser, SCORING, tournamentComplete } from '../lib/scoring.js';
 import { resolveBracket, MATCH_BY_NO, KO_DATES, KO_ORDER } from '../data/bracket.js';
 import { mapLiveFixtures } from '../lib/importScores.js';
 import { Dot, Flag, Avatar, CountUp, ScrollTopFab } from '../components/ui.jsx';
@@ -9,6 +9,7 @@ import { shortName, teamColor } from '../data/flags.js';
 import { QUIZ } from '../data/quiz.js';
 import { CHANGELOG } from '../data/changelog.js';
 import { attemptHighlight, matchStartMs } from '../lib/highlights.js';
+import Reels from '../components/Reels.jsx';
 
 const TR_MON = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
 const todayStr = () => { const n = new Date(); return `${TR_MON[n.getMonth()]} ${n.getDate()}, ${n.getFullYear()}`; };
@@ -64,6 +65,7 @@ function StatusRotator({ items, className = '' }) {
 export default function Home({ setPage, goAdminImport }) {
   const { lists, actual, getPrediction, user, isAdmin, adminEligible, adminMode, setAdminMode, logout, isMyList, theme, setTheme, onlineCount, ad, quizLeaders, recordQuizWin, locked } = useStore();
   useEffect(() => { window.scrollTo(0, 0); }, []);
+  const [reelsList, setReelsList] = useState(null);
 
   const rows = useMemo(() => {
     return lists
@@ -242,6 +244,8 @@ export default function Home({ setPage, goAdminImport }) {
       <div ref={resultsRef} className="scroll-mt-3">
         <RecentResults actual={actual} />
       </div>
+      <CelebrationGate myList={myList} onWatch={() => myList && setReelsList(myList)} />
+      <ClosingStats onWatch={() => myList && setReelsList(myList)} hasMyList={!!myList} />
       <FinalScenarios />
 
       <SurveyBanner setPage={setPage} />
@@ -333,6 +337,7 @@ export default function Home({ setPage, goAdminImport }) {
       <button className="w-full btn-ghost" onClick={logout}>Çıkış yap</button>
 
       <Footer setPage={setPage} />
+      {reelsList && <Reels list={reelsList} onClose={() => setReelsList(null)} />}
       <ScrollTopFab />
     </div>
   );
@@ -1667,6 +1672,87 @@ function FinalScenarios() {
           <p className="text-[10px] text-ink/35">Not: senaryo seçtiğin galipleri ve gol kralını işler; maç skorları ayrıca eklenir.</p>
         </div>
       )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Turnuva bitince: ilk 3'e özel, herkese kişisel kapanış — bir kezlik tam ekran.
+// ---------------------------------------------------------------------------
+function CelebrationGate({ myList, onWatch }) {
+  const { lists, actual, getPrediction } = useStore();
+  const done = tournamentComplete(actual);
+  const [dismissed, setDismissed] = useState(() => { try { return localStorage.getItem('kymal_celebrated_v1') === '1'; } catch { return false; } });
+  const rank = useMemo(() => {
+    if (!done || !myList) return null;
+    const rows = lists.map((l) => ({ id: l.id, total: scoreUser(getPrediction(l.id), actual).total })).sort((a, b) => b.total - a.total);
+    const i = rows.findIndex((r) => r.id === myList.id);
+    return i >= 0 ? i + 1 : null;
+  }, [done, myList, lists, actual]);
+  if (!done || !myList || rank == null || dismissed) return null;
+  const close = () => { setDismissed(true); try { localStorage.setItem('kymal_celebrated_v1', '1'); } catch { /* yoksay */ } };
+  const P = { 1: { e: '🥇', t: 'ŞAMPİYONSUN!', s: 'Turnuvanın en iyi tahmincisi sensin. Kupa senin! 🏆' },
+              2: { e: '🥈', t: 'İKİNCİSİN!', s: 'Müthiş bir turnuva — zirveye bir adım.' },
+              3: { e: '🥉', t: 'ÜÇÜNCÜSÜN!', s: 'Podyumdasın! Harika bir performans.' } }[rank]
+    || { e: '🏁', t: `${rank}. bitirdin`, s: 'Güzel mücadeleydi — turnuva tamamlandı.' };
+  return (
+    <div className="fixed inset-0 z-[55] bg-ink/95 text-white grid place-items-center p-6">
+      <div className="text-center max-w-sm fade-in">
+        <p className={`text-8xl ${rank <= 3 ? 'animate-bounce' : ''}`}>{P.e}</p>
+        {rank <= 3 && <p className="mt-2 text-3xl tracking-widest">🎉 🎊 🎉</p>}
+        <p className="font-display text-4xl mt-3">{P.t}</p>
+        <p className="text-white/60 mt-2 text-sm">{P.s}</p>
+        <div className="mt-6 space-y-2">
+          <button onClick={() => { close(); onWatch(); }} className="w-full rounded-full bg-white text-ink py-2.5 text-sm font-bold active:scale-[.98]">▶ Turnuva hikayeni izle</button>
+          <button onClick={close} className="w-full rounded-full bg-white/10 text-white/70 py-2.5 text-sm font-semibold active:scale-[.98]">Kapat</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Kapanış istatistik kartı: turnuva bitince topluluk özeti + arşiv notu.
+// ---------------------------------------------------------------------------
+function ClosingStats({ onWatch, hasMyList }) {
+  const { lists, actual, getPrediction, betsByNo = {}, quizWinsByUid = {} } = useStore();
+  const done = tournamentComplete(actual);
+  const d = useMemo(() => {
+    if (!done) return null;
+    const A = resolveBracket(actual, actual.ko || {});
+    const rows = lists.map((l) => ({ name: l.name, total: scoreUser(getPrediction(l.id), actual).total })).sort((a, b) => b.total - a.total);
+    let betVotes = 0; for (const no in betsByNo) betVotes += Object.values(betsByNo[no]).filter(Boolean).length;
+    const quizWins = Object.values(quizWinsByUid).reduce((s, n) => s + (Number(n) || 0), 0);
+    return { champ: A.champion, topScorer: actual.topScorer, players: lists.length, betVotes, quizWins, top: rows[0] || null };
+  }, [done, lists, actual, betsByNo, quizWinsByUid]);
+  if (!done || !d) return null;
+  const Cell = ({ v, l }) => (
+    <div className="rounded-xl bg-black/[0.03] p-2 text-center">
+      <p className="font-display text-xl leading-none">{v}</p>
+      <p className="text-[9px] uppercase tracking-tight text-ink/45 mt-1">{l}</p>
+    </div>
+  );
+  return (
+    <div className="card p-4 border border-gold/30 bg-gradient-to-br from-gold/10 to-pitch/5">
+      <div className="flex items-center justify-between">
+        <p className="font-display text-xl">🏁 Turnuva tamamlandı</p>
+        <span className="chip bg-ink text-white text-[10px]">SIRALAMA NİHAİ</span>
+      </div>
+      {d.champ && (
+        <p className="mt-1.5 text-sm flex items-center gap-1.5">🏆 Şampiyon: <Flag team={d.champ} size={16} /> <b>{shortName(d.champ)}</b>
+          {d.topScorer ? <span className="text-ink/55">· ⚽ {d.topScorer}</span> : null}</p>
+      )}
+      <div className="mt-2 grid grid-cols-4 gap-1.5">
+        <Cell v="104" l="Maç" />
+        <Cell v={d.players} l="Oyuncu" />
+        <Cell v={d.betVotes} l="Bahis oyu" />
+        <Cell v={d.quizWins} l="Quiz galibiyeti" />
+      </div>
+      {d.top && <p className="mt-2 text-[11px] text-ink/55">👑 Zirve: <b>{d.top.name}</b> · {d.top.total} puan</p>}
+      {hasMyList && (
+        <button onClick={onWatch} className="mt-2.5 w-full rounded-full bg-ink text-white py-2 text-xs font-bold active:scale-[.98]">▶ Turnuva hikayeni izle</button>
+      )}
+      <p className="mt-2 text-[10px] text-ink/40 text-center">Teşekkürler — 2030’da görüşürüz 👋</p>
     </div>
   );
 }

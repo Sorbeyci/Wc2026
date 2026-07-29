@@ -512,3 +512,8 @@ export function scoreLog(prediction, actual) {
   return { entries, total };
 }
 function shortNameTeam(t) { return t; }
+
+// Turnuva tamamlandı mı: final + üçüncülük galipleri ve gol kralı girilmiş.
+export function tournamentComplete(actual) {
+  return !!(actual?.ko?.[104]?.winner && actual?.ko?.[103]?.winner && (actual?.topScorer || '').trim());
+}

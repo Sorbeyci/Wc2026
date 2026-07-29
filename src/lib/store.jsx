@@ -47,6 +47,7 @@ export function StoreProvider({ children }) {
   const [bets, setBets] = useState([]);
   const [surveysAll, setSurveysAll] = useState([]);
   const [mySurvey, setMySurvey] = useState(null);
+  const [mySurveyLoaded, setMySurveyLoaded] = useState(false);
   const [, setTick] = useState(0);
   useEffect(() => { const iv = setInterval(() => setTick((t) => t + 1), 30000); return () => clearInterval(iv); }, []);
   const [adminMode, setAdminModeState] = useState(() => {
@@ -112,11 +113,13 @@ export function StoreProvider({ children }) {
     const unsubSurveys = onSnapshot(collection(db, 'surveys'),
       (snap) => setSurveysAll(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), () => {});
     subs.push(unsubSurveys);
+    setMySurveyLoaded(false);
     if (user?.uid) {
       const unsubMySurvey = onSnapshot(doc(db, 'surveys', user.uid),
-        (snap) => setMySurvey(snap.exists() ? snap.data() : null), () => {});
+        (snap) => { setMySurvey(snap.exists() ? snap.data() : null); setMySurveyLoaded(true); },
+        () => setMySurveyLoaded(true));
       subs.push(unsubMySurvey);
-    } else setMySurvey(null);
+    } else { setMySurvey(null); setMySurveyLoaded(true); }
     return () => subs.forEach((fn) => fn());
   }, [user]);
 
@@ -452,6 +455,7 @@ export function StoreProvider({ children }) {
       return setDoc(doc(db, 'bets', key), { [user.uid]: team || '' }, { merge: true }).catch(() => {});
     },
     mySurvey,
+    mySurveyLoaded,
     surveysAll,
     saveSurvey(data) {
       if (!user) return Promise.resolve();
